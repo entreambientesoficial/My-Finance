@@ -1,7 +1,7 @@
 # MY-FINANCE — Status do Projeto
 
 > Atualizado em: 2026-05-28
-> Stack: NestJS + Next.js 14 + PostgreSQL + Redis + Prisma + Docker
+> Stack: NestJS + Next.js 14 + PostgreSQL (Supabase) + Prisma
 
 ---
 
@@ -13,26 +13,23 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:3001
 - Swagger Docs: http://localhost:3001/api/docs
-- PostgreSQL: localhost:5432
-- Redis: localhost:6379
+- PostgreSQL: Supabase — `db.qovqkvcvlrzmtvufursn.supabase.co`
+- Redis: não utilizado (removido)
 
 ---
 
 ## Como Rodar Localmente
 
 ```bash
-# 1. Subir banco e Redis
-docker-compose up -d
-
-# 2. Backend
+# 1. Backend (banco no Supabase — não precisa docker-compose)
 cd backend
-copy .env.example .env        # Windows
+copy .env.example .env        # Windows — preencha as senhas
 npm install
-npx prisma migrate dev --name init
-npx prisma db seed
+npx prisma migrate deploy      # aplica todas as migrations no Supabase
+npx prisma db seed             # popula com dados de demonstração
 npm run start:dev
 
-# 3. Frontend (outro terminal)
+# 2. Frontend (outro terminal)
 cd frontend
 copy .env.example .env.local  # Windows
 npm install
@@ -41,14 +38,17 @@ npm run dev
 
 **Login de demonstração:** demo@myfinance.com / demo123
 
-> **Nota (Fase 2):** Se já tinha o banco criado na Fase 1, rode também:
+> **Configurar `.env` do backend:**
+> - `DATABASE_URL` → transaction pooler do Supabase (porta 6543)
+> - `DIRECT_URL` → conexão direta do Supabase (porta 5432) — usada nas migrations
+> - Ambas as URLs estão no formato correto no `.env.example` — só substituir `[YOUR-PASSWORD]`
+> - Senha: Supabase Dashboard → Project Settings → Database → Database password
+>
+> **Pasta de anexos** (criar manualmente — ignorada pelo git):
 > ```bash
-> cd backend
-> npx prisma migrate dev --name add-invite   # cria tabela invites
-> mkdir -p uploads/attachments               # pasta de anexos (Linux/Mac)
-> # Windows: md uploads\attachments
+> mkdir -p backend/uploads/attachments   # Linux/Mac
+> md backend\uploads\attachments         # Windows
 > ```
-> A pasta `uploads/` é ignorada pelo git — crie manualmente antes de rodar.
 
 ---
 
@@ -296,8 +296,11 @@ DELETE /households/invites/:id
 
 ### backend/.env
 ```
-DATABASE_URL="postgresql://myfinance:myfinance123@localhost:5432/myfinance?schema=public"
-REDIS_URL="redis://localhost:6379"
+# Transaction pooler — runtime queries
+DATABASE_URL="postgresql://postgres.qovqkvcvlrzmtvufursn:[PASSWORD]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
+# Conexão direta — migrations
+DIRECT_URL="postgresql://postgres:[PASSWORD]@db.qovqkvcvlrzmtvufursn.supabase.co:5432/postgres"
+
 JWT_SECRET="change-this-secret-in-production-min-32-chars"
 JWT_EXPIRES_IN="15m"
 JWT_REFRESH_SECRET="change-this-refresh-secret-in-production-min-32-chars"
@@ -309,7 +312,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASS=
-SMTP_FROM="MY-FINANCE <no-reply@myfinance.com>"
+SMTP_FROM="MY-FINANCE <no-reply@myfinance.app>"
 ```
 
 ### frontend/.env.local
