@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "outline": "#75777e",
+                      "on-error-container": "#93000a",
+                      "on-secondary-fixed-variant": "#005236",
+                      "primary": "#031632",
+                      "outline-variant": "#c5c6ce",
+                      "on-secondary-container": "#00714d",
+                      "surface-variant": "#e0e3e5",
+                      "secondary": "#006c49",
+                      "primary-container": "#1a2b48",
+                      "tertiary-fixed-dim": "#ffb3ad",
+                      "secondary-container": "#6cf8bb",
+                      "inverse-on-surface": "#eff1f3",
+                      "on-primary": "#ffffff",
+                      "surface": "#f7f9fb",
+                      "on-surface": "#191c1e",
+                      "tertiary-fixed": "#ffdad7",
+                      "secondary-fixed-dim": "#4edea3",
+                      "on-surface-variant": "#44474d",
+                      "surface-bright": "#f7f9fb",
+                      "secondary-fixed": "#6ffbbe",
+                      "on-error": "#ffffff",
+                      "inverse-primary": "#b6c7eb",
+                      "error": "#ba1a1a",
+                      "surface-dim": "#d8dadc",
+                      "tertiary-container": "#5e0008",
+                      "surface-container-high": "#e6e8ea",
+                      "background": "#f7f9fb",
+                      "on-tertiary-fixed-variant": "#930013",
+                      "on-tertiary-fixed": "#410004",
+                      "surface-container": "#eceef0",
+                      "on-tertiary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "error-container": "#ffdad6",
+                      "surface-container-low": "#f2f4f6",
+                      "on-primary-fixed": "#081b38",
+                      "on-secondary": "#ffffff",
+                      "surface-tint": "#4e5f7e",
+                      "surface-container-highest": "#e0e3e5",
+                      "primary-fixed-dim": "#b6c7eb",
+                      "on-secondary-fixed": "#002113",
+                      "primary-fixed": "#d7e2ff",
+                      "on-background": "#191c1e",
+                      "inverse-surface": "#2d3133",
+                      "on-primary-container": "#8293b5",
+                      "on-tertiary-container": "#ff5754",
+                      "on-primary-fixed-variant": "#374765",
+                      "tertiary": "#370003"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "12px",
+                      "xl": "16px",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "sm": "12px",
+                      "md": "16px",
+                      "xl": "32px",
+                      "base": "4px",
+                      "xs": "8px",
+                      "lg": "24px",
+                      "gutter": "24px",
+                      "container-max": "1440px"
+              },
+              "fontFamily": {
+                      "display-lg": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "body-md": ["Inter"],
+                      "numeric-data": ["Inter"],
+                      "body-lg": ["Inter"],
+                      "label-sm": ["Inter"]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .chart-gradient-primary {
+            background: linear-gradient(180deg, rgba(3, 22, 50, 0.1) 0%, rgba(3, 22, 50, 0) 100%);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- Side Navigation Shell -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-surface shadow-sm flex flex-col py-lg px-md z-50 border-r border-outline-variant">
+<div class="mb-xl px-sm">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Capital Flow</h1>
+<p class="text-on-surface-variant font-label-sm text-label-sm">Residential Finance</p>
+</div>
+<nav class="flex-grow flex flex-col gap-base">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">swap_horiz</span>
+<span class="font-body-md text-body-md">Transactions</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">credit_card</span>
+<span class="font-body-md text-body-md">Accounts &amp; Cards</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-primary font-bold border-r-4 border-primary bg-surface-container-high" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-body-md text-body-md">Investments</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-base border-t border-outline-variant pt-lg">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+<div class="mt-md flex items-center gap-md px-md">
+<img alt="User profile photo" class="w-10 h-10 rounded-full bg-surface-container-highest object-cover" data-alt="A professional headshot of a middle-aged man with a friendly, confident expression, set against a blurred minimalist architectural background. The lighting is soft and natural, emphasizing a corporate and trustworthy aesthetic consistent with high-end financial services." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeydWlGP7h24qqptwUZzBHDJ2bT-sU4ElE6VB0T8zqw1391eYRQg1o38SHTUK5za7Axl_EEYvPa45Dze3Hq7eDOY2NUQCfDrDbAa05mn7STLCPure2GBSGqF3zTFB1r3L5X9oR0BebUrKKT62NvLc2yzC3Tb4-J_d1uXlw3QE1S5q08mToqpeX62f4KW7GrDXfsxyd8R5Jylt6ST9BW9bwmp72KSjK5wIPhohXdlxokCNpie-Ucwk6wcRuj1zx62Undi0qdvFGGLw"/>
+<div>
+<p class="font-label-sm text-label-sm font-bold text-on-surface">Alex Thompson</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Pro Plan</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top App Bar Shell -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-gutter z-40">
+<div class="flex items-center gap-md w-1/3">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 font-body-md text-body-md w-full" placeholder="Search assets, stocks, or flows..." type="text"/>
+</div>
+<div class="flex items-center gap-lg">
+<button class="hover:bg-surface-container rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">calendar_today</span>
+</button>
+<button class="hover:bg-surface-container rounded-full p-2 transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface-container-lowest"></span>
+</button>
+<div class="h-8 w-px bg-outline-variant"></div>
+<button class="bg-primary text-on-primary font-label-sm text-label-sm px-lg py-xs rounded-lg hover:opacity-90 transition-opacity">
+                Add Transaction
+            </button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen">
+<div class="max-w-container-max mx-auto p-gutter space-y-lg">
+<!-- Summary Stats Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-lg">
+<!-- Total Patrimony -->
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(26,43,72,0.04)]">
+<div class="flex justify-between items-start mb-sm">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Patrimônio Total</p>
+<span class="material-symbols-outlined text-primary bg-surface-container p-1 rounded">account_balance_wallet</span>
+</div>
+<h2 class="font-display-lg text-display-lg text-primary">R$ 428.312,50</h2>
+<div class="flex items-center gap-xs mt-xs">
+<span class="material-symbols-outlined text-secondary text-sm">trending_up</span>
+<p class="text-secondary font-numeric-data text-numeric-data">+R$ 12.400,00 este mês</p>
+</div>
+</div>
+<!-- Total Profit -->
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(26,43,72,0.04)]">
+<div class="flex justify-between items-start mb-sm">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Lucro Total</p>
+<span class="material-symbols-outlined text-secondary bg-secondary-container/20 p-1 rounded">payments</span>
+</div>
+<h2 class="font-display-lg text-display-lg text-secondary">R$ 84.192,10</h2>
+<p class="text-on-surface-variant font-numeric-data text-numeric-data mt-xs">Rentabilidade: 24,5%</p>
+</div>
+<!-- Dividends -->
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(26,43,72,0.04)]">
+<div class="flex justify-between items-start mb-sm">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Proventos (12m)</p>
+<span class="material-symbols-outlined text-primary-fixed-dim bg-primary-container p-1 rounded">savings</span>
+</div>
+<h2 class="font-display-lg text-display-lg text-primary">R$ 18.240,00</h2>
+<p class="text-on-surface-variant font-numeric-data text-numeric-data mt-xs">Média mensal: R$ 1.520,00</p>
+</div>
+<!-- Global Yield -->
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(26,43,72,0.04)]">
+<div class="flex justify-between items-start mb-sm">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider">Rentabilidade</p>
+<span class="material-symbols-outlined text-primary bg-surface-container p-1 rounded">show_chart</span>
+</div>
+<h2 class="font-display-lg text-display-lg text-primary">15,8% <span class="text-label-sm font-label-sm text-on-surface-variant font-normal">vs CDI</span></h2>
+<div class="w-full bg-surface-container rounded-full h-1.5 mt-md overflow-hidden">
+<div class="bg-secondary h-full" style="width: 78%"></div>
+</div>
+</div>
+</section>
+<!-- Charts Section -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-lg">
+<!-- Evolution Chart -->
+<div class="lg:col-span-2 bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(26,43,72,0.04)] h-[400px] flex flex-col">
+<div class="flex justify-between items-center mb-lg">
+<h3 class="font-headline-md text-headline-md text-primary">Evolução do Patrimônio</h3>
+<div class="flex gap-xs">
+<button class="px-md py-xs bg-surface-container-high rounded-full font-label-sm text-label-sm">1A</button>
+<button class="px-md py-xs hover:bg-surface-container-low rounded-full font-label-sm text-label-sm text-on-surface-variant">5A</button>
+<button class="px-md py-xs hover:bg-surface-container-low rounded-full font-label-sm text-label-sm text-on-surface-variant">Tudo</button>
+</div>
+</div>
+<div class="flex-grow flex items-end gap-md pb-md relative">
+<!-- Simplified Visual Mock of a Chart -->
+<div class="absolute inset-0 chart-gradient-primary rounded-lg border-b border-l border-outline-variant/30"></div>
+<div class="z-10 flex-1 bg-primary/20 h-[30%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary/30 h-[35%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary/25 h-[40%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary/40 h-[55%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary/50 h-[65%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary/60 h-[75%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary/70 h-[80%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary/65 h-[85%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary/80 h-[90%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+<div class="z-10 flex-1 bg-primary h-[95%] rounded-t-sm hover:bg-primary transition-all cursor-pointer"></div>
+</div>
+<div class="flex justify-between text-on-surface-variant font-label-sm text-label-sm pt-sm">
+<span>Jan</span><span>Mar</span><span>Mai</span><span>Jul</span><span>Set</span><span>Nov</span>
+</div>
+</div>
+<!-- Allocation Pie -->
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(26,43,72,0.04)] flex flex-col">
+<h3 class="font-headline-md text-headline-md text-primary mb-lg">Alocação de Ativos</h3>
+<div class="flex-grow flex flex-col items-center justify-center relative">
+<div class="w-48 h-48 rounded-full border-[24px] border-primary flex items-center justify-center relative" style="border-image: conic-gradient(#031632 0% 35%, #006c49 35% 60%, #1a2b48 60% 85%, #75777e 85% 100%) 1;">
+<div class="text-center">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">FIIs</p>
+<p class="font-headline-md text-headline-md text-primary">35%</p>
+</div>
+</div>
+</div>
+<div class="space-y-sm mt-lg">
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<div class="flex items-center gap-xs"><span class="w-2 h-2 rounded-full bg-primary"></span> Ações</div>
+<span class="font-numeric-data">35%</span>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<div class="flex items-center gap-xs"><span class="w-2 h-2 rounded-full bg-secondary"></span> FIIs</div>
+<span class="font-numeric-data">25%</span>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<div class="flex items-center gap-xs"><span class="w-2 h-2 rounded-full bg-primary-container"></span> Stocks</div>
+<span class="font-numeric-data">25%</span>
+</div>
+<div class="flex justify-between items-center font-label-sm text-label-sm">
+<div class="flex items-center gap-xs"><span class="w-2 h-2 rounded-full bg-outline"></span> Outros</div>
+<span class="font-numeric-data">15%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Asset Categories List -->
+<section class="space-y-sm pb-xl">
+<div class="flex justify-between items-center px-sm">
+<h3 class="font-headline-md text-headline-md text-primary">Categorias de Ativos</h3>
+<button class="text-primary font-label-sm text-label-sm flex items-center gap-xs">
+                        Expandir tudo <span class="material-symbols-outlined">expand_more</span>
+</button>
+</div>
+<!-- Category: Ações -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden transition-all duration-300">
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors" onclick="toggleCategory('cat-acoes')">
+<div class="flex items-center gap-lg">
+<div class="w-12 h-12 rounded-lg bg-primary/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">equalizer</span>
+</div>
+<div class="text-left">
+<h4 class="font-headline-md text-headline-md text-primary">Ações</h4>
+<p class="text-on-surface-variant font-label-sm text-label-sm">12 Ativos ativos</p>
+</div>
+</div>
+<div class="flex items-center gap-xl text-right">
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">Total Aplicado</p>
+<p class="font-numeric-data text-numeric-data text-primary">R$ 149.909,37</p>
+</div>
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">Rentabilidade</p>
+<p class="font-numeric-data text-numeric-data text-secondary">+18,4%</p>
+</div>
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">% Carteira</p>
+<p class="font-numeric-data text-numeric-data text-primary">35,0%</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant transform transition-transform" id="icon-cat-acoes">expand_more</span>
+</div>
+</button>
+<div class="hidden border-t border-outline-variant bg-surface-container-low/30" id="cat-acoes">
+<table class="w-full text-left">
+<thead class="bg-surface-container text-on-surface-variant font-label-sm text-label-sm uppercase">
+<tr>
+<th class="px-lg py-sm font-semibold">Ativo</th>
+<th class="px-lg py-sm font-semibold">Qtd</th>
+<th class="px-lg py-sm font-semibold">Preço Médio</th>
+<th class="px-lg py-sm font-semibold">Saldo Atual</th>
+<th class="px-lg py-sm font-semibold">Resultado</th>
+<th class="px-lg py-sm font-semibold">% Ativo</th>
+</tr>
+</thead>
+<tbody class="font-numeric-data text-numeric-data text-on-surface-variant">
+<tr class="border-b border-outline-variant hover:bg-surface-container transition-colors">
+<td class="px-lg py-md text-primary font-bold">VALE3</td>
+<td class="px-lg py-md">200</td>
+<td class="px-lg py-md">R$ 68,20</td>
+<td class="px-lg py-md text-primary">R$ 14.280,00</td>
+<td class="px-lg py-md text-secondary">+R$ 640,00</td>
+<td class="px-lg py-md">9,5%</td>
+</tr>
+<tr class="border-b border-outline-variant hover:bg-surface-container transition-colors">
+<td class="px-lg py-md text-primary font-bold">PETR4</td>
+<td class="px-lg py-md">400</td>
+<td class="px-lg py-md">R$ 32,15</td>
+<td class="px-lg py-md text-primary">R$ 15.120,00</td>
+<td class="px-lg py-md text-secondary">+R$ 2.260,00</td>
+<td class="px-lg py-md">10,1%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Category: FIIs -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors" onclick="toggleCategory('cat-fiis')">
+<div class="flex items-center gap-lg">
+<div class="w-12 h-12 rounded-lg bg-secondary/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">apartment</span>
+</div>
+<div class="text-left">
+<h4 class="font-headline-md text-headline-md text-primary">FIIs</h4>
+<p class="text-on-surface-variant font-label-sm text-label-sm">8 Ativos ativos</p>
+</div>
+</div>
+<div class="flex items-center gap-xl text-right">
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">Total Aplicado</p>
+<p class="font-numeric-data text-numeric-data text-primary">R$ 107.078,12</p>
+</div>
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">Rentabilidade</p>
+<p class="font-numeric-data text-numeric-data text-secondary">+12,1%</p>
+</div>
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">% Carteira</p>
+<p class="font-numeric-data text-numeric-data text-primary">25,0%</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant transform transition-transform" id="icon-cat-fiis">expand_more</span>
+</div>
+</button>
+<div class="hidden border-t border-outline-variant bg-surface-container-low/30" id="cat-fiis">
+<div class="p-lg text-center text-on-surface-variant font-body-md">Detalhamento de FIIs carregando...</div>
+</div>
+</div>
+<!-- Category: Stocks -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors" onclick="toggleCategory('cat-stocks')">
+<div class="flex items-center gap-lg">
+<div class="w-12 h-12 rounded-lg bg-primary-container/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">language</span>
+</div>
+<div class="text-left">
+<h4 class="font-headline-md text-headline-md text-primary">Stocks</h4>
+<p class="text-on-surface-variant font-label-sm text-label-sm">15 Ativos ativos</p>
+</div>
+</div>
+<div class="flex items-center gap-xl text-right">
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">Total Aplicado</p>
+<p class="font-numeric-data text-numeric-data text-primary">R$ 107.078,12</p>
+</div>
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">Rentabilidade</p>
+<p class="font-numeric-data text-numeric-data text-secondary">+28,4%</p>
+</div>
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">% Carteira</p>
+<p class="font-numeric-data text-numeric-data text-primary">25,0%</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant transform transition-transform" id="icon-cat-stocks">expand_more</span>
+</div>
+</button>
+<div class="hidden border-t border-outline-variant bg-surface-container-low/30" id="cat-stocks">
+<div class="p-lg text-center text-on-surface-variant font-body-md">Detalhamento de Stocks internacionais carregando...</div>
+</div>
+</div>
+<!-- Category: Renda Fixa -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<button class="w-full flex items-center justify-between p-lg hover:bg-surface-container-low transition-colors" onclick="toggleCategory('cat-rf')">
+<div class="flex items-center gap-lg">
+<div class="w-12 h-12 rounded-lg bg-outline/5 flex items-center justify-center">
+<span class="material-symbols-outlined text-outline">description</span>
+</div>
+<div class="text-left">
+<h4 class="font-headline-md text-headline-md text-primary">Tesouro &amp; Renda Fixa</h4>
+<p class="text-on-surface-variant font-label-sm text-label-sm">4 Ativos ativos</p>
+</div>
+</div>
+<div class="flex items-center gap-xl text-right">
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">Total Aplicado</p>
+<p class="font-numeric-data text-numeric-data text-primary">R$ 64.246,87</p>
+</div>
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">Rentabilidade</p>
+<p class="font-numeric-data text-numeric-data text-primary">+10,2%</p>
+</div>
+<div class="hidden md:block">
+<p class="text-on-surface-variant font-label-sm text-label-sm uppercase">% Carteira</p>
+<p class="font-numeric-data text-numeric-data text-primary">15,0%</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant transform transition-transform" id="icon-cat-rf">expand_more</span>
+</div>
+</button>
+<div class="hidden border-t border-outline-variant bg-surface-container-low/30" id="cat-rf">
+<div class="p-lg text-center text-on-surface-variant font-body-md">Detalhamento de Renda Fixa e CDBs...</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<script>
+        function toggleCategory(id) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                el.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+        
+        // Micro-interactions for chart bars
+        document.querySelectorAll('.flex-1').forEach(bar => {
+            bar.addEventListener('mouseenter', () => {
+                bar.style.transform = 'scaleY(1.02)';
+            });
+            bar.addEventListener('mouseleave', () => {
+                bar.style.transform = 'scaleY(1)';
+            });
+        });
+    </script>
+</body></html>

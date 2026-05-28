@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Capital Flow | Accounts &amp; Cards</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-fixed-variant": "#374765",
+                        "error": "#ba1a1a",
+                        "on-surface": "#191c1e",
+                        "on-secondary-container": "#00714d",
+                        "outline": "#75777e",
+                        "on-tertiary": "#ffffff",
+                        "on-background": "#191c1e",
+                        "tertiary": "#370003",
+                        "primary-fixed": "#d7e2ff",
+                        "on-error-container": "#93000a",
+                        "on-primary-container": "#8293b5",
+                        "on-surface-variant": "#44474d",
+                        "secondary-container": "#6cf8bb",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#006c49",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed": "#081b38",
+                        "inverse-surface": "#2d3133",
+                        "background": "#f7f9fb",
+                        "surface-container-highest": "#e0e3e5",
+                        "tertiary-fixed-dim": "#ffb3ad",
+                        "surface-dim": "#d8dadc",
+                        "primary": "#031632",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-tint": "#4e5f7e",
+                        "on-tertiary-container": "#ff5754",
+                        "on-secondary-fixed": "#002113",
+                        "on-secondary-fixed-variant": "#005236",
+                        "inverse-primary": "#b6c7eb",
+                        "surface-bright": "#f7f9fb",
+                        "on-error": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-container-high": "#e6e8ea",
+                        "surface-container": "#eceef0",
+                        "primary-container": "#1a2b48",
+                        "tertiary-container": "#5e0008",
+                        "tertiary-fixed": "#ffdad7",
+                        "surface-container-low": "#f2f4f6",
+                        "outline-variant": "#c5c6ce",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f7f9fb",
+                        "primary-fixed-dim": "#b6c7eb",
+                        "surface-variant": "#e0e3e5",
+                        "on-tertiary-fixed-variant": "#930013",
+                        "secondary-fixed-dim": "#4edea3",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-tertiary-fixed": "#410004"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "12px",
+                        "xl": "16px",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "xl": "32px",
+                        "gutter": "24px",
+                        "sm": "12px",
+                        "base": "4px",
+                        "xs": "8px",
+                        "container-max": "1440px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "numeric-data": ["Inter"],
+                        "body-lg": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary-fixed-dim selection:text-on-primary-fixed">
+<!-- Side Navigation Shell -->
+<aside class="fixed left-0 top-0 h-full w-64 bg-surface shadow-sm flex flex-col py-lg px-md z-50">
+<div class="mb-xl px-xs">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Capital Flow</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant opacity-70">Residential Finance</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">swap_horiz</span>
+<span class="font-body-md text-body-md">Transactions</span>
+</a>
+<!-- Active State: Accounts & Cards -->
+<a class="flex items-center gap-md p-md rounded-lg text-primary font-bold border-r-4 border-primary bg-surface-container-high" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">credit_card</span>
+<span class="font-body-md text-body-md">Accounts &amp; Cards</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors group" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-body-md text-body-md">Investments</span>
+</a>
+</nav>
+<div class="mt-auto space-y-md">
+<button class="w-full flex items-center justify-center gap-xs bg-primary text-on-primary py-md px-lg rounded-lg font-label-sm text-label-sm active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Add Transaction
+            </button>
+<div class="border-t border-outline-variant pt-md">
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-md text-body-md">Settings</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-surface-container-lowest border-b border-outline-variant flex justify-between items-center px-gutter z-40">
+<div class="flex items-center bg-surface-container-low rounded-full px-md py-xs w-96">
+<span class="material-symbols-outlined text-outline">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-body-md w-full ml-xs" placeholder="Search accounts or cards..." type="text"/>
+</div>
+<div class="flex items-center gap-md">
+<button class="hover:bg-surface-container rounded-full p-2 transition-opacity active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="hover:bg-surface-container rounded-full p-2 transition-opacity active:opacity-80">
+<span class="material-symbols-outlined">calendar_today</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-xs"></div>
+<div class="flex items-center gap-xs cursor-pointer">
+<img alt="User profile" class="w-10 h-10 rounded-full border border-outline-variant object-cover" data-alt="A professional headshot of a mature executive with a confident smile, set against a blurred modern office background. The lighting is soft and cinematic, emphasizing a clean light-mode aesthetic with neutral colors. The portrait reflects corporate stability and financial authority, fitting a high-end banking application interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3WfZ345frswhLFn5vufKQ8qIfiZmepWxAhINs7S94hhj5eo4xwOJ-H32zdEcJXC9YeJowzF6DaYaxMe38NafAW9GLLyp8pNuWl3RBFI5opwz3SB0f8m6Adp295lNZhq158OjW0bLLTf2Stc_yCtb5uLwPY0-mvW9jInMCVsotnAq2XvOGbBT2O6B8vX_kfC5YB2mi3qDlHX--HKYAK0suWrXf7QHiNuRNfH3o8Yb6i-cvODkPyuj2k2FbnU4IQ5KMBPYPMVU4Dqo"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen">
+<div class="p-gutter max-w-container-max mx-auto">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-xl">
+<div>
+<h2 class="font-display-lg text-display-lg text-primary">Accounts &amp; Cards</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Manage your liquid assets and credit facilities in one place.</p>
+</div>
+<div class="flex gap-md">
+<button class="flex items-center gap-xs border border-primary text-primary px-lg py-md rounded-lg font-label-sm text-label-sm hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">account_balance</span>
+                        Connect New Account
+                    </button>
+<button class="flex items-center gap-xs bg-primary text-on-primary px-lg py-md rounded-lg font-label-sm text-label-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[18px]">add_card</span>
+                        Add New Card
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Section -->
+<div class="grid grid-cols-12 gap-gutter mb-xl">
+<!-- Bank Accounts Grid (Left Column Area) -->
+<div class="col-span-12 lg:col-span-8 space-y-gutter">
+<h3 class="font-headline-md text-headline-md text-primary px-1">Bank Accounts</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Account Card 1 -->
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(26,43,72,0.04)] hover:shadow-md transition-shadow group cursor-pointer relative overflow-hidden">
+<div class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+<div class="flex justify-between items-start mb-xl relative z-10">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">account_balance</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Main Checking</p>
+<p class="font-headline-md text-headline-md text-primary">Chase Platinum</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">more_vert</span>
+</div>
+<div class="space-y-base relative z-10">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Available Balance</p>
+<p class="font-display-lg text-display-lg text-primary">$42,590.12</p>
+</div>
+</div>
+<!-- Account Card 2 -->
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(26,43,72,0.04)] hover:shadow-md transition-shadow group cursor-pointer relative overflow-hidden">
+<div class="absolute top-0 right-0 w-24 h-24 bg-secondary/5 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
+<div class="flex justify-between items-start mb-xl relative z-10">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container" style="font-variation-settings: 'FILL' 1;">savings</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">High Yield Savings</p>
+<p class="font-headline-md text-headline-md text-primary">Goldman Sachs</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-primary transition-colors">more_vert</span>
+</div>
+<div class="space-y-base relative z-10">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Available Balance</p>
+<p class="font-display-lg text-display-lg text-primary">$158,203.44</p>
+</div>
+</div>
+</div>
+<!-- Filtered Transactions -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+<div class="px-lg py-md border-b border-outline-variant flex justify-between items-center bg-surface-container-low/30">
+<h4 class="font-headline-md text-headline-md text-primary">Recent Activity</h4>
+<div class="flex gap-xs">
+<span class="px-md py-1 bg-primary/10 text-primary rounded-full font-label-sm text-label-sm">Chase Platinum</span>
+<button class="text-primary font-label-sm text-label-sm hover:underline">View All</button>
+</div>
+</div>
+<table class="w-full text-left">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase">Transaction</th>
+<th class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase">Category</th>
+<th class="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase text-right">Amount</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-lg py-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">shopping_bag</span>
+</div>
+<div>
+<p class="font-body-md text-body-md font-bold">Apple Store NYC</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Oct 12, 2023</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md">
+<span class="px-md py-1 bg-surface-container rounded-full font-label-sm text-label-sm">Electronics</span>
+</td>
+<td class="px-lg py-md text-right font-numeric-data text-numeric-data text-error font-bold">-$1,299.00</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors">
+<td class="px-lg py-md">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-secondary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-[20px]">payments</span>
+</div>
+<div>
+<p class="font-body-md text-body-md font-bold">Client Deposit</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Oct 10, 2023</p>
+</div>
+</div>
+</td>
+<td class="px-lg py-md">
+<span class="px-md py-1 bg-secondary-container text-on-secondary-container rounded-full font-label-sm text-label-sm">Income</span>
+</td>
+<td class="px-lg py-md text-right font-numeric-data text-numeric-data text-secondary font-bold">+$8,450.00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Credit Card Management (Right Column Area) -->
+<div class="col-span-12 lg:col-span-4 space-y-gutter">
+<h3 class="font-headline-md text-headline-md text-primary px-1">Credit Cards</h3>
+<!-- Premium Visual Credit Card -->
+<div class="relative h-60 w-full rounded-2xl overflow-hidden shadow-xl bg-primary-container p-xl flex flex-col justify-between text-on-primary group hover:-translate-y-1 transition-transform">
+<!-- Abstract Background Texture -->
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent"></div>
+<div class="absolute -bottom-10 -left-10 w-40 h-40 border-[20px] border-white/10 rounded-full"></div>
+</div>
+<div class="flex justify-between items-start relative z-10">
+<div>
+<p class="font-label-sm text-label-sm opacity-70 tracking-widest">VISA INFINITE</p>
+<p class="font-headline-md text-headline-md font-bold">Capital Reserve</p>
+</div>
+<span class="material-symbols-outlined text-[32px] opacity-90">contactless</span>
+</div>
+<div class="space-y-xs relative z-10">
+<p class="font-numeric-data text-lg tracking-[0.2em]">**** **** **** 8824</p>
+<div class="flex gap-xl">
+<div>
+<p class="text-[10px] uppercase opacity-60">Expiry</p>
+<p class="font-label-sm text-label-sm">08/28</p>
+</div>
+<div>
+<p class="text-[10px] uppercase opacity-60">Holder</p>
+<p class="font-label-sm text-label-sm">ALEXANDER S.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Card Management Details -->
+<div class="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant space-y-lg shadow-sm">
+<div>
+<div class="flex justify-between mb-xs">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Available Limit</p>
+<p class="font-label-sm text-label-sm font-bold text-primary">$12,400 / $25,000</p>
+</div>
+<div class="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full transition-all duration-1000" style="width: 49.6%"></div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-md pt-md border-t border-outline-variant">
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Current Invoice</p>
+<p class="font-headline-md text-headline-md text-error">$3,124.50</p>
+</div>
+<div class="text-right">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Due Date</p>
+<p class="font-headline-md text-headline-md text-primary">Oct 28</p>
+</div>
+</div>
+<div class="space-y-sm">
+<button class="w-full bg-primary text-on-primary py-md rounded-lg font-label-sm text-label-sm hover:opacity-90 transition-opacity">
+                                Pay Current Statement
+                            </button>
+<button class="w-full border border-outline text-on-surface-variant py-md rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-colors flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">lock</span>
+                                Freeze Card
+                            </button>
+</div>
+</div>
+<!-- Security Banner -->
+<div class="bg-on-primary-fixed-variant text-on-primary p-lg rounded-xl flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">security</span>
+</div>
+<div>
+<p class="font-label-sm text-label-sm font-bold">Account Security</p>
+<p class="text-[12px] opacity-80 leading-tight">Biometric verification is active for all card transactions.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Ad/Promo Section: Asymmetric Layout -->
+<section class="grid grid-cols-12 gap-gutter">
+<div class="col-span-12 md:col-span-12 lg:col-span-12">
+<div class="relative rounded-2xl overflow-hidden h-48 group">
+<img alt="Luxury lifestyle imagery" class="absolute inset-0 w-full h-full object-cover grayscale brightness-50 group-hover:scale-105 transition-transform duration-700" data-alt="A cinematic, high-contrast photograph of a sleek, dark granite architectural space with soft, directional light casting long shadows. In the foreground, a minimalist glass table holds a single premium metallic card. The color palette is restricted to deep blacks, charcoal greys, and subtle metallic highlights, evoking a sense of exclusive financial prestige and corporate modernism." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQD0Qh08feNE2ussGRVdqlOP2NBKGsy1M9XENDh6h9SstEv4ZOGLkPw35v7hOuBD-N5xutrj-_-qk8oRCCO9Zg6qcpN_4jxIix_I05b53zkzktbCs6wN10h7xmCksMnAIDSksPLRW8Rqjp0eF2uLfotWjmO_5xSHYWyDm3z-YIkEfd1xuIdrKjHOBA4BYhwkKMWCXoTn_4wKqgk3OdxoaFgPs0lL9SMaTPRoGFk7UOpXmEhTSPwdTjYkTZRDhL5pYBcrIQUBeamp0"/>
+<div class="absolute inset-0 bg-gradient-to-r from-primary/80 via-primary/40 to-transparent flex items-center p-xl">
+<div class="max-w-md">
+<span class="px-md py-1 bg-secondary text-on-secondary rounded-full font-label-sm text-label-sm mb-md inline-block">New Feature</span>
+<h3 class="font-display-lg text-display-lg text-white mb-xs">Family Vaults</h3>
+<p class="font-body-md text-body-md text-white/80 mb-md">Securely share account access with family members while maintaining individual spending limits.</p>
+<button class="bg-white text-primary px-lg py-sm rounded-lg font-label-sm text-label-sm hover:bg-opacity-90">Explore Vaults</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Floating Action Button - Contextually appropriate for Accounts page -->
+<button class="fixed bottom-lg right-lg w-14 h-14 bg-primary text-on-primary rounded-full shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all z-50 group">
+<span class="material-symbols-outlined">qr_code_scanner</span>
+<span class="absolute right-full mr-md px-md py-1 bg-primary text-on-primary rounded-lg text-label-sm opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">Scan to Pay</span>
+</button>
+<script>
+        // Micro-interaction: Update active state visuals on click (Simulation)
+        document.querySelectorAll('nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                // In a real app, this would be handled by a router
+                // This is just to show interaction responsiveness
+                const items = document.querySelectorAll('nav a');
+                items.forEach(i => {
+                    i.classList.remove('text-primary', 'font-bold', 'border-r-4', 'border-primary', 'bg-surface-container-high');
+                    i.classList.add('text-on-surface-variant', 'hover:text-primary', 'hover:bg-surface-container-low');
+                    const icon = i.querySelector('.material-symbols-outlined');
+                    if(icon) icon.style.fontVariationSettings = "'FILL' 0";
+                });
+                
+                link.classList.remove('text-on-surface-variant', 'hover:text-primary', 'hover:bg-surface-container-low');
+                link.classList.add('text-primary', 'font-bold', 'border-r-4', 'border-primary', 'bg-surface-container-high');
+                const activeIcon = link.querySelector('.material-symbols-outlined');
+                if(activeIcon) activeIcon.style.fontVariationSettings = "'FILL' 1";
+            });
+        });
+    </script>
+</body></html>

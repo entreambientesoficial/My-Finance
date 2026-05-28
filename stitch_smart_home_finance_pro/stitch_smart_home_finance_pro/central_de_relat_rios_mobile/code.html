@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#6ffbbe",
+                    "on-primary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb3ad",
+                    "outline-variant": "#c5c6ce",
+                    "on-primary-fixed-variant": "#374765",
+                    "outline": "#75777e",
+                    "on-surface": "#191c1e",
+                    "on-background": "#191c1e",
+                    "inverse-primary": "#b6c7eb",
+                    "surface": "#f7f9fb",
+                    "primary-fixed-dim": "#b6c7eb",
+                    "surface-dim": "#d8dadc",
+                    "secondary": "#006c49",
+                    "on-tertiary-container": "#ff5754",
+                    "tertiary-fixed": "#ffdad7",
+                    "on-secondary-fixed-variant": "#005236",
+                    "primary": "#031632",
+                    "surface-container-highest": "#e0e3e5",
+                    "on-primary-container": "#8293b5",
+                    "secondary-container": "#6cf8bb",
+                    "primary-fixed": "#d7e2ff",
+                    "inverse-on-surface": "#eff1f3",
+                    "error": "#ba1a1a",
+                    "surface-container-high": "#e6e8ea",
+                    "on-tertiary-fixed-variant": "#930013",
+                    "surface-tint": "#4e5f7e",
+                    "surface-container-low": "#f2f4f6",
+                    "on-tertiary-fixed": "#410004",
+                    "on-primary-fixed": "#081b38",
+                    "on-secondary-fixed": "#002113",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed-dim": "#4edea3",
+                    "on-error-container": "#93000a",
+                    "surface-bright": "#f7f9fb",
+                    "tertiary": "#370003",
+                    "inverse-surface": "#2d3133",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "background": "#f7f9fb",
+                    "on-surface-variant": "#44474d",
+                    "on-secondary": "#ffffff",
+                    "surface-container": "#eceef0",
+                    "on-secondary-container": "#00714d",
+                    "tertiary-container": "#5e0008",
+                    "primary-container": "#1a2b48",
+                    "surface-variant": "#e0e3e5",
+                    "on-error": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "4px",
+                    "gutter": "24px",
+                    "container-max": "1440px",
+                    "lg": "24px",
+                    "xs": "8px",
+                    "xl": "32px",
+                    "sm": "12px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "display-lg": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "numeric-data": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "numeric-data": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-24">
+<!-- Top Navigation Bar (Contextual for Mobile) -->
+<header class="fixed top-0 left-0 right-0 h-16 bg-surface-container-lowest flex items-center px-gutter z-50">
+<div class="flex items-center justify-between w-full">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Capital Flow</h1>
+<div class="flex gap-md">
+<button class="hover:bg-surface-container rounded-full p-2 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden bg-outline-variant">
+<img alt="Profile" data-alt="A professional headshot of a young business professional with a warm, confident expression. The lighting is soft and natural, against a clean, minimalist studio background with neutral tones. The overall aesthetic is polished, high-end, and evokes a sense of corporate reliability and modern financial expertise." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyEuLmgIawzGUfHAfg7TMWXWmwPt9eDnNSYlo3V40I0zfxBHF_W-Y3GqnKKbFt8tcdNrN8oIq4E33SvOVXZehERyU7RwDULAZbcXO3qy7SAvH4MHm6ZjzJe_JaYtgQLHNEIcLaFImOYhgAB23ApIVJnGtnG-5buRGzAcCGG--CSwScopxxAXa_CtE82DD8C9b6231zBqiZHu7hSz-d-1fVGAqdW4s7oJLk1B7XloGrv7sa7hxV38Hr_T-CBIMvYotNiJDzuM8RxUs"/>
+</div>
+</div>
+</div>
+</header>
+<main class="pt-20 px-md space-y-lg">
+<!-- Dashboard Header -->
+<section class="flex flex-col gap-xs py-md">
+<h2 class="font-display-lg-mobile text-display-lg-mobile text-primary">Reports Center</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Review your financial health for June 2024</p>
+</section>
+<!-- Summary Statistics Bento -->
+<div class="grid grid-cols-2 gap-md">
+<div class="col-span-1 bg-surface-container-lowest p-md rounded-xl shadow-sm border border-outline-variant/30">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total Income</p>
+<p class="font-display-lg-mobile text-display-lg-mobile text-primary mt-xs">$12,450</p>
+<div class="flex items-center gap-1 mt-xs text-secondary">
+<span class="material-symbols-outlined text-body-md">trending_up</span>
+<span class="font-numeric-data text-numeric-data">4.2%</span>
+</div>
+</div>
+<div class="col-span-1 bg-surface-container-lowest p-md rounded-xl shadow-sm border border-outline-variant/30">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total Expenses</p>
+<p class="font-display-lg-mobile text-display-lg-mobile text-primary mt-xs">$8,120</p>
+<div class="flex items-center gap-1 mt-xs text-error">
+<span class="material-symbols-outlined text-body-md">trending_down</span>
+<span class="font-numeric-data text-numeric-data">2.1%</span>
+</div>
+</div>
+</div>
+<!-- Monthly Income Bar Chart -->
+<section class="bg-surface-container-lowest p-lg rounded-xl shadow-sm border border-outline-variant/30">
+<div class="flex justify-between items-center mb-xl">
+<h3 class="font-headline-md text-headline-md text-primary">Monthly Income</h3>
+<span class="material-symbols-outlined text-on-surface-variant">more_vert</span>
+</div>
+<div class="h-48 flex items-end justify-between gap-2 px-2">
+<!-- Bar 1 -->
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary-container/20 rounded-t-lg h-[40%] transition-all duration-700"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Feb</span>
+</div>
+<!-- Bar 2 -->
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary-container/20 rounded-t-lg h-[65%] transition-all duration-700"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Mar</span>
+</div>
+<!-- Bar 3 -->
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary-container/20 rounded-t-lg h-[55%] transition-all duration-700"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Apr</span>
+</div>
+<!-- Bar 4 -->
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary-container/20 rounded-t-lg h-[85%] transition-all duration-700"></div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">May</span>
+</div>
+<!-- Bar 5 - Active -->
+<div class="flex flex-col items-center gap-2 flex-1">
+<div class="w-full bg-primary rounded-t-lg h-[100%] shadow-lg transition-all duration-700"></div>
+<span class="font-label-sm text-label-sm text-primary font-bold">Jun</span>
+</div>
+</div>
+</section>
+<!-- Expense Distribution Pie Chart (Simulated with Conic Gradient) -->
+<section class="bg-surface-container-lowest p-lg rounded-xl shadow-sm border border-outline-variant/30">
+<h3 class="font-headline-md text-headline-md text-primary mb-xl">Expense Breakdown</h3>
+<div class="flex flex-col items-center gap-xl">
+<div class="relative w-48 h-48 rounded-full shadow-inner flex items-center justify-center" style="background: conic-gradient(#031632 0% 45%, #1a2b48 45% 75%, #8293b5 75% 90%, #e0e3e5 90% 100%);">
+<div class="absolute inset-4 bg-surface-container-lowest rounded-full flex flex-col items-center justify-center">
+<p class="font-label-sm text-label-sm text-on-surface-variant">Total</p>
+<p class="font-display-lg-mobile text-display-lg-mobile text-primary">$8,120</p>
+</div>
+</div>
+<div class="w-full grid grid-cols-2 gap-md">
+<div class="flex items-center gap-sm">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Housing</p>
+<p class="font-numeric-data text-numeric-data text-primary">$3,654 (45%)</p>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<div class="w-3 h-3 rounded-full bg-primary-container"></div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Travel</p>
+<p class="font-numeric-data text-numeric-data text-primary">$2,436 (30%)</p>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<div class="w-3 h-3 rounded-full bg-on-primary-container"></div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Dining</p>
+<p class="font-numeric-data text-numeric-data text-primary">$1,218 (15%)</p>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<div class="w-3 h-3 rounded-full bg-surface-container-highest"></div>
+<div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Other</p>
+<p class="font-numeric-data text-numeric-data text-primary">$812 (10%)</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Top Transactions List -->
+<section class="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant/30 overflow-hidden">
+<div class="p-lg flex justify-between items-center border-b border-surface-container">
+<h3 class="font-headline-md text-headline-md text-primary">Recent Large Movements</h3>
+<button class="text-primary font-label-sm text-label-sm">View All</button>
+</div>
+<div class="divide-y divide-surface-container">
+<div class="p-md flex items-center justify-between hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">apartment</span>
+</div>
+<div>
+<p class="font-body-md text-body-md font-bold text-primary">Monthly Mortgage</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Housing • June 01</p>
+</div>
+</div>
+<p class="font-numeric-data text-numeric-data font-bold text-error">-$2,850.00</p>
+</div>
+<div class="p-md flex items-center justify-between hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">payments</span>
+</div>
+<div>
+<p class="font-body-md text-body-md font-bold text-primary">Quarterly Bonus</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Income • June 15</p>
+</div>
+</div>
+<p class="font-numeric-data text-numeric-data font-bold text-secondary">+$4,200.00</p>
+</div>
+<div class="p-md flex items-center justify-between hover:bg-surface-container-low transition-colors">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">flight</span>
+</div>
+<div>
+<p class="font-body-md text-body-md font-bold text-primary">Skyline Airways</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Travel • June 18</p>
+</div>
+</div>
+<p class="font-numeric-data text-numeric-data font-bold text-error">-$940.00</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Execution from JSON: SideNavBar mapping) -->
+<nav class="fixed bottom-0 left-0 right-0 bg-surface shadow-[0_-2px_10px_rgba(3,22,50,0.08)] px-md py-xs flex justify-around items-center z-50">
+<button class="flex flex-col items-center gap-1 p-2 text-on-surface-variant transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-sm text-[10px] tracking-tight">Dashboard</span>
+</button>
+<button class="flex flex-col items-center gap-1 p-2 text-on-surface-variant transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="swap_horiz">swap_horiz</span>
+<span class="font-label-sm text-[10px] tracking-tight">Transactions</span>
+</button>
+<!-- ACTIVE: Investments/Reports Center context -->
+<button class="flex flex-col items-center gap-1 p-2 text-primary font-bold transition-transform active:scale-95">
+<div class="bg-primary-container/20 px-4 py-1 rounded-full flex flex-col items-center">
+<span class="material-symbols-outlined" data-icon="monitoring" style="font-variation-settings: 'FILL' 1;">monitoring</span>
+<span class="font-label-sm text-[10px] tracking-tight">Reports</span>
+</div>
+</button>
+<button class="flex flex-col items-center gap-1 p-2 text-on-surface-variant transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="credit_card">credit_card</span>
+<span class="font-label-sm text-[10px] tracking-tight">Cards</span>
+</button>
+<button class="flex flex-col items-center gap-1 p-2 text-on-surface-variant transition-transform active:scale-95">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-sm text-[10px] tracking-tight">Settings</span>
+</button>
+</nav>
+<!-- Add Transaction FAB -->
+<button class="fixed bottom-24 right-md w-14 h-14 bg-primary text-on-primary rounded-full shadow-xl flex items-center justify-center transition-transform active:scale-90 z-40">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<script>
+        // Micro-interaction for bar charts on scroll
+        document.addEventListener('DOMContentLoaded', () => {
+            const bars = document.querySelectorAll('.rounded-t-lg');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = "1";
+                    }
+                });
+            }, { threshold: 0.5 });
+            
+            bars.forEach(bar => {
+                bar.style.opacity = "0.5";
+                observer.observe(bar);
+            });
+        });
+    </script>
+</body></html>

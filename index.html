@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Capital Flow | Dev & Preview Shell</title>
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+  <!-- Dev Shell Header Control Bar -->
+  <header class="dev-header">
+    <div class="logo-section">
+      <div class="logo-icon">C</div>
+      <div class="logo-text">Capital Flow</div>
+      <div class="logo-badge">Stitch Pro</div>
+    </div>
+
+    <!-- Navigation Page Selector -->
+    <div class="select-wrapper">
+      <select id="selectPage" class="custom-select">
+        <option value="dashboard">💻 Dashboard Principal</option>
+        <option value="accounts">💳 Contas & Cartões</option>
+        <option value="investments">📈 Gestão de Investimentos</option>
+        <option value="planning">📊 Planejamento Orçamentário</option>
+        <option value="goals">🎯 Metas Financeiras</option>
+        <option value="reports">📑 Central de Relatórios</option>
+        <option value="transactions">💸 Transferências & Lançamentos</option>
+      </select>
+    </div>
+
+    <!-- Additional dynamic options (e.g. language/version toggle) -->
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <!-- Language option for mobile accounts -->
+      <div id="langSelectorGroup" class="lang-selector-group" style="display: none; align-items: center; gap: 8px;">
+        <span style="font-size: 11px; color: #8e929b; text-transform: uppercase; font-weight: bold;">Idioma:</span>
+        <div class="select-wrapper">
+          <select id="langSelect" class="custom-select" style="padding-top: 5px; padding-bottom: 5px; font-size: 11px;">
+            <option value="en" selected>🇺🇸 English (v2)</option>
+            <option value="pt">🇧🇷 Português (v1)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Version option for desktop tables -->
+      <div id="subOptionsGroup" style="display: none;">
+        <div class="select-wrapper">
+          <select id="subOptionsSelect" class="custom-select" style="padding-top: 5px; padding-bottom: 5px; font-size: 11px;">
+            <!-- Opções inseridas dinamicamente via JS -->
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Viewport Selection Buttons -->
+    <div class="controls-section">
+      <div class="control-group">
+        <button id="viewAuto" class="control-btn active" title="Alterna layout automaticamente baseado no tamanho da janela">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4zm0-2a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zM12 9a1.5 1.5 0 110 3 1.5 1.5 0 010-3z"/></svg>
+          Auto
+        </button>
+        <button id="viewDesktop" class="control-btn" title="Força a exibição do layout de desktop">
+          <svg viewBox="0 0 24 24"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4v-10z"/></svg>
+          Desktop
+        </button>
+        <button id="viewMobile" class="control-btn" title="Força a exibição do layout mobile no emulador de celular">
+          <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+          Mobile (Dev Frame)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Central Canvas -->
+  <main id="displayCanvas" class="display-canvas">
+    
+    <!-- Desktop/Responsivo Fullscreen Iframe -->
+    <iframe id="viewportFrame" class="viewport-frame" src=""></iframe>
+
+    <!-- Smartphone Frame Emulator for Mobile Layout -->
+    <div id="emulatorContainer" class="device-emulator" style="display: none;">
+      <!-- Status Bar Simulation -->
+      <div id="phoneStatusBar" class="phone-status-bar">
+        <span>09:41</span>
+        <div class="phone-status-right">
+          <!-- Signal Icon -->
+          <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor">
+            <path d="M1 9h1v1H1v-1zm2-2h1v3H3V7zm2-2h1v5H5V5zm2-2h1v7H7V3zm2-2h1v9H9V1zm2-1h1v10h-1V0z"/>
+          </svg>
+          <!-- Wifi Icon -->
+          <svg width="14" height="10" viewBox="0 0 14 10" fill="currentColor">
+            <path d="M7 9a1 1 0 110-2 1 1 0 010 2zm4-3a5.5 5.5 0 00-8 0l1 1a4 4 0 016 0l1-1zm2-2a8.5 8.5 0 00-12 0l1 1c2.8-2.8 7.2-2.8 10 0l1-1z"/>
+          </svg>
+          <!-- Battery Icon -->
+          <svg width="18" height="10" viewBox="0 0 18 10" fill="currentColor">
+            <rect x="0" y="0" width="15" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1"/>
+            <rect x="2" y="2" width="11" height="6" rx="1"/>
+            <path d="M16 3v4h1V3h-1z"/>
+          </svg>
+        </div>
+      </div>
+      
+      <!-- Notch (Dynamic Island Style) -->
+      <div class="phone-notch">
+        <div class="notch-camera"></div>
+        <div style="width: 5px; height: 5px; background: #222; border-radius: 50%;"></div>
+      </div>
+
+      <!-- Home bar indicator -->
+      <div class="phone-home-indicator"></div>
+
+      <!-- Mobile Frame Iframe -->
+      <iframe id="mobileViewportFrame" class="mobile-viewport-frame" src=""></iframe>
+    </div>
+
+    <!-- Loading Spinner Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="spinner"></div>
+      <div style="font-size: 13px; color: #a0aec0; font-weight: 500;">Carregando tela...</div>
+    </div>
+  </main>
+
+  <!-- Interactive Toast Notification -->
+  <div id="toast" class="toast">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4edea3" stroke-width="2">
+      <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+      <path d="M22 4L12 14.01l-3-3"/>
+    </svg>
+    <span class="toast-msg">Navegação executada</span>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
