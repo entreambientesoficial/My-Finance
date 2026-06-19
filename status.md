@@ -18,6 +18,11 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 
 ---
 
+## Próxima Etapa
+- [ ] Desenvolvimento e melhorias de UX/UI na tela: **Contas & Cartões**
+
+---
+
 ## Como Rodar Localmente
 
 ```bash
