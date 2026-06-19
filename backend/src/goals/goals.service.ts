@@ -23,9 +23,34 @@ export class GoalsService {
     });
   }
 
-  async addProgress(id: string, householdId: string, amount: number) {
+  async addProgress(id: string, householdId: string, amount: number, accountId?: string) {
     const goal = await this.prisma.goal.findFirst({ where: { id, householdId } });
     if (!goal) throw new NotFoundException('Meta não encontrada');
+
+    if (accountId) {
+      const account = await this.prisma.account.findFirst({ where: { id: accountId, householdId } });
+      if (!account) throw new NotFoundException('Conta de origem não encontrada');
+
+      // Deduct balance from the account
+      const newBalance = Number(account.balance) - amount;
+      await this.prisma.account.update({
+        where: { id: accountId },
+        data: { balance: newBalance },
+      });
+
+      // Create a transfer or expense transaction to log the contribution
+      await this.prisma.transaction.create({
+        data: {
+          householdId,
+          accountId,
+          amount,
+          description: `Aporte: ${goal.name}`,
+          type: 'EXPENSE',
+          isPaid: true,
+          date: new Date(),
+        },
+      });
+    }
 
     const newAmount = Number(goal.currentAmount) + amount;
     const isCompleted = newAmount >= Number(goal.targetAmount);

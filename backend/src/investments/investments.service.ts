@@ -7,9 +7,40 @@ export class InvestmentsService {
   constructor(private prisma: PrismaService) {}
 
   async create(householdId: string, dto: CreateInvestmentDto) {
+    const { accountId, ...investmentData } = dto;
+
+    if (accountId) {
+      const account = await this.prisma.account.findFirst({
+        where: { id: accountId, householdId },
+      });
+      if (!account) throw new NotFoundException('Conta de débito não encontrada');
+
+      const cost = Number(dto.quantity || 0) * Number(dto.purchasePrice || 0);
+
+      // Deduct balance from the account
+      const newBalance = Number(account.balance) - cost;
+      await this.prisma.account.update({
+        where: { id: accountId },
+        data: { balance: newBalance },
+      });
+
+      // Create an expense transaction for the investment purchase
+      await this.prisma.transaction.create({
+        data: {
+          householdId,
+          accountId,
+          amount: cost,
+          description: `Compra de Ativo: ${dto.ticker || dto.name}`,
+          type: 'EXPENSE',
+          isPaid: true,
+          date: dto.purchaseDate ? new Date(dto.purchaseDate) : new Date(),
+        },
+      });
+    }
+
     return this.prisma.investment.create({
       data: {
-        ...dto,
+        ...investmentData,
         householdId,
         ...(dto.purchaseDate && { purchaseDate: new Date(dto.purchaseDate) }),
       },

@@ -19,7 +19,8 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 ---
 
 ## Próxima Etapa
-- [ ] Desenvolvimento e melhorias de UX/UI na tela: **Contas & Cartões**
+- [ ] Desenvolvimento e melhorias de UX/UI na tela: **Relatórios**
+- [ ] Revisar comportamento de Categorias & Subcategorias na tela de **Transações**
 
 ---
 
@@ -332,7 +333,15 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 
 ## Log de Alterações
 
-### 2026-06-19 — Melhorias de UX/UI, Máscaras de Valor e Painel Dinâmico
+### 2026-06-19 (Tarde) — Refatoração de Contas, Orçamentos, Metas, Investimentos, Edição de Transações e Subcategorias
+- **Contas & Cartões:** Substituição de imagens externas do banner "Cofres Familiares" por gradientes CSS offline, correção do cálculo de fatura atual zerada, e integração de modal de Aportes com saldos de contas reais e criação de transações.
+- **Orçamentos (Budgets):** Implementado cálculo de limite automático baseado nas despesas dos últimos 3 meses, suporte híbrido a limites manuais e IA, e redesign premium glassmorphic do card do Insight de IA com efeito de glow.
+- **Metas (Goals):** Substituição de fallbacks mockados por dados reais do Supabase, cálculo dinâmico de estatísticas consolidadas, e fluxo de aportes integrado que deduz saldos das contas e gera logs de despesas no banco.
+- **Investimentos (Investments):** Higienização de `purchaseDate` vazio no formulário para evitar erros de validação no backend, débito integrado de saldo de contas ao cadastrar ativos, e acordeão collapsible mobile para detalhar ativos por categoria com opção de exclusão.
+- **Edição de Transações:** Criado modal `EditTransactionModal` para desktop/mobile conectado ao endpoint `PATCH /transactions/:id` permitindo alterar qualquer detalhe de lançamentos registrados ou importados.
+- **Subcategorias Financeiras:** Criação de script de banco [add-subcategories.ts](file:///c:/APP-SITE-SAAS/MY-FINANCE/backend/prisma/add-subcategories.ts) que renomeou "Transporte" para *"Veículo & Transporte"* e semeou subcategorias padrão sob cada categoria pai. No frontend, atualizamos os seletores de categoria para usar agrupamento com `<optgroup>`.
+
+### 2026-06-19 (Manhã) — Melhorias de UX/UI, Máscaras de Valor e Painel Dinâmico
 - **Máscara Monetária Sequencial:** Implementado o componente `<CurrencyInput />` com formatação em tempo real (`R$ 0,00` com preenchimento da direita para a esquerda) nos inputs de valor em todas as telas e modais (Contas, Cartões, Transações, Investimentos, Metas e Orçamentos).
 - **Rebranding para MY-FINANCE:** Ajustado logotipo do menu lateral e cabeçalho de "Capital Flow (Residential Finance)" para "My-Finance (Gestão Financeira)".
 - **Limpeza do Cabeçalho e Theme Toggle:** Removido ícone estático de calendário e seletor "BRL", introduzindo o componente `<ThemeToggle />` para alternar dinamicamente os temas claro e escuro.

@@ -29,33 +29,105 @@ export class BudgetsService {
   }
 
   async findWithProgress(householdId: string, month: number, year: number) {
-    const budgets = await this.findAll(householdId, month, year);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    // 1. Fetch all expense categories
+    const categories = await this.prisma.category.findMany({
+      where: { householdId, type: 'EXPENSE' },
+    });
 
-    const result = await Promise.all(
-      budgets.map(async (budget) => {
-        const spent = await this.prisma.transaction.aggregate({
+    // 2. Fetch manual budgets for this month/year
+    const manualBudgets = await this.prisma.budget.findMany({
+      where: { householdId, month, year, isActive: true },
+    });
+
+    const currentMonthStart = new Date(year, month - 1, 1);
+    const currentMonthEnd = new Date(year, month, 0, 23, 59, 59);
+
+    const pastStart = new Date(year, month - 4, 1);
+    const pastEnd = new Date(year, month - 1, 0, 23, 59, 59);
+
+    const results = await Promise.all(
+      categories.map(async (category) => {
+        // Find if there is a manual budget
+        const manualBudget = manualBudgets.find(b => b.categoryId === category.id);
+
+        // Spent in current month
+        const currentSpent = await this.prisma.transaction.aggregate({
           where: {
             householdId,
             type: 'EXPENSE',
             isPaid: true,
-            date: { gte: startDate, lte: endDate },
-            ...(budget.categoryId && { categoryId: budget.categoryId }),
+            categoryId: category.id,
+            date: { gte: currentMonthStart, lte: currentMonthEnd },
           },
           _sum: { amount: true },
         });
-        const spentAmount = Number(spent._sum.amount || 0);
+
+        // Spent in previous 3 months
+        const pastSpent = await this.prisma.transaction.aggregate({
+          where: {
+            householdId,
+            type: 'EXPENSE',
+            isPaid: true,
+            categoryId: category.id,
+            date: { gte: pastStart, lte: pastEnd },
+          },
+          _sum: { amount: true },
+        });
+
+        const spentThisMonth = Number(currentSpent._sum.amount || 0);
+        const spentPastThreeMonths = Number(pastSpent._sum.amount || 0);
+        const pastAverage = spentPastThreeMonths / 3;
+
+        let limit = 500;
+        let isAutomatic = true;
+
+        if (manualBudget) {
+          limit = Number(manualBudget.amount);
+          isAutomatic = false;
+        } else {
+          // Calculate suggested limit
+          let rawLimit = pastAverage;
+          if (rawLimit <= 0) {
+            rawLimit = spentThisMonth > 0 ? spentThisMonth * 1.5 : 500;
+          }
+          // Round limit to nearest 50 for clean design, min 100
+          limit = Math.ceil(rawLimit / 50) * 50;
+          if (limit < 100) limit = 100;
+        }
+
         return {
-          ...budget,
-          spent: spentAmount,
-          remaining: Number(budget.amount) - spentAmount,
-          percentage: Math.min(100, Math.round((spentAmount / Number(budget.amount)) * 100)),
+          id: manualBudget ? manualBudget.id : `auto-${category.id}`,
+          name: category.name,
+          amount: limit,
+          spent: spentThisMonth,
+          remaining: limit - spentThisMonth,
+          percentage: limit > 0 ? Math.round((spentThisMonth / limit) * 100) : 0,
+          category: {
+            id: category.id,
+            name: category.name,
+            color: category.color,
+            icon: category.icon,
+          },
+          description: manualBudget
+            ? `Limite definido manualmente.`
+            : pastAverage > 0 
+              ? `Média de R$ ${pastAverage.toFixed(2)} nos últimos 3 meses.`
+              : `Média de gastos sugerida.`,
+          isAutomatic,
         };
-      }),
+      })
     );
 
-    return result;
+    // Keep categories with spending, or with manual budgets, or with past averages.
+    // If empty, return a few categories anyway.
+    let filteredResults = results.filter(
+      r => r.spent > 0 || !r.isAutomatic || r.amount > 100
+    );
+    if (filteredResults.length === 0) {
+      filteredResults = results.slice(0, 4);
+    }
+
+    return filteredResults;
   }
 
   async update(id: string, householdId: string, dto: Partial<CreateBudgetDto>) {

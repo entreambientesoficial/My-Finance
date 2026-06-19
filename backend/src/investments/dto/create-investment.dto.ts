@@ -45,4 +45,9 @@ export class CreateInvestmentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiProperty({ required: false, example: 'cuid-account-id' })
+  @IsOptional()
+  @IsString()
+  accountId?: string;
 }

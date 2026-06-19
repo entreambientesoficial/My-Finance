@@ -85,6 +85,269 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
+function EditTransactionModal({ 
+  transaction, 
+  onClose, 
+  categories, 
+  accounts, 
+  cards, 
+  onSave, 
+  isSaving 
+}: any) {
+  const { register, handleSubmit, watch, setValue, control } = useForm<any>({
+    defaultValues: {
+      type: transaction.type,
+      amount: transaction.amount,
+      description: transaction.description || '',
+      categoryId: transaction.categoryId || '',
+      date: transaction.date ? new Date(transaction.date).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      accountId: transaction.accountId || '',
+      toAccountId: transaction.toAccountId || '',
+      cardId: transaction.cardId || '',
+      isPaid: transaction.isPaid ? 'true' : 'false',
+    }
+  });
+
+  const transactionType = watch('type');
+
+  const displayAccountsSelect = accounts.length > 0 ? accounts : [
+    { id: 'checking', name: 'Chase Platinum' },
+    { id: 'savings', name: 'Goldman Sachs' }
+  ];
+
+  const displayCardsSelect = cards.length > 0 ? cards : [
+    { id: 'c1', name: 'Capital Reserve Visa' }
+  ];
+
+  return (
+    <Modal title="Editar Lançamento" onClose={onClose}>
+      <form onSubmit={handleSubmit((d) => onSave(d))} className="space-y-6">
+        {/* Transaction Type Radio Selector */}
+        <div className="flex flex-col gap-xs">
+          <label className="font-label-sm text-[10px] text-outline tracking-wider uppercase font-bold">TIPO DE TRANSAÇÃO</label>
+          <div className="inline-flex p-1 bg-surface-container-low rounded-lg w-full">
+            {(['EXPENSE', 'INCOME', 'TRANSFER'] as const).map((t) => {
+              const isActive = transactionType === t;
+              let colorClass = 'text-primary';
+              let icon = 'sync_alt';
+              let label = 'Transferência';
+              
+              if (t === 'EXPENSE') {
+                colorClass = 'text-error';
+                icon = 'arrow_circle_down';
+                label = 'Despesa';
+              } else if (t === 'INCOME') {
+                colorClass = 'text-secondary';
+                icon = 'arrow_circle_up';
+                label = 'Receita';
+              }
+              
+              return (
+                <label 
+                  key={t} 
+                  className={cn(
+                    "flex-grow flex-1 flex items-center justify-center gap-xs py-2 rounded-lg cursor-pointer transition-all text-xs font-bold select-none",
+                    isActive ? 'bg-primary text-white shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'
+                  )}
+                >
+                  <input 
+                    type="radio" 
+                    {...register('type')} 
+                    value={t} 
+                    className="sr-only" 
+                    onChange={() => {
+                      setValue('type', t);
+                      setValue('categoryId', '');
+                      setValue('accountId', '');
+                      setValue('toAccountId', '');
+                      setValue('cardId', '');
+                    }}
+                  />
+                  <span className={cn("material-symbols-outlined text-[16px]", isActive ? 'text-white' : colorClass)}>{icon}</span>
+                  {label}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Value Input */}
+          <div className="md:col-span-2 flex flex-col gap-xs">
+            <label className="font-label-sm text-[10px] text-outline uppercase font-bold" htmlFor="edit-form-val">VALOR *</label>
+            <div className="relative">
+              <Controller
+                control={control}
+                name="amount"
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="edit-form-val"
+                    required
+                    value={field.value}
+                    onChange={field.onChange}
+                    className="w-full px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-numeric text-headline-md outline-none transition-all"
+                  />
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="md:col-span-2 flex flex-col gap-xs">
+            <label className="font-label-sm text-[10px] text-outline uppercase font-bold" htmlFor="edit-form-desc">DESCRIÇÃO</label>
+            <input 
+              type="text" 
+              id="edit-form-desc" 
+              {...register('description')} 
+              placeholder="Ex: Supermercado Mensal" 
+              className="w-full px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all text-sm"
+            />
+          </div>
+
+          {/* Category */}
+          {transactionType !== 'TRANSFER' && (
+            <div className="flex flex-col gap-xs">
+              <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CATEGORIA</label>
+              <div className="relative">
+                <select 
+                  {...register('categoryId')} 
+                  className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                >
+                  <option value="">Sem categoria</option>
+                  {(categories as any[]).filter((c: any) => c.type === transactionType).map((c: any) => (
+                    <optgroup label={c.name} key={c.id}>
+                      <option value={c.id}>{c.name} (Geral)</option>
+                      {c.children?.map((child: any) => (
+                        <option key={child.id} value={child.id}>{child.name}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
+              </div>
+            </div>
+          )}
+
+          {/* Date */}
+          <div className={cn("flex flex-col gap-xs", transactionType === 'TRANSFER' ? 'md:col-span-2' : '')}>
+            <label className="font-label-sm text-[10px] text-outline uppercase font-bold">DATA *</label>
+            <input 
+              type="date" 
+              required 
+              {...register('date')} 
+              className="w-full px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all text-sm"
+            />
+          </div>
+
+          {/* Account / Credit Card */}
+          <div className="flex flex-col gap-xs">
+            <label className="font-label-sm text-[10px] text-outline uppercase font-bold">
+              {transactionType === 'TRANSFER' ? 'CONTA ORIGEM *' : 'CONTA *'}
+            </label>
+            <div className="relative">
+              <select 
+                required 
+                {...register('accountId')} 
+                className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+              >
+                <option value="">Selecionar conta</option>
+                {(displayAccountsSelect as any[]).map((a: any) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">account_balance</span>
+            </div>
+          </div>
+
+          {/* Conditional: To Account for Transfer */}
+          {transactionType === 'TRANSFER' && (
+            <div className="flex flex-col gap-xs">
+              <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CONTA DESTINO *</label>
+              <div className="relative">
+                <select 
+                  required 
+                  {...register('toAccountId')} 
+                  className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                >
+                  <option value="">Selecionar conta</option>
+                  {(displayAccountsSelect as any[]).map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">account_balance</span>
+              </div>
+            </div>
+          )}
+
+          {/* Conditional: Card for Expense */}
+          {transactionType === 'EXPENSE' && (
+            <div className="flex flex-col gap-xs">
+              <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CARTÃO DE CRÉDITO</label>
+              <div className="relative">
+                <select 
+                  {...register('cardId')} 
+                  className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                >
+                  <option value="">Nenhum (Debitado da conta)</option>
+                  {(displayCardsSelect as any[]).map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">credit_card</span>
+              </div>
+            </div>
+          )}
+
+          {/* Status Radio options */}
+          <div className="md:col-span-2 flex flex-col gap-xs pt-2">
+            <label className="font-label-sm text-[10px] text-outline uppercase font-bold">STATUS</label>
+            <div className="flex items-center gap-md h-10">
+              <label className="flex items-center gap-xs cursor-pointer group text-sm">
+                <input 
+                  type="radio" 
+                  value="true"
+                  {...register('isPaid')} 
+                  className="w-4 h-4 text-secondary focus:ring-secondary border-outline-variant bg-surface-container-lowest" 
+                />
+                <span className="text-on-surface-variant group-hover:text-secondary transition-colors font-medium">
+                  {transactionType === 'INCOME' ? 'Recebido' : 'Pago / Efetivado'}
+                </span>
+              </label>
+              <label className="flex items-center gap-xs cursor-pointer group text-sm">
+                <input 
+                  type="radio" 
+                  value="false"
+                  {...register('isPaid')} 
+                  className="w-4 h-4 text-primary focus:ring-primary border-outline-variant bg-surface-container-lowest" 
+                />
+                <span className="text-on-surface-variant group-hover:text-primary transition-colors font-medium">Pendente</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="pt-4 flex items-center justify-end gap-md border-t border-outline-variant">
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="px-5 py-2.5 rounded-lg border border-outline-variant font-label-sm text-xs font-bold text-on-surface-variant hover:bg-surface-container-low transition-all active:scale-[0.98]"
+          >
+            CANCELAR
+          </button>
+          <button 
+            type="submit" 
+            disabled={isSaving}
+            className="px-5 py-2.5 rounded-lg bg-primary text-on-primary font-label-sm text-xs font-bold hover:opacity-90 shadow-md transition-all active:scale-[0.98] disabled:opacity-60"
+          >
+            {isSaving ? 'SALVANDO...' : 'SALVAR ALTERAÇÕES'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function formatDateLong(dateStr: string) {
   try {
     const d = new Date(dateStr);
@@ -354,6 +617,7 @@ export default function TransactionsPage() {
   const importOfxFileRef = useRef<HTMLInputElement>(null);
   const [attachTx, setAttachTx] = useState<any>(null);
   const attachFileRef = useRef<HTMLInputElement>(null);
+  const [editingTx, setEditingTx] = useState<any>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['transactions', filters, selectedType],
@@ -390,6 +654,24 @@ export default function TransactionsPage() {
       setShowForm(false);
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao criar'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      api.patch(`/transactions/${id}`, { 
+        ...data, 
+        amount: Number(data.amount), 
+        isPaid: data.isPaid === 'true' || data.isPaid === true 
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['monthly-summary'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['household-summary'] });
+      toast.success('Lançamento atualizado!');
+      setEditingTx(null);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao atualizar'),
   });
 
   const deleteMutation = useMutation({
@@ -726,7 +1008,15 @@ export default function TransactionsPage() {
                                       {t.isPaid ? 'undo' : 'check_circle'}
                                     </span>
                                   </button>
-                                  
+
+                                  <button
+                                    onClick={() => setEditingTx(t)}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary"
+                                    title="Editar"
+                                  >
+                                    <span className="material-symbols-outlined text-[20px]">edit</span>
+                                  </button>
+
                                   <button
                                     onClick={() => setAttachTx(t)}
                                     className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary relative"
@@ -739,7 +1029,7 @@ export default function TransactionsPage() {
                                       </span>
                                     )}
                                   </button>
-
+ 
                                   <button
                                     onClick={() => { if (confirm('Remover este lançamento?')) deleteMutation.mutate(t.id); }}
                                     className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-error"
@@ -922,6 +1212,14 @@ export default function TransactionsPage() {
                         </button>
 
                         <button
+                          onClick={() => setEditingTx(t)}
+                          className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant"
+                          title="Editar"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+
+                        <button
                           onClick={() => setAttachTx(t)}
                           className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant relative"
                           title="Anexos"
@@ -1073,7 +1371,12 @@ export default function TransactionsPage() {
                     >
                       <option value="">Sem categoria</option>
                       {(categories as any[]).filter((c: any) => c.type === transactionType).map((c: any) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
+                        <optgroup label={c.name} key={c.id}>
+                          <option value={c.id}>{c.name} (Geral)</option>
+                          {c.children?.map((child: any) => (
+                            <option key={child.id} value={child.id}>{child.name}</option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                     <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
@@ -1219,6 +1522,19 @@ export default function TransactionsPage() {
             importOfxFileRef={importOfxFileRef}
           />
         </Modal>
+      )}
+
+      {/* ─── MODAL: EDITAR LANÇAMENTO ─── */}
+      {editingTx && (
+        <EditTransactionModal
+          transaction={editingTx}
+          onClose={() => setEditingTx(null)}
+          categories={categories}
+          accounts={accounts}
+          cards={cards}
+          isSaving={updateMutation.isPending}
+          onSave={(data: any) => updateMutation.mutate({ id: editingTx.id, data })}
+        />
       )}
 
       {/* ─── MODAL: ANEXOS ─── */}
