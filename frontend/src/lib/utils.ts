@@ -10,7 +10,7 @@ export function formatCurrency(value: number, currency = 'BRL') {
 }
 
 export function formatDate(date: string | Date) {
-  return new Intl.DateTimeFormat('pt-BR').format(new Date(date));
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' }).format(new Date(date));
 }
 
 export function formatPercent(value: number) {

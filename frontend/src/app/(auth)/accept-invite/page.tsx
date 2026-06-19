@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import toast from 'react-hot-toast';
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get('token') || '';
@@ -95,5 +95,17 @@ export default function AcceptInvitePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#031632] flex items-center justify-center p-4">
+        <p className="text-white text-sm">Carregando convite...</p>
+      </div>
+    }>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }

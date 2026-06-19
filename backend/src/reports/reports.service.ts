@@ -98,7 +98,7 @@ export class ReportsService {
     endDate.setDate(endDate.getDate() + daysAhead);
 
     return this.prisma.transaction.findMany({
-      where: { householdId, isPaid: false, date: { gte: startDate, lte: endDate } },
+      where: { householdId, type: 'EXPENSE', isPaid: false, date: { gte: startDate, lte: endDate } },
       include: {
         category: { select: { name: true, color: true } },
         account: { select: { name: true } },

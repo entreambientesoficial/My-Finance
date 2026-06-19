@@ -2,96 +2,178 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
-
-/* ── Tokens de cor (light) ─────────────────────────────────────────────── */
+/* ── Stitch Design System Variables (Light Mode) ────────────────────────── */
 :root {
-  --c-bg:          247 249 251;   /* #f7f9fb */
-  --c-card:        255 255 255;
-  --c-card-hover:  248 250 252;   /* slate-50 */
-  --c-subtle:      241 245 249;   /* slate-100 */
-  --c-border:      241 245 249;   /* slate-100 */
-  --c-border-md:   226 232 240;   /* slate-200 */
-  --c-text:          3  22  50;   /* #031632 */
-  --c-muted:       100 116 139;   /* slate-500 */
-  --c-placeholder: 148 163 184;   /* slate-400 */
-  --c-input-bg:    255 255 255;
-  --c-input-border:226 232 240;
-  --c-navy:          3  22  50;   /* #031632 */
-  --c-emerald:       0 108  73;   /* #006c49 */
+  --background: #f7f9fb;
+  --on-background: #191c1e;
+  
+  --primary: #031632;
+  --on-primary: #ffffff;
+  --primary-container: #1a2b48;
+  --on-primary-container: #8293b5;
+  --primary-fixed: #d7e2ff;
+  --on-primary-fixed: #081b38;
+  --primary-fixed-dim: #b6c7eb;
+  --on-primary-fixed-variant: #374765;
+  --inverse-primary: #b6c7eb;
+
+  --secondary: #006c49;
+  --on-secondary: #ffffff;
+  --secondary-container: #6cf8bb;
+  --on-secondary-container: #00714d;
+  --secondary-fixed: #6ffbbe;
+  --on-secondary-fixed: #002113;
+  --secondary-fixed-dim: #4edea3;
+  --on-secondary-fixed-variant: #005236;
+
+  --tertiary: #370003;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #5e0008;
+  --on-tertiary-container: #ff5754;
+  --tertiary-fixed: #ffdad7;
+  --on-tertiary-fixed: #410004;
+  --tertiary-fixed-dim: #ffb3ad;
+  --on-tertiary-fixed-variant: #930013;
+
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #93000a;
+
+  --surface: #f7f9fb;
+  --on-surface: #191c1e;
+  --surface-variant: #e0e3e5;
+  --on-surface-variant: #44474d;
+  
+  --surface-bright: #f7f9fb;
+  --surface-dim: #d8dadc;
+  --surface-tint: #4e5f7e;
+
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f2f4f6;
+  --surface-container: #eceef0;
+  --surface-container-high: #e6e8ea;
+  --surface-container-highest: #e0e3e5;
+
+  --outline: #75777e;
+  --outline-variant: #c5c6ce;
+
+  --inverse-surface: #2d3133;
+  --inverse-on-surface: #eff1f3;
 }
 
-/* ── Tokens de cor (dark) ──────────────────────────────────────────────── */
+/* ── Stitch Design System Variables (Dark Mode) ─────────────────────────── */
 html.dark {
-  --c-bg:            2   6  23;   /* slate-950 */
-  --c-card:         15  23  42;   /* slate-900 */
-  --c-card-hover:   30  41  59;   /* slate-800 */
-  --c-subtle:       30  41  59;   /* slate-800 */
-  --c-border:       30  41  59;   /* slate-800 */
-  --c-border-md:    51  65  85;   /* slate-700 */
-  --c-text:        241 245 249;   /* slate-100 */
-  --c-muted:       148 163 184;   /* slate-400 */
-  --c-placeholder: 100 116 139;   /* slate-500 */
-  --c-input-bg:     30  41  59;
-  --c-input-border: 51  65  85;
+  --background: #0b0e14;
+  --on-background: #e1e2eb;
+  
+  --primary: #b6c7eb;
+  --on-primary: #081b38;
+  --primary-container: #1a2b48;
+  --on-primary-container: #d7e2ff;
+  --primary-fixed: #d7e2ff;
+  --on-primary-fixed: #081b38;
+  --primary-fixed-dim: #b6c7eb;
+  --on-primary-fixed-variant: #374765;
+  --inverse-primary: #031632;
+
+  --secondary: #4edea3;
+  --on-secondary: #003822;
+  --secondary-container: #005236;
+  --on-secondary-container: #6ffbbe;
+  --secondary-fixed: #6ffbbe;
+  --on-secondary-fixed: #002113;
+  --secondary-fixed-dim: #4edea3;
+  --on-secondary-fixed-variant: #005236;
+
+  --tertiary: #ffb3ad;
+  --on-tertiary: #680007;
+  --tertiary-container: #930013;
+  --on-tertiary-container: #ffdad7;
+  --tertiary-fixed: #ffdad7;
+  --on-tertiary-fixed: #410004;
+  --tertiary-fixed-dim: #ffb3ad;
+  --on-tertiary-fixed-variant: #930013;
+
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+
+  --surface: #10131a;
+  --on-surface: #e1e2eb;
+  --surface-variant: #3e4756;
+  --on-surface-variant: #c5c6ce;
+  
+  --surface-bright: #1c222e;
+  --surface-dim: #0b0e14;
+  --surface-tint: #b6c7eb;
+
+  --surface-container-lowest: #0c0f16;
+  --surface-container-low: #141924;
+  --surface-container: #1a202e;
+  --surface-container-high: #222b3d;
+  --surface-container-highest: #2d3850;
+
+  --outline: #8e929b;
+  --outline-variant: #3e4756;
+
+  --inverse-surface: #e1e2eb;
+  --inverse-on-surface: #1a202e;
 }
 
-/* ── Utilitários semânticos ────────────────────────────────────────────── */
-@layer utilities {
-  .bg-page     { background-color: rgb(var(--c-bg));        }
-  .bg-card     { background-color: rgb(var(--c-card));      }
-  .bg-card-hover { background-color: rgb(var(--c-card-hover)); }
-  .bg-subtle   { background-color: rgb(var(--c-subtle));    }
-  .border-base { border-color: rgb(var(--c-border));        }
-  .border-md   { border-color: rgb(var(--c-border-md));     }
-  .text-base   { color: rgb(var(--c-text));                 }
-  .text-muted  { color: rgb(var(--c-muted));                }
-  .text-placeholder { color: rgb(var(--c-placeholder));     }
-}
-
-/* ── Base ──────────────────────────────────────────────────────────────── */
+/* ── Custom Utility Classes ────────────────────────────────────────────── */
 body {
   font-family: 'Inter', system-ui, sans-serif;
-  background-color: rgb(var(--c-bg));
-  color: rgb(var(--c-text));
+  background-color: var(--background);
+  color: var(--on-surface);
   transition: background-color 0.2s, color 0.2s;
 }
 
-/* ── Inputs e selects ──────────────────────────────────────────────────── */
-input, select, textarea {
-  background-color: rgb(var(--c-input-bg));
-  color: rgb(var(--c-text));
-  border-color: rgb(var(--c-input-border));
+.custom-card-shadow {
+  box-shadow: 0 4px 20px rgba(26, 43, 72, 0.04);
+}
+html.dark .custom-card-shadow {
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4);
 }
 
-input::placeholder, textarea::placeholder {
-  color: rgb(var(--c-placeholder));
+.glass-header {
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.8);
+}
+html.dark .glass-header {
+  background: rgba(12, 15, 22, 0.8);
+  border-bottom-color: var(--outline-variant);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+}
+html.dark .glass-card {
+  background: rgba(26, 32, 46, 0.95);
+  backdrop-filter: blur(8px);
 }
 
 /* ── Material Symbols ──────────────────────────────────────────────────── */
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  vertical-align: middle;
   user-select: none;
 }
 
+/* Hide scrollbars but keep scrolling active */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* ── Scrollbar ─────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgb(var(--c-border-md)); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-muted)); }
-
-/* ── Recharts dark mode ────────────────────────────────────────────────── */
-html.dark .recharts-cartesian-grid-horizontal line,
-html.dark .recharts-cartesian-grid-vertical line {
-  stroke: rgb(30 41 59);
-}
-html.dark .recharts-text { fill: rgb(148 163 184) !important; }
-html.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background-color: rgb(15 23 42) !important;
-  border-color: rgb(30 41 59) !important;
-  color: rgb(241 245 249) !important;
-}
-
-/* ── Table zebra stripes ───────────────────────────────────────────────── */
-html.dark tbody tr:hover { background-color: rgb(30 41 59 / 0.5); }
+::-webkit-scrollbar-thumb { background: var(--outline-variant); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--outline); }

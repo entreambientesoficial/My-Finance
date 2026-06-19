@@ -7,7 +7,12 @@ export class BudgetsService {
   constructor(private prisma: PrismaService) {}
 
   async create(householdId: string, dto: CreateBudgetDto) {
-    return this.prisma.budget.create({ data: { ...dto, householdId } });
+    const data = {
+      ...dto,
+      householdId,
+      categoryId: dto.categoryId || null,
+    };
+    return this.prisma.budget.create({ data });
   }
 
   async findAll(householdId: string, month?: number, year?: number) {
@@ -56,7 +61,11 @@ export class BudgetsService {
   async update(id: string, householdId: string, dto: Partial<CreateBudgetDto>) {
     const budget = await this.prisma.budget.findFirst({ where: { id, householdId } });
     if (!budget) throw new NotFoundException('Orçamento não encontrado');
-    return this.prisma.budget.update({ where: { id }, data: dto });
+    const data = {
+      ...dto,
+      ...(dto.categoryId !== undefined && { categoryId: dto.categoryId || null }),
+    };
+    return this.prisma.budget.update({ where: { id }, data });
   }
 
   async remove(id: string, householdId: string) {

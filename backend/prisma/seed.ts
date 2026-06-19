@@ -92,7 +92,7 @@ async function main() {
   ];
 
   for (const t of transactions) {
-    await prisma.transaction.create({ data: { ...t, householdId: household.id, isPaid: true } });
+    await prisma.transaction.create({ data: { ...t, householdId: household.id, isPaid: true } as any });
   }
 
   // Orçamentos

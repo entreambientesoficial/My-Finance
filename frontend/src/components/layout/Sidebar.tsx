@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -17,8 +18,17 @@ const navItems = [
   { href: '/reports',      icon: 'bar_chart',        label: 'Relatórios'       },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (onClose) onClose();
+  }, [pathname, onClose]);
 
   const { data: me } = useQuery({
     queryKey: ['me'],
@@ -34,13 +44,22 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-60 min-h-screen bg-[#031632] dark:bg-[#010b1a] flex flex-col flex-shrink-0 border-r border-white/5">
+    <aside className={cn(
+      "w-60 min-h-screen bg-[#031632] dark:bg-[#010b1a] flex flex-col flex-shrink-0 border-r border-white/5 transition-transform duration-300",
+      "fixed inset-y-0 left-0 z-50 md:static",
+      isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+    )}>
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/10">
+      <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-[#006c49] text-2xl">account_balance_wallet</span>
           <span className="text-white font-bold text-lg tracking-tight">MY-FINANCE</span>
         </div>
+        {onClose && (
+          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white md:hidden">
+            <span className="material-symbols-outlined text-xl">close</span>
+          </button>
+        )}
       </div>
 
       {/* Nav */}

@@ -2,42 +2,351 @@
 
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
-import { formatCurrency, formatDate, getCurrentMonthYear } from '@/lib/utils';
+import { formatCurrency, formatDate, getCurrentMonthYear, cn } from '@/lib/utils';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
 
-const TYPE_COLORS: Record<string, string> = { INCOME: 'text-[#006c49]', EXPENSE: 'text-red-500', TRANSFER: 'text-blue-500' };
+const TYPE_COLORS: Record<string, string> = { INCOME: 'text-secondary', EXPENSE: 'text-error', TRANSFER: 'text-blue-500' };
 const TYPE_LABELS: Record<string, string> = { INCOME: 'Receita', EXPENSE: 'Despesa', TRANSFER: 'Transferência' };
-const TYPE_BG: Record<string, string> = {
-  INCOME: 'bg-[#006c49]/10 text-[#006c49]',
-  EXPENSE: 'bg-red-500/10 text-red-500',
-  TRANSFER: 'bg-blue-500/10 text-blue-500',
-};
+
+const PLACEHOLDER_TRANSACTIONS = [
+  {
+    id: 'demo-1',
+    date: '2026-06-02T12:00:00.000Z',
+    description: 'Amazon Web Services',
+    notes: 'Pagamento Cloud Jun/26',
+    amount: 1250.00,
+    type: 'EXPENSE',
+    isPaid: true,
+    category: { id: 'c-cloud', name: 'Tecnologia', color: '#031632', icon: 'cloud' },
+    account: { id: 'acc-main', name: 'Conta Principal' }
+  },
+  {
+    id: 'demo-2',
+    date: '2026-06-01T15:30:00.000Z',
+    description: 'Transferência Recebida - PIX',
+    notes: 'João Silva Mello',
+    amount: 4800.00,
+    type: 'INCOME',
+    isPaid: false,
+    category: { id: 'c-income', name: 'Salário', color: '#006c49', icon: 'payments' },
+    account: { id: 'acc-main', name: 'Conta Principal' }
+  },
+  {
+    id: 'demo-3',
+    date: '2026-05-30T10:00:00.000Z',
+    description: 'Starbucks Coffee #342',
+    notes: 'Despesa corporativa',
+    amount: 42.50,
+    type: 'EXPENSE',
+    isPaid: false,
+    category: { id: 'c-food', name: 'Alimentação', color: '#ba1a1a', icon: 'restaurant' },
+    card: { id: 'card-corp', name: 'Visa Corporate' }
+  },
+  {
+    id: 'demo-4',
+    date: '2026-05-28T09:00:00.000Z',
+    description: 'Condomínio Ed. Alpha',
+    notes: 'Boleto Itaú',
+    amount: 850.00,
+    type: 'EXPENSE',
+    isPaid: true,
+    category: { id: 'c-housing', name: 'Moradia', color: '#3b82f6', icon: 'home' },
+    account: { id: 'acc-main', name: 'Conta Principal' }
+  },
+  {
+    id: 'demo-5',
+    date: '2026-05-25T14:20:00.000Z',
+    description: 'Supermercado Pão de Açúcar',
+    notes: 'Compras Mensais',
+    amount: 624.90,
+    type: 'EXPENSE',
+    isPaid: true,
+    category: { id: 'c-food', name: 'Alimentação', color: '#ba1a1a', icon: 'shopping_cart' },
+    account: { id: 'acc-main', name: 'Conta Principal' }
+  }
+];
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-base sticky top-0 bg-card rounded-t-2xl">
-          <h2 className="font-semibold text-base">{title}</h2>
-          <button onClick={onClose} className="text-placeholder hover:text-muted transition-colors">
-            <span className="material-symbols-outlined">close</span>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+      <div className="bg-card border border-outline-variant rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between p-5 border-b border-outline-variant">
+          <h2 className="font-headline text-headline-md text-primary font-bold">{title}</h2>
+          <button onClick={onClose} className="p-1 hover:bg-surface-container rounded-full text-on-surface-variant hover:text-primary transition-colors">
+            <span className="material-symbols-outlined text-xl">close</span>
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-5 max-h-[85vh] overflow-y-auto">{children}</div>
       </div>
+    </div>
+  );
+}
+
+function formatDateLong(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    return `${d.getUTCDate().toString().padStart(2, '0')} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  } catch {
+    return dateStr;
+  }
+}
+
+function CategoryBadge({ category, type }: any) {
+  if (type === 'TRANSFER') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-semibold">
+        <span className="material-symbols-outlined text-[12px]">sync_alt</span>
+        Transf
+      </span>
+    );
+  }
+  const color = category?.color || '#6b7280';
+  const icon = category?.icon || (type === 'INCOME' ? 'payments' : 'shopping_bag');
+  const name = category?.name || (type === 'INCOME' ? 'Receita' : 'Geral');
+  return (
+    <span 
+      className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold"
+      style={{ backgroundColor: `${color}1A`, color }}
+    >
+      <span className="material-symbols-outlined text-[12px]">{icon}</span>
+      {name}
+    </span>
+  );
+}
+
+function AccountInfo({ account, card, toAccount, type }: any) {
+  if (type === 'TRANSFER') {
+    return (
+      <span className="text-on-surface-variant text-xs flex items-center gap-1">
+        <span className="material-symbols-outlined text-[14px] text-outline">account_balance</span>
+        {account?.name || 'Origem'} 
+        <span className="material-symbols-outlined text-[12px] text-outline">arrow_forward</span> 
+        {toAccount?.name || 'Destino'}
+      </span>
+    );
+  }
+  if (card) {
+    return (
+      <span className="text-on-surface-variant text-xs flex items-center gap-1">
+        <span className="material-symbols-outlined text-[14px] text-outline">credit_card</span>
+        {card.name}
+      </span>
+    );
+  }
+  return (
+    <span className="text-on-surface-variant text-xs flex items-center gap-1">
+      <span className="material-symbols-outlined text-[14px] text-outline">account_balance</span>
+      {account?.name || 'Conta Corrente'}
+    </span>
+  );
+}
+
+function StatusBadge({ type, isPaid }: { type: string; isPaid: boolean }) {
+  if (type === 'TRANSFER') {
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-bold flex items-center gap-1 w-fit">
+        <span className="material-symbols-outlined text-sm">sync_alt</span>
+        Transferido
+      </span>
+    );
+  }
+  if (isPaid) {
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold flex items-center gap-1 w-fit">
+        <span className="material-symbols-outlined text-sm">check_circle</span>
+        Efetivado
+      </span>
+    );
+  }
+  return (
+    <span className="px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-xs font-bold flex items-center gap-1 w-fit">
+      <span className="material-symbols-outlined text-sm">pending</span>
+      Pendente
+    </span>
+  );
+}
+
+function SessionSummary({ txList, isLoading }: { txList: any[]; isLoading: boolean }) {
+  const count = txList.length;
+  const income = txList.filter(t => t.type === 'INCOME').reduce((sum, t) => sum + Number(t.amount), 0);
+  const expense = txList.filter(t => t.type === 'EXPENSE').reduce((sum, t) => sum + Number(t.amount), 0);
+  const pendingCount = txList.filter(t => !t.isPaid).length;
+
+  return (
+    <div className="bg-primary dark:bg-primary-container text-white p-lg rounded-xl shadow-sm space-y-md border border-outline-variant/10">
+      <div className="flex justify-between items-center">
+        <span className="font-label-sm text-label-sm uppercase tracking-wider opacity-85">Resumo das Transações</span>
+        <span className="material-symbols-outlined opacity-80">info</span>
+      </div>
+      <div className="space-y-md">
+        <div className="flex justify-between items-end border-b border-white/10 pb-xs">
+          <span className="text-body-md text-white/80">Lançamentos</span>
+          <span className="font-numeric text-headline-md leading-none">{isLoading ? '...' : count}</span>
+        </div>
+        <div className="flex justify-between items-end border-b border-white/10 pb-xs">
+          <span className="text-body-md text-white/80">Total Receitas</span>
+          <span className="font-numeric text-headline-md leading-none text-secondary-fixed">{isLoading ? '...' : formatCurrency(income)}</span>
+        </div>
+        <div className="flex justify-between items-end border-b border-white/10 pb-xs">
+          <span className="text-body-md text-white/80">Total Despesas</span>
+          <span className="font-numeric text-headline-md leading-none text-tertiary-fixed-dim">{isLoading ? '...' : formatCurrency(expense)}</span>
+        </div>
+        <div className="flex justify-between items-end">
+          <span className="text-body-md text-white/80">Pendentes</span>
+          <span className="font-numeric text-headline-md leading-none text-amber-300">{isLoading ? '...' : pendingCount}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportPanel({ 
+  importFormat, 
+  setImportFormat, 
+  importAccountId, 
+  setImportAccountId, 
+  accounts, 
+  importResult, 
+  setImportResult, 
+  importMutation, 
+  importOfxMutation, 
+  importFileRef, 
+  importOfxFileRef 
+}: any) {
+  const [selectedFileName, setSelectedFileName] = useState('');
+
+  return (
+    <div className="bg-surface-container-lowest p-lg rounded-xl shadow-sm border border-outline-variant space-y-md">
+      <div>
+        <h3 className="font-headline text-headline-md text-primary font-bold">Importar Extrato</h3>
+        <p className="text-xs text-on-surface-variant mt-1">Carregue arquivos OFX ou CSV para conciliar automaticamente.</p>
+        <p className="text-[11px] text-primary/80 dark:text-primary-fixed-dim/80 mt-2 leading-relaxed bg-primary/5 dark:bg-primary-container/20 p-2 rounded-lg border border-outline-variant/20 flex gap-1 items-start">
+          <span className="material-symbols-outlined text-[14px] mt-[2px] shrink-0">info</span>
+          <span>
+            <strong>Dica:</strong> No seu banco, o extrato OFX pode se chamar <strong>"MS Money"</strong> ou <strong>"Quicken"</strong>. Ambos funcionam perfeitamente!
+          </span>
+        </p>
+      </div>
+
+      <div className="flex gap-1 bg-surface-container-low p-1 rounded-lg">
+        {(['csv', 'ofx'] as const).map((fmt) => (
+          <button 
+            key={fmt} 
+            type="button"
+            onClick={() => { setImportFormat(fmt); setImportResult(null); }}
+            className={cn(
+              "flex-1 py-1.5 rounded-md text-sm font-medium transition-colors",
+              importFormat === fmt ? 'bg-white text-primary shadow-sm' : 'text-on-surface-variant hover:text-primary'
+            )}
+          >
+            {fmt === 'csv' ? 'CSV' : 'OFX'}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        <label className="font-label-sm text-[10px] text-outline block mb-1">VINCULAR À CONTA</label>
+        <div className="relative">
+          <select 
+            value={importAccountId} 
+            onChange={(e) => setImportAccountId(e.target.value)}
+            className="w-full px-md py-sm pr-10 rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+          >
+            <option value="">Sem conta específica</option>
+            {(accounts as any[]).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">account_balance</span>
+        </div>
+      </div>
+
+      {!importResult ? (
+        <div>
+          <input 
+            ref={importFileRef} 
+            type="file" 
+            accept=".csv" 
+            className="hidden"
+            onChange={(e) => { 
+              const f = e.target.files?.[0]; 
+              if (f) {
+                setSelectedFileName(f.name);
+                importMutation.mutate(f); 
+              }
+            }} 
+          />
+          <input 
+            ref={importOfxFileRef} 
+            type="file" 
+            accept=".ofx,.ofc" 
+            className="hidden"
+            onChange={(e) => { 
+              const f = e.target.files?.[0]; 
+              if (f) {
+                setSelectedFileName(f.name);
+                importOfxMutation.mutate(f); 
+              }
+            }} 
+          />
+          
+          <div
+            onClick={() => importFormat === 'csv' ? importFileRef.current?.click() : importOfxFileRef.current?.click()}
+            className="border-2 border-dashed border-outline-variant rounded-xl p-lg flex flex-col items-center justify-center bg-surface hover:bg-surface-container-low transition-all cursor-pointer group"
+          >
+            <div className="w-12 h-12 rounded-full bg-primary-fixed mb-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+              <span className="material-symbols-outlined text-primary text-xl">cloud_upload</span>
+            </div>
+            <span className="font-bold text-primary text-sm max-w-full truncate px-sm">
+              {importMutation.isPending || importOfxMutation.isPending 
+                ? `Importando ${selectedFileName || 'arquivo'}...` 
+                : 'Selecionar Arquivo'}
+            </span>
+            <span className="text-[10px] text-on-surface-variant mt-0.5">Clique ou arraste</span>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className={cn(
+            "rounded-xl p-3 border",
+            importResult.imported > 0 ? 'bg-secondary/5 border-secondary/20 text-on-secondary-container' : 'bg-error-container text-on-error-container border-error/20'
+          )}>
+            <div className="flex items-center gap-2">
+              <span className={cn(
+                "material-symbols-outlined text-xl",
+                importResult.imported > 0 ? 'text-secondary' : 'text-error'
+              )}>
+                {importResult.imported > 0 ? 'check_circle' : 'error'}
+              </span>
+              <div className="text-xs">
+                <p className="font-bold">{importResult.imported} importados</p>
+                {importResult.errors > 0 && <p className="opacity-80">{importResult.errors} ignorados</p>}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setImportResult(null); setSelectedFileName(''); }}
+            className="text-xs text-primary hover:underline font-semibold"
+          >
+            Importar outro
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function TransactionsPage() {
   const qc = useQueryClient();
-  const { month, year } = getCurrentMonthYear();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [filters, setFilters] = useState<any>({ page: 1, limit: 25 });
   const [selectedType, setSelectedType] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  
   const importFileRef = useRef<HTMLInputElement>(null);
   const [importAccountId, setImportAccountId] = useState('');
   const [importResult, setImportResult] = useState<any>(null);
@@ -47,7 +356,7 @@ export default function TransactionsPage() {
   const attachFileRef = useRef<HTMLInputElement>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['transactions', filters],
+    queryKey: ['transactions', filters, selectedType],
     queryFn: () => api.get('/transactions', { params: { ...filters, ...(selectedType && { type: selectedType }) } }).then((r) => r.data),
   });
 
@@ -66,7 +375,7 @@ export default function TransactionsPage() {
     queryFn: () => api.get('/cards').then((r) => r.data),
   });
 
-  const { register, handleSubmit, reset, watch } = useForm<any>({ defaultValues: { type: 'EXPENSE', isPaid: true } });
+  const { register, handleSubmit, reset, watch, setValue, control } = useForm<any>({ defaultValues: { type: 'EXPENSE', isPaid: true } });
   const transactionType = watch('type');
 
   const createMutation = useMutation({
@@ -88,8 +397,23 @@ export default function TransactionsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['monthly-summary'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['household-summary'] });
       toast.success('Removido!');
     },
+  });
+
+  const togglePaidMutation = useMutation({
+    mutationFn: ({ id, isPaid }: { id: string; isPaid: boolean }) =>
+      api.patch(`/transactions/${id}`, { isPaid }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['monthly-summary'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['household-summary'] });
+      toast.success('Status atualizado!');
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao atualizar'),
   });
 
   function exportCsv() {
@@ -148,11 +472,6 @@ export default function TransactionsPage() {
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao importar'),
   });
 
-  function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) importMutation.mutate(file);
-  }
-
   const uploadAttachment = useMutation({
     mutationFn: async ({ id, file }: { id: string; file: File }) => {
       const form = new FormData();
@@ -177,332 +496,738 @@ export default function TransactionsPage() {
     },
   });
 
+  const rawList = data?.data || [];
+  const isRealData = rawList.length > 0;
+  
+  // Choose source data and perform client side fallback filtering if no transactions exist in the database
+  const displayList = isRealData 
+    ? rawList 
+    : PLACEHOLDER_TRANSACTIONS.filter((t: any) => {
+        if (selectedType && t.type !== selectedType) return false;
+        if (filters.startDate && new Date(t.date) < new Date(filters.startDate)) return false;
+        if (filters.endDate && new Date(t.date) > new Date(filters.endDate + 'T23:59:59')) return false;
+        return true;
+      });
+
+  // Client side search query filtering (always active)
+  const filteredList = displayList.filter((t: any) => {
+    if (searchQuery) {
+      const desc = (t.description || '').toLowerCase();
+      const notes = (t.notes || '').toLowerCase();
+      const query = searchQuery.toLowerCase();
+      return desc.includes(query) || notes.includes(query);
+    }
+    return true;
+  });
+
+  const displayAccountsSelect = accounts.length > 0 ? accounts : [
+    { id: 'checking', name: 'Chase Platinum' },
+    { id: 'savings', name: 'Goldman Sachs' }
+  ];
+
+  const displayCardsSelect = cards.length > 0 ? cards : [
+    { id: 'c1', name: 'Capital Reserve Visa' }
+  ];
+
+  function renderAmount(t: any) {
+    const isIncome = t.type === 'INCOME';
+    const isTransfer = t.type === 'TRANSFER';
+    const colorClass = isIncome ? 'text-secondary font-bold' : isTransfer ? 'text-blue-500 font-bold' : 'text-error font-bold';
+    const sign = isIncome ? '+' : isTransfer ? '' : '−';
+    return (
+      <span className={cn("font-numeric whitespace-nowrap text-right", colorClass)}>
+        {sign} {formatCurrency(Number(t.amount))}
+      </span>
+    );
+  }
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-base">Transações</h1>
-          <p className="text-muted text-sm mt-1">
-            {data?.total || 0} lançamentos encontrados
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-1.5 border border-md text-muted px-3 py-2 rounded-lg text-sm hover:bg-card-hover transition-colors"
-          >
-            <span className="material-symbols-outlined text-[18px]">upload_file</span>
-            Importar CSV
-          </button>
-          <button
-            onClick={exportCsv}
-            className="flex items-center gap-1.5 border border-md text-muted px-3 py-2 rounded-lg text-sm hover:bg-card-hover transition-colors"
-          >
-            <span className="material-symbols-outlined text-[18px]">download</span>
-            Exportar CSV
-          </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 bg-[#031632] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#0a2550] transition-colors"
-          >
-            <span className="material-symbols-outlined text-[18px]">add</span>
-            Novo lançamento
-          </button>
-        </div>
-      </div>
+    <div className="p-4 md:p-6 space-y-6">
+      {/* Decorative Floating Blur */}
+      <div className="fixed top-0 right-0 w-48 h-48 bg-primary/5 rounded-full -mr-24 -mt-24 blur-3xl pointer-events-none"></div>
 
-      {/* Filtros de tipo */}
-      <div className="flex gap-2 flex-wrap">
-        {[['', 'Todos'], ['INCOME', 'Receitas'], ['EXPENSE', 'Despesas'], ['TRANSFER', 'Transferências']].map(([value, label]) => (
-          <button key={value}
-            onClick={() => { setSelectedType(value); setFilters((f: any) => ({ ...f, page: 1 })); }}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedType === value ? 'bg-[#031632] text-white' : 'bg-card border border-md text-muted hover:bg-card-hover'}`}>
-            {label}
-          </button>
-        ))}
-        {/* Filtro por período */}
-        <div className="flex items-center gap-2 ml-auto">
-          <input type="date" onChange={(e) => setFilters((f: any) => ({ ...f, startDate: e.target.value, page: 1 }))}
-            className="border border-md rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]" />
-          <span className="text-placeholder text-xs">até</span>
-          <input type="date" onChange={(e) => setFilters((f: any) => ({ ...f, endDate: e.target.value, page: 1 }))}
-            className="border border-md rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]" />
+      {/* ─── DESKTOP TRANSACTIONS VIEW ─── */}
+      <div className="hidden md:block space-y-gutter">
+        {/* Header */}
+        <div className="flex justify-between items-end mb-xl">
+          <div>
+            <h2 className="font-display text-display-lg text-primary">Transações</h2>
+            <p className="font-body-lg text-body-lg text-on-surface-variant">Gerencie e concilie seus lançamentos financeiros com precisão.</p>
+          </div>
+          <div className="flex gap-md">
+            <button
+              onClick={exportCsv}
+              className="flex items-center gap-xs border border-outline-variant text-on-surface-variant px-lg py-md rounded-lg font-label-sm text-label-sm hover:bg-surface-container transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              Exportar CSV
+            </button>
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-xs bg-primary text-on-primary px-lg py-md rounded-lg font-label-sm text-label-sm active:scale-95 transition-transform shadow-md font-bold"
+            >
+              <span className="material-symbols-outlined text-[18px]">add</span>
+              Novo Lançamento
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Tabela */}
-      <div className="bg-card rounded-xl shadow-sm border border-base overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-base bg-subtle/50">
-              <th className="text-left px-5 py-3 text-xs font-medium text-muted uppercase tracking-wide">Data</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-muted uppercase tracking-wide">Descrição</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-muted uppercase tracking-wide">Categoria</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-muted uppercase tracking-wide">Conta / Cartão</th>
-              <th className="text-left px-5 py-3 text-xs font-medium text-muted uppercase tracking-wide">Tipo</th>
-              <th className="text-right px-5 py-3 text-xs font-medium text-muted uppercase tracking-wide">Valor</th>
-              <th className="px-5 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-placeholder">Carregando...</td></tr>
-            ) : (data?.data || []).length === 0 ? (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-placeholder">Nenhum lançamento encontrado.</td></tr>
-            ) : (data?.data || []).map((t: any) => (
-              <tr key={t.id} className="border-b border-base hover:bg-card-hover/50 transition-colors">
-                <td className="px-5 py-3 text-muted whitespace-nowrap">{formatDate(t.date)}</td>
-                <td className="px-5 py-3">
-                  <p className="font-medium text-base truncate max-w-[200px]">{t.description || '—'}</p>
-                  {!t.isPaid && <span className="text-xs text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">Pendente</span>}
-                </td>
-                <td className="px-5 py-3">
-                  {t.category ? (
-                    <span className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: `${t.category.color}20`, color: t.category.color }}>
-                      <span className="material-symbols-outlined text-[12px]">{t.category.icon || 'category'}</span>
-                      {t.category.name}
-                    </span>
-                  ) : <span className="text-placeholder text-xs">—</span>}
-                </td>
-                <td className="px-5 py-3 text-muted text-xs">
-                  {t.account?.name || t.card?.name || '—'}
-                  {t.toAccount && <span className="text-placeholder"> → {t.toAccount.name}</span>}
-                </td>
-                <td className="px-5 py-3">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TYPE_BG[t.type]}`}>{TYPE_LABELS[t.type]}</span>
-                </td>
-                <td className={`px-5 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${TYPE_COLORS[t.type]}`}>
-                  {t.type === 'INCOME' ? '+' : t.type === 'EXPENSE' ? '−' : ''}{formatCurrency(Number(t.amount))}
-                </td>
-                <td className="px-5 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setAttachTx(t)}
-                      className="text-placeholder hover:text-muted transition-colors relative"
-                      title="Anexos"
+        {/* Bento Grid */}
+        <div className="grid grid-cols-12 gap-gutter">
+          {/* Left Column (Stats & Upload - 4 columns) */}
+          <div className="col-span-12 lg:col-span-4 space-y-gutter">
+            <ImportPanel 
+              importFormat={importFormat}
+              setImportFormat={setImportFormat}
+              importAccountId={importAccountId}
+              setImportAccountId={setImportAccountId}
+              accounts={accounts}
+              importResult={importResult}
+              setImportResult={setImportResult}
+              importMutation={importMutation}
+              importOfxMutation={importOfxMutation}
+              importFileRef={importFileRef}
+              importOfxFileRef={importOfxFileRef}
+            />
+            <SessionSummary txList={displayList} isLoading={isLoading} />
+          </div>
+
+          {/* Right Column (List - 8 columns) */}
+          <div className="col-span-12 lg:col-span-8">
+            <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant overflow-hidden">
+              {/* Filter Section */}
+              <div className="p-lg border-b border-outline-variant bg-surface-container-lowest space-y-md">
+                <div className="flex justify-between items-center flex-wrap gap-md">
+                  <div>
+                    <h2 className="font-headline text-headline-md text-primary font-bold">Lançamentos Registrados</h2>
+                    <p className="text-xs text-on-surface-variant mt-0.5">Mostrando últimos lançamentos da conta</p>
+                  </div>
+                  
+                  {/* Search Bar */}
+                  <div className="relative w-64">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+                    <input 
+                      type="text"
+                      placeholder="Buscar descrição..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 pr-4 py-1.5 bg-surface-container-low border-none rounded-full text-sm w-full focus:ring-2 focus:ring-primary transition-all text-on-surface"
+                    />
+                  </div>
+                </div>
+
+                {/* Filters details */}
+                <div className="flex justify-between items-center flex-wrap gap-sm pt-2">
+                  {/* Type Filter tabs */}
+                  <div className="flex gap-1 bg-surface-container-low p-1 rounded-lg">
+                    {[
+                      ['', 'Todos'],
+                      ['INCOME', 'Receitas'],
+                      ['EXPENSE', 'Despesas'],
+                      ['TRANSFER', 'Transferências']
+                    ].map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => { setSelectedType(val); setFilters((f: any) => ({ ...f, page: 1 })); }}
+                        className={cn(
+                          "px-3 py-1 rounded-md text-xs font-semibold transition-colors",
+                          selectedType === val ? 'bg-primary text-white' : 'text-on-surface-variant hover:text-primary'
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Date range inputs */}
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="date" 
+                      onChange={(e) => setFilters((f: any) => ({ ...f, startDate: e.target.value, page: 1 }))}
+                      className="border border-outline-variant rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-primary bg-surface-container-lowest text-on-surface transition-colors cursor-pointer" 
+                    />
+                    <span className="text-outline text-xs">até</span>
+                    <input 
+                      type="date" 
+                      onChange={(e) => setFilters((f: any) => ({ ...f, endDate: e.target.value, page: 1 }))}
+                      className="border border-outline-variant rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 hover:border-primary bg-surface-container-lowest text-on-surface transition-colors cursor-pointer" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Transactions Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-surface-container-low text-on-surface-variant font-label-sm text-xs font-bold uppercase tracking-wider">
+                    <tr>
+                      <th className="px-md lg:px-sm py-md">Data</th>
+                      <th className="px-md lg:px-sm py-md">Descrição</th>
+                      <th className="px-md lg:px-sm py-md text-right">Valor</th>
+                      <th className="px-md lg:px-sm py-md">Conta / Cartão</th>
+                      <th className="px-md lg:px-sm py-md">Status</th>
+                      <th className="px-md lg:px-sm py-md text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-outline-variant/35 bg-surface-container-lowest">
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan={6} className="px-lg py-12 text-center text-on-surface-variant">
+                          <div className="flex flex-col items-center gap-2">
+                            <span className="material-symbols-outlined animate-spin text-3xl text-primary">progress_activity</span>
+                            Carregando lançamentos...
+                          </div>
+                        </td>
+                      </tr>
+                    ) : filteredList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-lg py-12 text-center text-on-surface-variant font-medium">
+                          Nenhum lançamento encontrado.
+                        </td>
+                      </tr>
+                    ) : filteredList.map((t: any) => {
+                      const isReal = isRealData;
+                      return (
+                        <tr key={t.id} className="hover:bg-surface-container-low/20 transition-colors group">
+                          <td className="px-md lg:px-sm py-md font-numeric text-xs whitespace-nowrap">{formatDateLong(t.date)}</td>
+                          <td className="px-md lg:px-sm py-md">
+                            <div className="flex flex-col max-w-[200px] lg:max-w-[260px]">
+                              <span className="font-bold text-primary truncate text-sm">{t.description || 'Sem descrição'}</span>
+                              {t.notes && <span className="text-xs text-on-surface-variant truncate mt-0.5">{t.notes}</span>}
+                              <div className="mt-1">
+                                <CategoryBadge category={t.category} type={t.type} />
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-md lg:px-sm py-md text-right font-semibold">
+                            {renderAmount(t)}
+                          </td>
+                          <td className="px-md lg:px-sm py-md">
+                            <AccountInfo account={t.account} card={t.card} toAccount={t.toAccount} type={t.type} />
+                          </td>
+                          <td className="px-md lg:px-sm py-md">
+                            <StatusBadge type={t.type} isPaid={t.isPaid} />
+                          </td>
+                          <td className="px-md lg:px-sm py-md text-right">
+                            <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                              {isReal ? (
+                                <>
+                                  <button
+                                    onClick={() => togglePaidMutation.mutate({ id: t.id, isPaid: !t.isPaid })}
+                                    className={cn(
+                                      "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                      t.isPaid 
+                                        ? "text-on-surface-variant hover:bg-surface-container hover:text-amber-600" 
+                                        : "text-secondary hover:bg-secondary/15"
+                                    )}
+                                    title={t.isPaid ? 'Marcar como Pendente' : (t.type === 'INCOME' ? 'Marcar como Recebido' : 'Marcar como Pago')}
+                                  >
+                                    <span className="material-symbols-outlined text-[20px]">
+                                      {t.isPaid ? 'undo' : 'check_circle'}
+                                    </span>
+                                  </button>
+                                  
+                                  <button
+                                    onClick={() => setAttachTx(t)}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary relative"
+                                    title="Anexos"
+                                  >
+                                    <span className="material-symbols-outlined text-[20px]">attach_file</span>
+                                    {t.attachments?.length > 0 && (
+                                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#006c49] text-[9px] text-white rounded-full flex items-center justify-center font-bold">
+                                        {t.attachments.length}
+                                      </span>
+                                    )}
+                                  </button>
+
+                                  <button
+                                    onClick={() => { if (confirm('Remover este lançamento?')) deleteMutation.mutate(t.id); }}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-error"
+                                    title="Excluir"
+                                  >
+                                    <span className="material-symbols-outlined text-[20px]">delete</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-[10px] text-outline-variant font-bold tracking-widest uppercase">DEMO</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination controls */}
+              {data && data.pages > 1 && (
+                <div className="p-lg bg-surface-container-low flex items-center justify-between border-t border-outline-variant/60">
+                  <span className="text-xs text-on-surface-variant">
+                    Página {data.page} de {data.pages} · {data.total} total
+                  </span>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setFilters((f: any) => ({ ...f, page: f.page - 1 }))} 
+                      disabled={data.page === 1}
+                      className="px-3 py-1 rounded bg-white border border-outline-variant text-xs text-on-surface-variant font-semibold disabled:opacity-40 hover:bg-surface-container transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[18px]">attach_file</span>
-                      {t.attachments?.length > 0 && (
-                        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#006c49] rounded-full text-[9px] text-white flex items-center justify-center">{t.attachments.length}</span>
-                      )}
+                      Anterior
                     </button>
-                    <button
-                      onClick={() => { if (confirm('Remover este lançamento?')) deleteMutation.mutate(t.id); }}
-                      className="text-placeholder hover:text-red-500 transition-colors"
+                    <button 
+                      onClick={() => setFilters((f: any) => ({ ...f, page: f.page + 1 }))} 
+                      disabled={data.page === data.pages}
+                      className="px-3 py-1 rounded bg-white border border-outline-variant text-xs text-on-surface-variant font-semibold disabled:opacity-40 hover:bg-surface-container transition-colors"
                     >
-                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                      Próxima
                     </button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {/* Paginação */}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── MOBILE TRANSACTIONS VIEW ─── */}
+      <div className="block md:hidden space-y-md">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-primary">Lançamentos</h2>
+            <p className="text-xs text-on-surface-variant">{data?.total || 0} encontrados</p>
+          </div>
+          
+          <div className="flex gap-1.5">
+            <button 
+              onClick={() => setShowImport(true)} 
+              className="w-10 h-10 rounded-full bg-surface-container-low flex items-center justify-center text-primary active:bg-surface-container-high transition-colors"
+              title="Importar Extrato"
+            >
+              <span className="material-symbols-outlined text-[20px]">upload_file</span>
+            </button>
+            <button 
+              onClick={() => setShowForm(true)}
+              className="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center active:scale-95 transition-transform shadow-md"
+              title="Novo Lançamento"
+            >
+              <span className="material-symbols-outlined text-[20px]">add</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+          <input 
+            type="text"
+            placeholder="Buscar lançamentos..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-xl text-sm w-full focus:ring-1 focus:ring-primary text-on-surface focus:outline-none"
+          />
+        </div>
+
+        {/* Scrollable Type Filter tags */}
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+          {[
+            ['', 'Todos'],
+            ['INCOME', 'Receitas'],
+            ['EXPENSE', 'Despesas'],
+            ['TRANSFER', 'Transf.']
+          ].map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => { setSelectedType(val); setFilters((f: any) => ({ ...f, page: 1 })); }}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap",
+                selectedType === val ? 'bg-[#031632] text-white' : 'bg-surface-container-lowest border border-outline-variant text-on-surface-variant'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Scrollable Stats */}
+        <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+          <div className="flex-shrink-0 w-36 bg-surface-container-lowest border border-outline-variant p-3 rounded-xl">
+            <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Receitas</p>
+            <p className="font-numeric text-sm font-bold text-secondary mt-1">
+              {isLoading ? '...' : formatCurrency(filteredList.filter((t: any) => t.type === 'INCOME').reduce((s: number, t: any) => s + Number(t.amount), 0))}
+            </p>
+          </div>
+          <div className="flex-shrink-0 w-36 bg-surface-container-lowest border border-outline-variant p-3 rounded-xl">
+            <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Despesas</p>
+            <p className="font-numeric text-sm font-bold text-error mt-1">
+              {isLoading ? '...' : formatCurrency(filteredList.filter((t: any) => t.type === 'EXPENSE').reduce((s: number, t: any) => s + Number(t.amount), 0))}
+            </p>
+          </div>
+          <div className="flex-shrink-0 w-36 bg-surface-container-lowest border border-outline-variant p-3 rounded-xl">
+            <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Pendentes</p>
+            <p className="font-numeric text-sm font-bold text-amber-550 mt-1">
+              {isLoading ? '...' : filteredList.filter((t: any) => !t.isPaid).length} itens
+            </p>
+          </div>
+        </div>
+
+        {/* Mobile items listing */}
+        <div className="space-y-3">
+          {isLoading ? (
+            <div className="py-8 text-center text-on-surface-variant">
+              <span className="material-symbols-outlined animate-spin text-2xl text-primary">progress_activity</span>
+              <p className="text-xs mt-2">Carregando...</p>
+            </div>
+          ) : filteredList.length === 0 ? (
+            <div className="py-8 text-center text-xs text-on-surface-variant bg-surface-container-lowest border border-outline-variant rounded-xl">
+              Nenhuma transação encontrada.
+            </div>
+          ) : filteredList.map((t: any) => {
+            const isReal = isRealData;
+            return (
+              <div key={t.id} className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl space-y-3 shadow-xs">
+                {/* Header */}
+                <div className="flex justify-between items-start">
+                  <CategoryBadge category={t.category} type={t.type} />
+                  <div className="text-sm font-bold">
+                    {renderAmount(t)}
+                  </div>
+                </div>
+
+                {/* Description & Account */}
+                <div>
+                  <p className="font-bold text-primary text-sm">{t.description || 'Sem descrição'}</p>
+                  {t.notes && <p className="text-xs text-on-surface-variant mt-0.5">{t.notes}</p>}
+                  <div className="flex items-center justify-between mt-2 text-xs text-on-surface-variant">
+                    <span>{formatDateLong(t.date)}</span>
+                    <AccountInfo account={t.account} card={t.card} toAccount={t.toAccount} type={t.type} />
+                  </div>
+                </div>
+
+                {/* Status & Actions */}
+                <div className="flex justify-between items-center pt-2 border-t border-outline-variant/30">
+                  <StatusBadge type={t.type} isPaid={t.isPaid} />
+                  
+                  <div className="flex items-center gap-1">
+                    {isReal ? (
+                      <>
+                        <button
+                          onClick={() => togglePaidMutation.mutate({ id: t.id, isPaid: !t.isPaid })}
+                          className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant"
+                          title="Atualizar Status"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">
+                            {t.isPaid ? 'undo' : 'check_circle'}
+                          </span>
+                        </button>
+
+                        <button
+                          onClick={() => setAttachTx(t)}
+                          className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant relative"
+                          title="Anexos"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">attach_file</span>
+                          {t.attachments?.length > 0 && (
+                            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-primary text-[8px] text-white rounded-full flex items-center justify-center font-bold">
+                              {t.attachments.length}
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => { if (confirm('Remover este lançamento?')) deleteMutation.mutate(t.id); }}
+                          className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-error"
+                          title="Excluir"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-[10px] text-outline-variant font-bold tracking-widest uppercase">DEMO</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Mobile Pagination */}
         {data && data.pages > 1 && (
-          <div className="px-5 py-3 border-t border-base flex items-center justify-between text-sm text-muted">
-            <span>Página {data.page} de {data.pages} · {data.total} total</span>
+          <div className="flex justify-between items-center pt-2">
+            <span className="text-xs text-on-surface-variant">Pág. {data.page} de {data.pages}</span>
             <div className="flex gap-2">
-              <button onClick={() => setFilters((f: any) => ({ ...f, page: f.page - 1 }))} disabled={data.page === 1}
-                className="px-3 py-1 rounded border border-md disabled:opacity-40 hover:bg-card-hover">Anterior</button>
-              <button onClick={() => setFilters((f: any) => ({ ...f, page: f.page + 1 }))} disabled={data.page === data.pages}
-                className="px-3 py-1 rounded border border-md disabled:opacity-40 hover:bg-card-hover">Próxima</button>
+              <button 
+                onClick={() => setFilters((f: any) => ({ ...f, page: f.page - 1 }))} 
+                disabled={data.page === 1}
+                className="px-3 py-1 bg-surface-container-lowest border border-outline-variant text-xs font-semibold rounded disabled:opacity-40 text-on-surface-variant"
+              >
+                Anterior
+              </button>
+              <button 
+                onClick={() => setFilters((f: any) => ({ ...f, page: f.page + 1 }))} 
+                disabled={data.page === data.pages}
+                className="px-3 py-1 bg-surface-container-lowest border border-outline-variant text-xs font-semibold rounded disabled:opacity-40 text-on-surface-variant"
+              >
+                Próxima
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Modal Novo Lançamento */}
+      {/* ─── MODAL: NOVO LANÇAMENTO (Based on Stitch 'novo_lanamento') ─── */}
       {showForm && (
         <Modal title="Novo Lançamento" onClose={() => setShowForm(false)}>
-          <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
-            {/* Tipo */}
-            <div className="flex gap-2">
-              {(['EXPENSE', 'INCOME', 'TRANSFER'] as const).map((t) => (
-                <label key={t} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border-2 cursor-pointer text-sm font-medium transition-colors
-                  ${transactionType === t ? (t === 'INCOME' ? 'border-[#006c49] bg-[#006c49]/5 text-[#006c49]' : t === 'EXPENSE' ? 'border-red-500 bg-red-500/5 text-red-500' : 'border-blue-500 bg-blue-500/5 text-blue-500') : 'border-md text-muted hover:border-md'}`}>
-                  <input type="radio" {...register('type')} value={t} className="sr-only" />
-                  <span className="material-symbols-outlined text-[16px]">{t === 'INCOME' ? 'arrow_downward' : t === 'EXPENSE' ? 'arrow_upward' : 'sync_alt'}</span>
-                  {TYPE_LABELS[t]}
-                </label>
-              ))}
+          <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="space-y-6">
+            {/* Transaction Type Radio Selector */}
+            <div className="flex flex-col gap-xs">
+              <label className="font-label-sm text-[10px] text-outline tracking-wider uppercase font-bold">TIPO DE TRANSAÇÃO</label>
+              <div className="inline-flex p-1 bg-surface-container-low rounded-lg w-full">
+                {(['EXPENSE', 'INCOME', 'TRANSFER'] as const).map((t) => {
+                  const isActive = transactionType === t;
+                  let colorClass = 'text-primary';
+                  let icon = 'sync_alt';
+                  let label = 'Transferência';
+                  
+                  if (t === 'EXPENSE') {
+                    colorClass = 'text-error';
+                    icon = 'arrow_circle_down';
+                    label = 'Despesa';
+                  } else if (t === 'INCOME') {
+                    colorClass = 'text-secondary';
+                    icon = 'arrow_circle_up';
+                    label = 'Receita';
+                  }
+                  
+                  return (
+                    <label 
+                      key={t} 
+                      className={cn(
+                        "flex-grow flex-1 flex items-center justify-center gap-xs py-2 rounded-lg cursor-pointer transition-all text-xs font-bold select-none",
+                        isActive ? 'bg-primary text-white shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'
+                      )}
+                    >
+                      <input 
+                        type="radio" 
+                        {...register('type')} 
+                        value={t} 
+                        className="sr-only" 
+                        onChange={() => {
+                          setValue('type', t);
+                          setValue('categoryId', '');
+                          setValue('accountId', '');
+                          setValue('toAccountId', '');
+                          setValue('cardId', '');
+                        }}
+                      />
+                      <span className={cn("material-symbols-outlined text-[16px]", isActive ? 'text-white' : colorClass)}>{icon}</span>
+                      {label}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-medium text-muted block mb-1">Valor (R$) *</label>
-                <input type="number" step="0.01" min="0.01" {...register('amount')} placeholder="0,00"
-                  className="w-full border border-md rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Value Input */}
+              <div className="md:col-span-2 flex flex-col gap-xs">
+                <label className="font-label-sm text-[10px] text-outline uppercase font-bold" htmlFor="form-val">VALOR *</label>
+                <div className="relative">
+                  <Controller
+                    control={control}
+                    name="amount"
+                    render={({ field }) => (
+                      <CurrencyInput
+                        id="form-val"
+                        required
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="w-full px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-numeric text-headline-md outline-none transition-all"
+                      />
+                    )}
+                  />
+                </div>
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted block mb-1">Data *</label>
-                <input type="date" {...register('date')} defaultValue={new Date().toISOString().slice(0, 10)}
-                  className="w-full border border-md rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]" />
+
+              {/* Description */}
+              <div className="md:col-span-2 flex flex-col gap-xs">
+                <label className="font-label-sm text-[10px] text-outline uppercase font-bold" htmlFor="form-desc">DESCRIÇÃO</label>
+                <input 
+                  type="text" 
+                  id="form-desc" 
+                  {...register('description')} 
+                  placeholder="Ex: Supermercado Mensal" 
+                  className="w-full px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all text-sm"
+                />
               </div>
-              <div className="col-span-2">
-                <label className="text-xs font-medium text-muted block mb-1">Descrição</label>
-                <input {...register('description')} placeholder="Ex: Compra no supermercado"
-                  className="w-full border border-md rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]" />
+
+              {/* Category */}
+              {transactionType !== 'TRANSFER' && (
+                <div className="flex flex-col gap-xs">
+                  <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CATEGORIA</label>
+                  <div className="relative">
+                    <select 
+                      {...register('categoryId')} 
+                      className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                    >
+                      <option value="">Sem categoria</option>
+                      {(categories as any[]).filter((c: any) => c.type === transactionType).map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Date */}
+              <div className={cn("flex flex-col gap-xs", transactionType === 'TRANSFER' ? 'md:col-span-2' : '')}>
+                <label className="font-label-sm text-[10px] text-outline uppercase font-bold">DATA *</label>
+                <input 
+                  type="date" 
+                  required 
+                  {...register('date')} 
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                  className="w-full px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all text-sm"
+                />
               </div>
-              <div>
-                <label className="text-xs font-medium text-muted block mb-1">Categoria</label>
-                <select {...register('categoryId')} className="w-full border border-md rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]">
-                  <option value="">Sem categoria</option>
-                  {(categories as any[]).filter((c: any) => c.type === transactionType || transactionType === 'TRANSFER').map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted block mb-1">
-                  {transactionType === 'TRANSFER' ? 'Conta origem' : 'Conta'}
+
+              {/* Account / Credit Card */}
+              <div className="flex flex-col gap-xs">
+                <label className="font-label-sm text-[10px] text-outline uppercase font-bold">
+                  {transactionType === 'TRANSFER' ? 'CONTA ORIGEM *' : 'CONTA *'}
                 </label>
-                <select {...register('accountId')} className="w-full border border-md rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]">
-                  <option value="">Selecionar conta</option>
-                  {(accounts as any[]).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-              </div>
-              {transactionType === 'TRANSFER' && (
-                <div>
-                  <label className="text-xs font-medium text-muted block mb-1">Conta destino</label>
-                  <select {...register('toAccountId')} className="w-full border border-md rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]">
+                <div className="relative">
+                  <select 
+                    required 
+                    {...register('accountId')} 
+                    className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                  >
                     <option value="">Selecionar conta</option>
-                    {(accounts as any[]).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    {(displayAccountsSelect as any[]).map((a: any) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
                   </select>
+                  <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">account_balance</span>
+                </div>
+              </div>
+
+              {/* Conditional: To Account for Transfer */}
+              {transactionType === 'TRANSFER' && (
+                <div className="flex flex-col gap-xs">
+                  <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CONTA DESTINO *</label>
+                  <div className="relative">
+                    <select 
+                      required 
+                      {...register('toAccountId')} 
+                      className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                    >
+                      <option value="">Selecionar conta</option>
+                      {(displayAccountsSelect as any[]).map((a: any) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">account_balance</span>
+                  </div>
                 </div>
               )}
+
+              {/* Conditional: Card for Expense */}
               {transactionType === 'EXPENSE' && (
-                <div>
-                  <label className="text-xs font-medium text-muted block mb-1">Cartão</label>
-                  <select {...register('cardId')} className="w-full border border-md rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]">
-                    <option value="">Nenhum</option>
-                    {(cards as any[]).map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
+                <div className="flex flex-col gap-xs">
+                  <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CARTÃO DE CRÉDITO</label>
+                  <div className="relative">
+                    <select 
+                      {...register('cardId')} 
+                      className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                    >
+                      <option value="">Nenhum (Debitado da conta)</option>
+                      {(displayCardsSelect as any[]).map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">credit_card</span>
+                  </div>
                 </div>
               )}
-              <div className="col-span-2 flex items-center gap-3">
-                <label className="flex items-center gap-2 text-sm text-muted cursor-pointer">
-                  <input type="checkbox" {...register('isPaid')} defaultChecked={true} className="rounded border-md text-[#031632] focus:ring-[#031632]" />
-                  Lançamento já efetivado
-                </label>
+
+              {/* Status Radio options */}
+              <div className="md:col-span-2 flex flex-col gap-xs pt-2">
+                <label className="font-label-sm text-[10px] text-outline uppercase font-bold">STATUS</label>
+                <div className="flex items-center gap-md h-10">
+                  <label className="flex items-center gap-xs cursor-pointer group text-sm">
+                    <input 
+                      type="radio" 
+                      value="true"
+                      defaultChecked={true}
+                      {...register('isPaid')} 
+                      className="w-4 h-4 text-secondary focus:ring-secondary border-outline-variant bg-surface-container-lowest" 
+                    />
+                    <span className="text-on-surface-variant group-hover:text-secondary transition-colors font-medium">
+                      {transactionType === 'INCOME' ? 'Recebido' : 'Pago / Efetivado'}
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-xs cursor-pointer group text-sm">
+                    <input 
+                      type="radio" 
+                      value="false"
+                      {...register('isPaid')} 
+                      className="w-4 h-4 text-primary focus:ring-primary border-outline-variant bg-surface-container-lowest" 
+                    />
+                    <span className="text-on-surface-variant group-hover:text-primary transition-colors font-medium">Pendente</span>
+                  </label>
+                </div>
               </div>
             </div>
 
-            <div className="flex gap-3 justify-end pt-2 border-t border-base">
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm border border-md rounded-lg text-muted hover:bg-card-hover">Cancelar</button>
-              <button type="submit" disabled={createMutation.isPending}
-                className="px-4 py-2 text-sm bg-[#031632] text-white rounded-lg hover:bg-[#0a2550] disabled:opacity-60">
-                {createMutation.isPending ? 'Salvando...' : 'Salvar lançamento'}
+            {/* Actions */}
+            <div className="pt-4 flex items-center justify-end gap-md border-t border-outline-variant">
+              <button 
+                type="button" 
+                onClick={() => setShowForm(false)} 
+                className="px-5 py-2.5 rounded-lg border border-outline-variant font-label-sm text-xs font-bold text-on-surface-variant hover:bg-surface-container-low transition-all active:scale-[0.98]"
+              >
+                CANCELAR
+              </button>
+              <button 
+                type="submit" 
+                disabled={createMutation.isPending}
+                className="px-5 py-2.5 rounded-lg bg-primary text-on-primary font-label-sm text-xs font-bold hover:opacity-90 shadow-md transition-all active:scale-[0.98] disabled:opacity-60"
+              >
+                {createMutation.isPending ? 'SALVANDO...' : 'SALVAR LANÇAMENTO'}
               </button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* Modal Import */}
+      {/* ─── MODAL: IMPORTAR EXTRATO (For Mobile) ─── */}
       {showImport && (
-        <Modal title="Importar Extrato" onClose={() => { setShowImport(false); setImportResult(null); setImportFormat('csv'); }}>
-          <div className="space-y-5">
-            {/* Format tabs */}
-            <div className="flex gap-1 bg-subtle p-1 rounded-lg">
-              {(['csv', 'ofx'] as const).map((fmt) => (
-                <button key={fmt} onClick={() => { setImportFormat(fmt); setImportResult(null); }}
-                  className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-colors ${importFormat === fmt ? 'bg-card text-base shadow-sm' : 'text-muted hover:text-base'}`}>
-                  {fmt === 'csv' ? 'CSV' : 'OFX / OFC'}
-                </button>
-              ))}
-            </div>
-
-            <div className="bg-blue-500/10 rounded-lg p-4 text-sm text-blue-400">
-              <p className="font-medium mb-1">{importFormat === 'csv' ? 'Formatos CSV suportados' : 'Arquivos OFX suportados'}</p>
-              {importFormat === 'csv' ? (
-                <ul className="list-disc list-inside space-y-1 text-blue-400/80 text-xs">
-                  <li>CSV com colunas: Data, Descrição, Valor (separado por ; ou ,)</li>
-                  <li>CSV com colunas separadas de Crédito e Débito</li>
-                  <li>Exportações de Nubank, Itaú, Bradesco, Inter, XP e outros</li>
-                  <li>Datas nos formatos DD/MM/AAAA ou AAAA-MM-DD</li>
-                </ul>
-              ) : (
-                <ul className="list-disc list-inside space-y-1 text-blue-400/80 text-xs">
-                  <li>Arquivos .ofx e .ofc (Open Financial Exchange)</li>
-                  <li>Exportações de internet banking da maioria dos bancos</li>
-                  <li>Deduplicação automática por FITID</li>
-                  <li>Importação de extratos de conta corrente e poupança</li>
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-muted block mb-1">Vincular lançamentos à conta</label>
-              <select value={importAccountId} onChange={(e) => setImportAccountId(e.target.value)}
-                className="w-full border border-md rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#031632]">
-                <option value="">Sem conta específica</option>
-                {(accounts as any[]).map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
-            </div>
-
-            {!importResult ? (
-              <div>
-                <input ref={importFileRef} type="file" accept=".csv" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) importMutation.mutate(f); }} />
-                <input ref={importOfxFileRef} type="file" accept=".ofx,.ofc" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) importOfxMutation.mutate(f); }} />
-                <button
-                  onClick={() => importFormat === 'csv' ? importFileRef.current?.click() : importOfxFileRef.current?.click()}
-                  disabled={importMutation.isPending || importOfxMutation.isPending}
-                  className="w-full border-2 border-dashed border-md rounded-xl py-8 text-muted hover:border-[#031632]/30 hover:bg-card-hover transition-colors flex flex-col items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-4xl text-placeholder">upload_file</span>
-                  <span className="text-sm font-medium">
-                    {importMutation.isPending || importOfxMutation.isPending
-                      ? 'Importando...'
-                      : `Clique para selecionar o arquivo ${importFormat.toUpperCase()}`}
-                  </span>
-                  <span className="text-xs text-placeholder">Máximo 5 MB</span>
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className={`rounded-xl p-4 ${importResult.imported > 0 ? 'bg-[#006c49]/5 border border-[#006c49]/20' : 'bg-red-500/10 border border-red-500/20'}`}>
-                  <div className="flex items-center gap-3">
-                    <span className={`material-symbols-outlined text-2xl ${importResult.imported > 0 ? 'text-[#006c49]' : 'text-red-500'}`}>
-                      {importResult.imported > 0 ? 'check_circle' : 'error'}
-                    </span>
-                    <div>
-                      <p className="font-semibold text-base">{importResult.imported} lançamentos importados</p>
-                      {importResult.errors > 0 && <p className="text-xs text-red-500">{importResult.errors} linhas ignoradas por erro de formato</p>}
-                    </div>
-                  </div>
-                </div>
-                {importResult.messages?.length > 0 && (
-                  <div className="text-xs text-muted space-y-1">
-                    {importResult.messages.map((m: string, i: number) => <p key={i}>{m}</p>)}
-                  </div>
-                )}
-                <button
-                  onClick={() => {
-                    setImportResult(null);
-                    if (importFileRef.current) importFileRef.current.value = '';
-                    if (importOfxFileRef.current) importOfxFileRef.current.value = '';
-                  }}
-                  className="text-sm text-muted hover:text-base underline"
-                >
-                  Importar outro arquivo
-                </button>
-              </div>
-            )}
-          </div>
+        <Modal title="Importar Extrato" onClose={() => { setShowImport(false); setImportResult(null); }}>
+          <ImportPanel 
+            importFormat={importFormat}
+            setImportFormat={setImportFormat}
+            importAccountId={importAccountId}
+            setImportAccountId={setImportAccountId}
+            accounts={accounts}
+            importResult={importResult}
+            setImportResult={setImportResult}
+            importMutation={importMutation}
+            importOfxMutation={importOfxMutation}
+            importFileRef={importFileRef}
+            importOfxFileRef={importOfxFileRef}
+          />
         </Modal>
       )}
 
-      {/* Modal Anexos */}
+      {/* ─── MODAL: ANEXOS ─── */}
       {attachTx && (
         <Modal title="Anexos do Lançamento" onClose={() => setAttachTx(null)}>
           <div className="space-y-4">
-            <div className="bg-subtle rounded-lg p-3">
-              <p className="text-sm font-medium text-base">{attachTx.description || 'Lançamento'}</p>
-              <p className="text-xs text-muted mt-0.5">{formatDate(attachTx.date)} · {formatCurrency(Number(attachTx.amount))}</p>
+            <div className="bg-surface-container-low rounded-lg p-3">
+              <p className="text-sm font-semibold text-primary">{attachTx.description || 'Lançamento'}</p>
+              <p className="text-xs text-on-surface-variant mt-0.5">{formatDateLong(attachTx.date)} · {formatCurrency(Number(attachTx.amount))}</p>
             </div>
 
             {attachTx.attachments?.length > 0 ? (
@@ -512,16 +1237,16 @@ export default function TransactionsPage() {
                   const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(filename);
                   const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '');
                   return (
-                    <div key={url} className="flex items-center gap-3 p-2.5 bg-subtle rounded-lg">
-                      <span className="material-symbols-outlined text-[20px] text-muted">
+                    <div key={url} className="flex items-center gap-3 p-2.5 bg-surface-container rounded-lg">
+                      <span className="material-symbols-outlined text-[20px] text-on-surface-variant">
                         {isImage ? 'image' : 'description'}
                       </span>
                       <a href={`${apiBase}${url}`} target="_blank" rel="noopener noreferrer"
-                        className="flex-1 text-sm text-base hover:text-[#006c49] truncate transition-colors">
+                        className="flex-1 text-sm text-primary hover:text-secondary truncate transition-colors font-medium">
                         {filename}
                       </a>
                       <button onClick={() => removeAttachment.mutate({ id: attachTx.id, filename })}
-                        className="text-placeholder hover:text-red-500 transition-colors">
+                        className="text-placeholder hover:text-error transition-colors">
                         <span className="material-symbols-outlined text-[16px]">close</span>
                       </button>
                     </div>
@@ -529,16 +1254,26 @@ export default function TransactionsPage() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-placeholder text-center py-4">Nenhum anexo ainda.</p>
+              <p className="text-xs text-on-surface-variant text-center py-4 bg-surface-container-low rounded-lg">
+                Nenhum anexo ainda para este lançamento.
+              </p>
             )}
 
-            <input ref={attachFileRef} type="file" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAttachment.mutate({ id: attachTx.id, file: f }); }} />
-            <button onClick={() => attachFileRef.current?.click()} disabled={uploadAttachment.isPending}
-              className="w-full border-2 border-dashed border-md rounded-xl py-6 text-muted hover:bg-card-hover transition-colors flex flex-col items-center gap-1.5">
+            <input 
+              ref={attachFileRef} 
+              type="file" 
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAttachment.mutate({ id: attachTx.id, file: f }); }} 
+            />
+            
+            <button 
+              onClick={() => attachFileRef.current?.click()} 
+              disabled={uploadAttachment.isPending}
+              className="w-full border-2 border-dashed border-outline-variant rounded-xl py-6 text-on-surface-variant hover:bg-surface-container transition-colors flex flex-col items-center gap-1.5 cursor-pointer"
+            >
               <span className="material-symbols-outlined text-2xl text-placeholder">cloud_upload</span>
-              <span className="text-sm">{uploadAttachment.isPending ? 'Enviando...' : 'Clique para anexar arquivo'}</span>
-              <span className="text-xs text-placeholder">PDF, imagens, planilhas — máx 10 MB</span>
+              <span className="text-sm font-semibold">{uploadAttachment.isPending ? 'Enviando...' : 'Adicionar Anexo'}</span>
+              <span className="text-[10px] text-placeholder">PDF, imagens ou planilhas até 10 MB</span>
             </button>
           </div>
         </Modal>

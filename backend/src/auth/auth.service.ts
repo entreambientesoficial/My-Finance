@@ -47,7 +47,7 @@ export class AuthService {
           ...cat,
           householdId: household.id,
           isDefault: true,
-        })),
+        }) as any),
       });
 
       return newUser;
@@ -76,12 +76,18 @@ export class AuthService {
 
     if (!stored || stored.expiresAt < new Date()) {
       if (stored) {
-        await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+        try {
+          await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+        } catch {}
       }
       throw new UnauthorizedException('Refresh token inválido ou expirado');
     }
 
-    await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+    try {
+      await this.prisma.refreshToken.delete({ where: { id: stored.id } });
+    } catch {
+      throw new UnauthorizedException('Refresh token já utilizado ou expirado');
+    }
     return this.generateTokens(stored.user.id, stored.user.email);
   }
 

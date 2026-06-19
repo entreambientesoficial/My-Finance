@@ -19,8 +19,18 @@ export class TransactionsService {
   constructor(private prisma: PrismaService) {}
 
   async create(householdId: string, dto: CreateTransactionDto) {
+    const data: any = {
+      ...dto,
+      householdId,
+      date: new Date(dto.date),
+      categoryId: dto.categoryId || null,
+      accountId: dto.accountId || null,
+      toAccountId: dto.toAccountId || null,
+      cardId: dto.cardId || null,
+    };
+
     const transaction = await this.prisma.transaction.create({
-      data: { ...dto, householdId, date: new Date(dto.date) },
+      data,
       include: {
         category: { select: { id: true, name: true, color: true, icon: true } },
         account: { select: { id: true, name: true } },
@@ -101,11 +111,49 @@ export class TransactionsService {
   }
 
   async update(id: string, householdId: string, dto: Partial<CreateTransactionDto>) {
-    await this.findOne(id, householdId);
-    return this.prisma.transaction.update({
+    const oldTx = await this.findOne(id, householdId);
+    const data: any = {
+      ...dto,
+      ...(dto.date && { date: new Date(dto.date) }),
+      ...(dto.categoryId !== undefined && { categoryId: dto.categoryId || null }),
+      ...(dto.accountId !== undefined && { accountId: dto.accountId || null }),
+      ...(dto.toAccountId !== undefined && { toAccountId: dto.toAccountId || null }),
+      ...(dto.cardId !== undefined && { cardId: dto.cardId || null }),
+    };
+
+    const updatedTx = await this.prisma.transaction.update({
       where: { id },
-      data: { ...dto, ...(dto.date && { date: new Date(dto.date) }) },
+      data,
     });
+
+    if (dto.isPaid !== undefined && oldTx.isPaid !== (dto.isPaid === true)) {
+      const isMarkedPaid = dto.isPaid === true;
+      const amount = Number(oldTx.amount);
+      const accId = oldTx.accountId;
+      const toAccId = oldTx.toAccountId;
+
+      if (isMarkedPaid) {
+        if (oldTx.type === 'INCOME' && accId) {
+          await this.prisma.account.update({ where: { id: accId }, data: { balance: { increment: amount } } });
+        } else if (oldTx.type === 'EXPENSE' && accId) {
+          await this.prisma.account.update({ where: { id: accId }, data: { balance: { decrement: amount } } });
+        } else if (oldTx.type === 'TRANSFER' && accId && toAccId) {
+          await this.prisma.account.update({ where: { id: accId }, data: { balance: { decrement: amount } } });
+          await this.prisma.account.update({ where: { id: toAccId }, data: { balance: { increment: amount } } });
+        }
+      } else {
+        if (oldTx.type === 'INCOME' && accId) {
+          await this.prisma.account.update({ where: { id: accId }, data: { balance: { decrement: amount } } });
+        } else if (oldTx.type === 'EXPENSE' && accId) {
+          await this.prisma.account.update({ where: { id: accId }, data: { balance: { increment: amount } } });
+        } else if (oldTx.type === 'TRANSFER' && accId && toAccId) {
+          await this.prisma.account.update({ where: { id: accId }, data: { balance: { increment: amount } } });
+          await this.prisma.account.update({ where: { id: toAccId }, data: { balance: { decrement: amount } } });
+        }
+      }
+    }
+
+    return updatedTx;
   }
 
   async remove(id: string, householdId: string) {

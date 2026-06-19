@@ -1,6 +1,6 @@
 // Roteador e Controlador Dinâmico do Dev Shell
 
-const PATH_PREFIX = '/stitch_smart_home_finance_pro/stitch_smart_home_finance_pro';
+const PATH_PREFIX = '/stitch_smart_home_finance_pro';
 
 // Mapeamento das rotas para os arquivos HTML correspondentes
 const ROUTES = {

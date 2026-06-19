@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-05-28
+> Atualizado em: 2026-06-19
 > Stack: NestJS + Next.js 14 + PostgreSQL (Supabase) + Prisma
 
 ---
@@ -326,6 +326,23 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ---
 
 ## Log de Alterações
+
+### 2026-06-19 — Melhorias de UX/UI, Máscaras de Valor e Painel Dinâmico
+- **Máscara Monetária Sequencial:** Implementado o componente `<CurrencyInput />` com formatação em tempo real (`R$ 0,00` com preenchimento da direita para a esquerda) nos inputs de valor em todas as telas e modais (Contas, Cartões, Transações, Investimentos, Metas e Orçamentos).
+- **Rebranding para MY-FINANCE:** Ajustado logotipo do menu lateral e cabeçalho de "Capital Flow (Residential Finance)" para "My-Finance (Gestão Financeira)".
+- **Limpeza do Cabeçalho e Theme Toggle:** Removido ícone estático de calendário e seletor "BRL", introduzindo o componente `<ThemeToggle />` para alternar dinamicamente os temas claro e escuro.
+- **Notificações Interativas:** Implementado dropdown de notificações dinâmico no cabeçalho superior que busca contas a vencer reais nos próximos 15 dias via `/reports/upcoming-bills?daysAhead=15`.
+- **Cálculo Dinâmico de Cards no Dashboard:** Reformulada a lógica de cálculo dos cards:
+  - *Caixa:* Somatório de contas `CHECKING` e `CASH` (sem "cofrinho" ou "reserva" no nome).
+  - *Reserva de Emergência:* Somatório de contas `SAVINGS` + contas/investimentos com "cofrinho" ou "reserva" no nome.
+  - *Investimentos:* Somatório de contas `INVESTMENT` + ativos da carteira sem esses termos.
+- **Empty States Reais no Dashboard:** Removidos mocks rígidos em transações, contas e gráficos. O gráfico de Fluxo de Caixa agora exibe uma mensagem amigável caso não haja dados no período.
+- **Insight Inteligente Dinâmico:** Bloco de insights avalia as finanças em tempo real (saldo baixo, incentivo à reserva e incentivo a investimentos) baseado no saldo de Caixa, Reserva e faturas pendentes.
+- **Melhorias na Tela de Transações:**
+  - *Redução de Padding na Tabela:* Padding reduzido de `px-lg` para `px-md lg:px-sm` para evitar clipping horizontal e expor a coluna **Ações** (excluir, anexo, status de pagamento) em resoluções de notebook.
+  - *Acessibilidade do Theme no Card de Resumo:* Ajustado background do card de resumo de transações para `bg-primary dark:bg-primary-container`, mantendo legibilidade ideal com fontes brancas em ambos os temas.
+  - *Feedback de Importação:* Nome do arquivo selecionado exibido dinamicamente no progresso de importação.
+  - *Dicas OFX/Date Picker:* Inclusão de alerta contendo dicas para arquivos OFX (MS Money/Quicken) e estilo customizado nos inputs de filtro de data.
 
 ### 2026-05-28 — FASE 2 CONCLUÍDA (100%)
 **Entrega inicial (ainda em 2026-05-27/28):**
