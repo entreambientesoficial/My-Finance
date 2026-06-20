@@ -147,27 +147,44 @@ export default function InvestmentsPage() {
 
   const finalAllocation = allocationData;
 
-  // Dynamic evolution chart calculated relative to cost and current values
+  // Build real evolution chart from purchaseDates
   const getEvolutionData = () => {
-    if (displayTotalCurrent <= 0) return [];
-    
+    if (!hasRealInvestments) return [];
+
+    const allInvestments: any[] = portfolio.investments;
+    const now = new Date();
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    const currentMonthIdx = new Date().getMonth();
-    
-    const data = [];
-    const baseValue = displayTotalCost;
-    const gain = displayTotalCurrent - displayTotalCost;
-    
+
+    // Find earliest purchase date across all investments
+    const purchaseDates = allInvestments
+      .map((inv: any) => inv.purchaseDate ? new Date(inv.purchaseDate) : null)
+      .filter(Boolean) as Date[];
+
+    // Build the last 6 months as { year, month } pairs
+    const last6Months = [];
     for (let i = 5; i >= 0; i--) {
-      const idx = (currentMonthIdx - i + 12) % 12;
-      const progress = (5 - i) / 5; // 0 to 1
-      const val = baseValue + (gain * progress);
-      data.push({
-        label: months[idx],
-        value: Math.round(val * 100) / 100
-      });
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      last6Months.push({ year: d.getFullYear(), month: d.getMonth(), label: months[d.getMonth()] });
     }
-    return data;
+
+    // For each month slot, sum the current value of all investments
+    // whose purchaseDate is on or before the END of that month
+    return last6Months.map(({ year, month, label }) => {
+      const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59); // last moment of the month
+
+      const valueAtMonth = allInvestments.reduce((sum: number, inv: any) => {
+        const purchaseDate = inv.purchaseDate ? new Date(inv.purchaseDate) : null;
+
+        // Only count this investment if it was bought on or before end of month
+        if (!purchaseDate || purchaseDate > endOfMonth) return sum;
+
+        // Use current value (quantity × currentPrice) as a proxy for the position value
+        const current = Number(inv.quantity || 0) * Number(inv.currentPrice || inv.purchasePrice || 0);
+        return sum + current;
+      }, 0);
+
+      return { label, value: Math.round(valueAtMonth * 100) / 100 };
+    });
   };
 
   const displayEvolution = getEvolutionData();
