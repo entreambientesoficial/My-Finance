@@ -82,6 +82,7 @@ export default function RegisterPage() {
                 type="password"
                 {...register('password')}
                 placeholder="Mínimo 6 caracteres"
+                autoComplete="new-password"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#031632]/20 focus:border-[#031632]"
               />
               {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
@@ -94,6 +95,7 @@ export default function RegisterPage() {
               <input
                 {...register('householdName')}
                 placeholder="Ex: Família Silva"
+                autoComplete="off"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#031632]/20 focus:border-[#031632]"
               />
             </div>

@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-06-19
+> Atualizado em: 2026-06-20 (tarde)
 > Stack: NestJS + Next.js 14 + PostgreSQL (Supabase) + Prisma
 
 ---
@@ -19,8 +19,9 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 ---
 
 ## Próxima Etapa
-- [ ] Desenvolvimento e melhorias de UX/UI na tela: **Relatórios**
-- [ ] Revisar comportamento de Categorias & Subcategorias na tela de **Transações**
+- [x] Desenvolvimento e melhorias de UX/UI na tela: **Relatórios**
+- [x] Revisar comportamento de Categorias & Subcategorias na tela de **Transações**
+- [x] Refatorar e aprimorar a tela de **Configurações** (Perfil, Família e Categorias)
 
 ---
 
@@ -332,6 +333,32 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ---
 
 ## Log de Alterações
+
+### 2026-06-20 (Tarde) — UX de Categorias, Gráfico de Caixa e Correções de Configurações
+
+#### 🗂️ Tela de Configurações — Categorias
+- **Editar e Excluir TUDO:** Removidas as restrições que impediam editar/excluir categorias e subcategorias padrão (`isDefault`). Agora todos os itens da lista possuem botões de editar (✏️) e excluir (🗑️) visíveis ao passar o mouse, incluindo as categorias que vêm pré-cadastradas no sistema.
+- **Formulário unificado de criação/edição:** O mesmo formulário é reutilizado para criação e edição. O título muda de "Nova Categoria" para "Editar Categoria" quando há uma categoria sendo editada. O botão de submissão alterna entre "Criar" e "Salvar". O botão "Cancelar" limpa o estado de edição corretamente.
+- **Subcategorias colapsáveis:** As subcategorias deixaram de ficar sempre abertas. Agora ficam ocultas por padrão e expandem ao clicar na linha da categoria pai. Uma seta animada (`▼`/`▲`) indica visualmente o estado de expansão. Categorias sem subcategorias não são clicáveis.
+- **Ordenação alfabética:** Categorias principais e subcategorias são agora ordenadas alfabeticamente (A→Z) usando `localeCompare` com suporte ao português (acentos e cedilha tratados corretamente).
+- **Paleta de cores corrigida:** Adicionada constante `COLORS` que estava ausente no componente, prevenindo erro de renderização do seletor de cores no formulário de categoria.
+
+#### 📊 Dashboard — Gráfico Fluxo de Caixa
+- **Labels em português:** As labels do tooltip do gráfico Recharts foram traduzidas de `income`/`expense` para **Receitas**/**Despesas**.
+- **Cores por tipo:** Barra de **Receitas** agora exibe em **verde** (`#10b981`) e barra de **Despesas** em **vermelho** (`#ef4444`), tanto no gráfico desktop (Recharts) quanto no gráfico mobile (barras CSS manuais).
+- **Legenda atualizada:** Os pontos coloridos e valores da legenda "Média de Receitas" e "Média de Despesas" abaixo do gráfico também foram atualizados para refletir as novas cores (verde e vermelho respectivamente).
+
+#### 🔐 Segurança e Sidebar
+- **Senha não aparece mais na sidebar:** Adicionado `autoComplete="off"` no campo de nome da família e `autoComplete="new-password"` nos campos de senha, impedindo que gerenciadores de senhas do navegador preencham dados incorretos no sidebar.
+- **Sidebar em ordem alfabética:** Itens de navegação reorganizados com Dashboard sempre primeiro, seguido dos demais em ordem alfabética: Contas & Cartões → Investimentos → Metas → Orçamentos → Relatórios → Transações.
+- **Avatar funcional:** Adicionado helper `getAvatarUrl` que resolve URLs relativas (`/uploads/...`) para o endereço absoluto do backend (`http://localhost:3001/...`), corrigindo a exibição de fotos de perfil carregadas localmente. Configurado `crossOriginResourcePolicy: false` no Helmet do backend para permitir que o frontend acesse as imagens estáticas servidas pelo backend.
+
+### 2026-06-20 — Refatoração de Configurações, Upload de Fotos e Alteração de Senha
+
+- **Configurações Geral:** Migração de cores azuis hardcoded para as variáveis semânticas do Design System, garantindo suporte perfeito e contraste adequado tanto em Light quanto em Dark Mode.
+- **Perfil do Usuário:** Adicionado formulário de alteração de senha seguro (com criptografia bcrypt e validações frontend/backend). Criado sistema de upload local de fotos de perfil com Multer no backend, resolvendo a limitação de links externos (como Instagram) devido a bloqueios de CORS/CORP.
+- **Família:** Badge "(Você)" adicionada ao usuário logado na listagem de membros, e cards com estilo glassmorphic responsivo. Configurada diretiva `autoComplete` no nome da família para evitar preenchimento de senhas acidental pelos navegadores.
+- **Categorias:** Adicionado suporte à hierarquia de subcategorias na aba de gerenciamento, permitindo listar subcategorias de forma identada/aninhada e criá-las diretamente associando um "Categoria Pai" no formulário. Adicionadas subcategorias "Cinema" e "Teatro" sob a categoria principal "Lazer".
 
 ### 2026-06-19 (Tarde) — Refatoração de Contas, Orçamentos, Metas, Investimentos, Edição de Transações e Subcategorias
 - **Contas & Cartões:** Substituição de imagens externas do banner "Cofres Familiares" por gradientes CSS offline, correção do cálculo de fatura atual zerada, e integração de modal de Aportes com saldos de contas reais e criação de transações.

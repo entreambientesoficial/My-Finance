@@ -11,6 +11,7 @@ async function bootstrap() {
 
   app.use(helmet({
     contentSecurityPolicy: false,
+    crossOriginResourcePolicy: false,
   }));
 
   app.enableCors({
@@ -41,5 +42,7 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`🚀 Backend rodando em http://localhost:${port}`);
   console.log(`📚 Swagger em http://localhost:${port}/api/docs`);
+  console.log('DEBUG process.cwd():', process.cwd());
+  console.log('DEBUG Static assets path:', join(process.cwd(), 'uploads'));
 }
 bootstrap();

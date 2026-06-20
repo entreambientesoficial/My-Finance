@@ -8,14 +8,20 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
+const getAvatarUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `http://localhost:3001${url}`;
+};
+
 const navItems = [
   { href: '/dashboard',    icon: 'dashboard',        label: 'Dashboard'        },
   { href: '/accounts',     icon: 'account_balance',  label: 'Contas & Cartões' },
-  { href: '/transactions', icon: 'receipt_long',     label: 'Transações'       },
-  { href: '/budgets',      icon: 'pie_chart',        label: 'Orçamento'        },
-  { href: '/goals',        icon: 'flag',             label: 'Metas'            },
   { href: '/investments',  icon: 'trending_up',      label: 'Investimentos'    },
+  { href: '/goals',        icon: 'flag',             label: 'Metas'            },
+  { href: '/budgets',      icon: 'pie_chart',        label: 'Orçamento'        },
   { href: '/reports',      icon: 'bar_chart',        label: 'Relatórios'       },
+  { href: '/transactions', icon: 'receipt_long',     label: 'Transações'       },
 ];
 
 interface SidebarProps {
@@ -104,7 +110,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
             <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
               {me.avatarUrl
-                ? <img src={me.avatarUrl} alt={me.name} className="w-full h-full object-cover" />
+                ? <img src={getAvatarUrl(me.avatarUrl)} alt={me.name} className="w-full h-full object-cover" />
                 : me.name?.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">

@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  async getCashFlow(householdId: string, months: number = 6) {
+  async getCashFlow(householdId: string, months: number = 6, accountId?: string) {
     const result = [];
     const now = new Date();
 
@@ -14,13 +14,21 @@ export class ReportsService {
       const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
       const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
 
+      const whereIncome: any = { householdId, type: 'INCOME', isPaid: true, date: { gte: startDate, lte: endDate } };
+      const whereExpense: any = { householdId, type: 'EXPENSE', isPaid: true, date: { gte: startDate, lte: endDate } };
+
+      if (accountId) {
+        whereIncome.accountId = accountId;
+        whereExpense.accountId = accountId;
+      }
+
       const [income, expenses] = await Promise.all([
         this.prisma.transaction.aggregate({
-          where: { householdId, type: 'INCOME', isPaid: true, date: { gte: startDate, lte: endDate } },
+          where: whereIncome,
           _sum: { amount: true },
         }),
         this.prisma.transaction.aggregate({
-          where: { householdId, type: 'EXPENSE', isPaid: true, date: { gte: startDate, lte: endDate } },
+          where: whereExpense,
           _sum: { amount: true },
         }),
       ]);
@@ -37,17 +45,55 @@ export class ReportsService {
     return result;
   }
 
-  async getExpensesByCategory(householdId: string, month: number, year: number) {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+  async getExpensesByCategory(
+    householdId: string,
+    filters: { month?: number; year?: number; startDate?: string; endDate?: string; accountId?: string },
+  ) {
+    let startDate: Date;
+    let endDate: Date;
+
+    if (filters.startDate || filters.endDate) {
+      startDate = filters.startDate ? new Date(filters.startDate) : new Date('2000-01-01');
+      endDate = filters.endDate ? new Date(filters.endDate + 'T23:59:59') : new Date('2100-12-31');
+    } else {
+      const month = filters.month || new Date().getMonth() + 1;
+      const year = filters.year || new Date().getFullYear();
+      startDate = new Date(year, month - 1, 1);
+      endDate = new Date(year, month, 0, 23, 59, 59);
+    }
+
+    const whereClause: any = {
+      householdId,
+      type: 'EXPENSE',
+      isPaid: true,
+      date: { gte: startDate, lte: endDate },
+    };
+
+    if (filters.accountId) {
+      whereClause.accountId = filters.accountId;
+    }
 
     const transactions = await this.prisma.transaction.findMany({
-      where: { householdId, type: 'EXPENSE', isPaid: true, date: { gte: startDate, lte: endDate } },
+      where: whereClause,
       include: { category: { select: { name: true, color: true, icon: true } } },
     });
 
+    const isCardPaymentOrTransfer = (desc: string) => {
+      const d = desc.toLowerCase();
+      return (
+        d.includes('fatura de cartao') ||
+        d.includes('fatura de cartão') ||
+        d.includes('pagamento de fatura') ||
+        d.includes('pagamento de cartão') ||
+        d.includes('pagamento do cartão')
+      );
+    };
+
     const byCategory: Record<string, any> = {};
     for (const t of transactions) {
+      if (isCardPaymentOrTransfer(t.description || '')) {
+        continue; // Exclude credit card bill payments from categories to avoid double counting
+      }
       const key = t.categoryId || '__sem_categoria';
       if (!byCategory[key]) {
         byCategory[key] = {

@@ -110,6 +110,40 @@ function EditTransactionModal({
 
   const transactionType = watch('type');
 
+  // Find initial parent and child IDs
+  const initialCategoryId = transaction.categoryId || '';
+  let initialParentId = '';
+  let initialSubId = '';
+
+  if (initialCategoryId) {
+    const parent = categories.find((c: any) => 
+      c.id === initialCategoryId || c.children?.some((child: any) => child.id === initialCategoryId)
+    );
+    if (parent) {
+      initialParentId = parent.id;
+      if (parent.id !== initialCategoryId) {
+        initialSubId = initialCategoryId;
+      }
+    }
+  }
+
+  const [selectedParentId, setSelectedParentId] = useState(initialParentId);
+  const [selectedSubId, setSelectedSubId] = useState(initialSubId);
+
+  // Handlers for category / subcategory change
+  const handleParentCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const parentId = e.target.value;
+    setSelectedParentId(parentId);
+    setSelectedSubId('');
+    setValue('categoryId', parentId); // default to parent if no sub is selected
+  };
+
+  const handleSubCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const subId = e.target.value;
+    setSelectedSubId(subId);
+    setValue('categoryId', subId || selectedParentId); // if sub is empty, use parent
+  };
+
   const displayAccountsSelect = accounts.length > 0 ? accounts : [
     { id: 'checking', name: 'Chase Platinum' },
     { id: 'savings', name: 'Goldman Sachs' }
@@ -158,6 +192,8 @@ function EditTransactionModal({
                     onChange={() => {
                       setValue('type', t);
                       setValue('categoryId', '');
+                      setSelectedParentId('');
+                      setSelectedSubId('');
                       setValue('accountId', '');
                       setValue('toAccountId', '');
                       setValue('cardId', '');
@@ -204,28 +240,46 @@ function EditTransactionModal({
             />
           </div>
 
-          {/* Category */}
+          {/* Category & Subcategory */}
           {transactionType !== 'TRANSFER' && (
-            <div className="flex flex-col gap-xs">
-              <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CATEGORIA</label>
-              <div className="relative">
-                <select 
-                  {...register('categoryId')} 
-                  className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
-                >
-                  <option value="">Sem categoria</option>
-                  {(categories as any[]).filter((c: any) => c.type === transactionType).map((c: any) => (
-                    <optgroup label={c.name} key={c.id}>
-                      <option value={c.id}>{c.name} (Geral)</option>
-                      {c.children?.map((child: any) => (
+            <>
+              <div className="flex flex-col gap-xs">
+                <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CATEGORIA</label>
+                <div className="relative">
+                  <select 
+                    value={selectedParentId}
+                    onChange={handleParentCategoryChange}
+                    className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                  >
+                    <option value="">Sem categoria</option>
+                    {(categories as any[]).filter((c: any) => c.type === transactionType).map((c: any) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-xs">
+                <label className="font-label-sm text-[10px] text-outline uppercase font-bold">SUBCATEGORIA</label>
+                <div className="relative">
+                  <select 
+                    value={selectedSubId}
+                    onChange={handleSubCategoryChange}
+                    disabled={!selectedParentId}
+                    className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">Geral / Nenhuma</option>
+                    {selectedParentId && categories
+                      .find((c: any) => c.id === selectedParentId)
+                      ?.children?.map((child: any) => (
                         <option key={child.id} value={child.id}>{child.name}</option>
                       ))}
-                    </optgroup>
-                  ))}
-                </select>
-                <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
+                  </select>
+                  <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* Date */}
@@ -281,7 +335,7 @@ function EditTransactionModal({
 
           {/* Conditional: Card for Expense */}
           {transactionType === 'EXPENSE' && (
-            <div className="flex flex-col gap-xs">
+            <div className="flex flex-col gap-xs md:col-span-2">
               <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CARTÃO DE CRÉDITO</label>
               <div className="relative">
                 <select 
@@ -642,6 +696,22 @@ export default function TransactionsPage() {
   const { register, handleSubmit, reset, watch, setValue, control } = useForm<any>({ defaultValues: { type: 'EXPENSE', isPaid: true } });
   const transactionType = watch('type');
 
+  const [newSelectedParentId, setNewSelectedParentId] = useState('');
+  const [newSelectedSubId, setNewSelectedSubId] = useState('');
+
+  const handleNewParentCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const parentId = e.target.value;
+    setNewSelectedParentId(parentId);
+    setNewSelectedSubId('');
+    setValue('categoryId', parentId);
+  };
+
+  const handleNewSubCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const subId = e.target.value;
+    setNewSelectedSubId(subId);
+    setValue('categoryId', subId || newSelectedParentId);
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post('/transactions', { ...data, amount: Number(data.amount), isPaid: data.isPaid === 'true' || data.isPaid === true }),
     onSuccess: () => {
@@ -651,6 +721,8 @@ export default function TransactionsPage() {
       qc.invalidateQueries({ queryKey: ['household-summary'] });
       toast.success('Lançamento criado!');
       reset({ type: 'EXPENSE', isPaid: true });
+      setNewSelectedParentId('');
+      setNewSelectedSubId('');
       setShowForm(false);
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao criar'),
@@ -1314,6 +1386,8 @@ export default function TransactionsPage() {
                         onChange={() => {
                           setValue('type', t);
                           setValue('categoryId', '');
+                          setNewSelectedParentId('');
+                          setNewSelectedSubId('');
                           setValue('accountId', '');
                           setValue('toAccountId', '');
                           setValue('cardId', '');
@@ -1360,28 +1434,46 @@ export default function TransactionsPage() {
                 />
               </div>
 
-              {/* Category */}
+              {/* Category & Subcategory */}
               {transactionType !== 'TRANSFER' && (
-                <div className="flex flex-col gap-xs">
-                  <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CATEGORIA</label>
-                  <div className="relative">
-                    <select 
-                      {...register('categoryId')} 
-                      className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
-                    >
-                      <option value="">Sem categoria</option>
-                      {(categories as any[]).filter((c: any) => c.type === transactionType).map((c: any) => (
-                        <optgroup label={c.name} key={c.id}>
-                          <option value={c.id}>{c.name} (Geral)</option>
-                          {c.children?.map((child: any) => (
+                <>
+                  <div className="flex flex-col gap-xs">
+                    <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CATEGORIA</label>
+                    <div className="relative">
+                      <select 
+                        value={newSelectedParentId}
+                        onChange={handleNewParentCategoryChange}
+                        className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
+                      >
+                        <option value="">Sem categoria</option>
+                        {(categories as any[]).filter((c: any) => c.type === transactionType).map((c: any) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-xs">
+                    <label className="font-label-sm text-[10px] text-outline uppercase font-bold">SUBCATEGORIA</label>
+                    <div className="relative">
+                      <select 
+                        value={newSelectedSubId}
+                        onChange={handleNewSubCategoryChange}
+                        disabled={!newSelectedParentId}
+                        className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <option value="">Geral / Nenhuma</option>
+                        {newSelectedParentId && categories
+                          .find((c: any) => c.id === newSelectedParentId)
+                          ?.children?.map((child: any) => (
                             <option key={child.id} value={child.id}>{child.name}</option>
                           ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
+                      </select>
+                      <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">keyboard_arrow_down</span>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
               {/* Date */}
@@ -1438,7 +1530,7 @@ export default function TransactionsPage() {
 
               {/* Conditional: Card for Expense */}
               {transactionType === 'EXPENSE' && (
-                <div className="flex flex-col gap-xs">
+                <div className="flex flex-col gap-xs md:col-span-2">
                   <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CARTÃO DE CRÉDITO</label>
                   <div className="relative">
                     <select 

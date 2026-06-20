@@ -8,14 +8,20 @@ import { api } from '@/lib/api';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
+const getAvatarUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `http://localhost:3001${url}`;
+};
+
 const desktopNavItems = [
   { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
-  { href: '/transactions', icon: 'swap_horiz', label: 'Transações' },
   { href: '/accounts', icon: 'credit_card', label: 'Contas & Cartões' },
-  { href: '/budgets', icon: 'pie_chart', label: 'Orçamentos' },
-  { href: '/goals', icon: 'flag', label: 'Metas' },
   { href: '/investments', icon: 'monitoring', label: 'Investimentos' },
+  { href: '/goals', icon: 'flag', label: 'Metas' },
+  { href: '/budgets', icon: 'pie_chart', label: 'Orçamentos' },
   { href: '/reports', icon: 'bar_chart', label: 'Relatórios' },
+  { href: '/transactions', icon: 'swap_horiz', label: 'Transações' },
 ];
 
 const mobileNavItems = [
@@ -118,7 +124,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <img
                   alt="Foto do perfil"
                   className="w-10 h-10 rounded-full object-cover border border-outline-variant"
-                  src={me.avatarUrl}
+                  src={getAvatarUrl(me.avatarUrl)}
                 />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm">
@@ -214,7 +220,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <img
                 alt="Foto do perfil"
                 className="w-8 h-8 rounded-full object-cover border border-outline-variant"
-                src={me.avatarUrl}
+                src={getAvatarUrl(me.avatarUrl)}
               />
             ) : (
               <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-xs">

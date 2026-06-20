@@ -14,20 +14,37 @@ export class ReportsController {
   @Get('cash-flow')
   @ApiOperation({ summary: 'Fluxo de caixa dos últimos N meses' })
   @ApiQuery({ name: 'months', type: Number, required: false })
-  cashFlow(@Req() req, @Query('months') months?: number) {
-    return this.reportsService.getCashFlow(req.user.householdId, months && +months);
+  @ApiQuery({ name: 'accountId', type: String, required: false })
+  cashFlow(
+    @Req() req,
+    @Query('months') months?: number,
+    @Query('accountId') accountId?: string,
+  ) {
+    return this.reportsService.getCashFlow(req.user.householdId, months ? +months : 6, accountId);
   }
 
   @Get('expenses-by-category')
-  @ApiOperation({ summary: 'Despesas por categoria' })
-  @ApiQuery({ name: 'month', type: Number })
-  @ApiQuery({ name: 'year', type: Number })
+  @ApiOperation({ summary: 'Despesas por categoria com filtros' })
+  @ApiQuery({ name: 'month', type: Number, required: false })
+  @ApiQuery({ name: 'year', type: Number, required: false })
+  @ApiQuery({ name: 'startDate', type: String, required: false })
+  @ApiQuery({ name: 'endDate', type: String, required: false })
+  @ApiQuery({ name: 'accountId', type: String, required: false })
   expensesByCategory(
     @Req() req,
-    @Query('month') month: number,
-    @Query('year') year: number,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('accountId') accountId?: string,
   ) {
-    return this.reportsService.getExpensesByCategory(req.user.householdId, +month, +year);
+    return this.reportsService.getExpensesByCategory(req.user.householdId, {
+      month: month ? +month : undefined,
+      year: year ? +year : undefined,
+      startDate,
+      endDate,
+      accountId,
+    });
   }
 
   @Get('net-worth')

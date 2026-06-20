@@ -103,8 +103,8 @@ export default function DashboardPage() {
   const rechartsData = hasCashFlowData 
     ? cashFlow.map((flow: any) => ({
         label: (flow.label || flow.month || '').toUpperCase(),
-        income: flow.income,
-        expense: flow.expenses
+        Receitas: flow.income,
+        Despesas: flow.expenses
       }))
     : [];
 
@@ -299,9 +299,13 @@ export default function DashboardPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={rechartsData} barGap={4}>
                       <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--outline)' }} axisLine={false} tickLine={false} />
-                      <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)' }} />
-                      <Bar dataKey="income" fill="var(--primary)" fillOpacity={0.2} radius={[2, 2, 0, 0]} isAnimationActive={false} />
-                      <Bar dataKey="expense" fill="var(--primary)" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+                      <Tooltip
+                        formatter={(v: number, name: string) => [formatCurrency(v), name]}
+                        contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '12px' }}
+                        labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+                      />
+                      <Bar dataKey="Receitas" fill="#10b981" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                      <Bar dataKey="Despesas" fill="#ef4444" radius={[3, 3, 0, 0]} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -316,17 +320,17 @@ export default function DashboardPage() {
               <div className="space-y-md pt-lg border-t border-outline-variant/60 mt-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-xs">
-                    <span className="w-2 h-2 rounded-full bg-primary/30"></span>
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#10b981' }}></span>
                     <span className="font-body-md text-body-md text-on-surface-variant">Média de Receitas</span>
                   </div>
-                  <span className="font-numeric text-numeric-data text-primary">{formatCurrency(avgIncome)}</span>
+                  <span className="font-numeric text-numeric-data" style={{ color: '#10b981' }}>{formatCurrency(avgIncome)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-xs">
-                    <span className="w-2 h-2 rounded-full bg-primary"></span>
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }}></span>
                     <span className="font-body-md text-body-md text-on-surface-variant">Média de Despesas</span>
                   </div>
-                  <span className="font-numeric text-numeric-data text-primary">{formatCurrency(avgExpense)}</span>
+                  <span className="font-numeric text-numeric-data" style={{ color: '#ef4444' }}>{formatCurrency(avgExpense)}</span>
                 </div>
               </div>
             </div>
@@ -496,14 +500,14 @@ export default function DashboardPage() {
                   return (
                     <div key={idx} className="flex-1 flex gap-[2px] items-end h-full">
                       <div 
-                        className="flex-1 bg-primary/20 rounded-t-sm hover:bg-primary transition-all duration-300"
-                        style={{ height: incomeHeight }}
-                        title={`Receita: ${data.income}`}
+                        className="flex-1 rounded-t-sm hover:opacity-80 transition-all duration-300"
+                        style={{ height: incomeHeight, backgroundColor: '#10b981' }}
+                        title={`Receita: ${formatCurrency(data.Receitas)}`}
                       />
                       <div 
-                        className="flex-1 bg-primary rounded-t-sm transition-all duration-300"
-                        style={{ height: expenseHeight }}
-                        title={`Despesa: ${data.expense}`}
+                        className="flex-1 rounded-t-sm transition-all duration-300"
+                        style={{ height: expenseHeight, backgroundColor: '#ef4444' }}
+                        title={`Despesa: ${formatCurrency(data.Despesas)}`}
                       />
                     </div>
                   );

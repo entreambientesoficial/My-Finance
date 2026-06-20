@@ -21,7 +21,7 @@ const defaultSubcategories: Record<string, { type: TransactionType; icon?: strin
   },
   'Lazer': {
     type: 'EXPENSE',
-    sub: ['Viagens', 'Cinema / Shows', 'Streaming (Netflix, Spotify...)', 'Assinaturas & Jogos', 'Bares & Festas']
+    sub: ['Viagens', 'Cinema', 'Teatro', 'Shows', 'Streaming (Netflix, Spotify...)', 'Assinaturas & Jogos', 'Bares & Festas']
   },
   'Contas e Serviços': {
     type: 'EXPENSE',
