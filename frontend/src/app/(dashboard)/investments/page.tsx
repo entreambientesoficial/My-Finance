@@ -160,16 +160,16 @@ export default function InvestmentsPage() {
       .map((inv: any) => inv.purchaseDate ? new Date(inv.purchaseDate) : null)
       .filter(Boolean) as Date[];
 
-    // Build the last 6 months as { year, month } pairs
-    const last6Months = [];
-    for (let i = 5; i >= 0; i--) {
+    // Build the last 12 months as { year, month } pairs
+    const last12Months = [];
+    for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      last6Months.push({ year: d.getFullYear(), month: d.getMonth(), label: months[d.getMonth()] });
+      last12Months.push({ year: d.getFullYear(), month: d.getMonth(), label: months[d.getMonth()] });
     }
 
     // For each month slot, sum the current value of all investments
     // whose purchaseDate is on or before the END of that month
-    return last6Months.map(({ year, month, label }) => {
+    return last12Months.map(({ year, month, label }) => {
       const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59); // last moment of the month
 
       const valueAtMonth = allInvestments.reduce((sum: number, inv: any) => {
@@ -354,7 +354,7 @@ export default function InvestmentsPage() {
           <div className="lg:col-span-2 bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm h-[320px] flex flex-col justify-between text-left">
             <div className="flex justify-between items-center mb-lg">
               <h3 className="font-headline text-headline-md text-primary font-bold">Evolução do Patrimônio</h3>
-              <span className="text-xs bg-surface-container-high px-3 py-1 rounded-full font-bold uppercase text-primary">Últimos 6 meses</span>
+              <span className="text-xs bg-surface-container-high px-3 py-1 rounded-full font-bold uppercase text-primary">Últimos 12 meses</span>
             </div>
             
             <div className="flex-grow min-h-[180px] flex items-center justify-center">
