@@ -91,8 +91,10 @@ export class AuthService {
     return this.generateTokens(stored.user.id, stored.user.email);
   }
 
-  async logout(refreshToken: string) {
-    await this.prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+  async logout(refreshToken?: string) {
+    if (refreshToken) {
+      await this.prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+    }
   }
 
   async acceptInvite(token: string, name: string, password: string) {

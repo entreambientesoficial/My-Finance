@@ -11,7 +11,8 @@ import { ThemeToggle } from '@/components/ui/ThemeToggle';
 const getAvatarUrl = (url?: string) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `http://localhost:3001${url}`;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  return `${apiUrl}${url}`;
 };
 
 const desktopNavItems = [
@@ -42,9 +43,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     staleTime: 300_000,
   });
 
-  function logout() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+  async function logout() {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // ignora erro e redireciona de qualquer forma
+    }
     window.location.href = '/login';
   }
 

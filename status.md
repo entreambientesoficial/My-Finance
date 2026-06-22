@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-06-20 (tarde)
+> Atualizado em: 2026-06-22
 > Stack: NestJS + Next.js 14 + PostgreSQL (Supabase) + Prisma
 
 ---
@@ -22,6 +22,8 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 - [x] Desenvolvimento e melhorias de UX/UI na tela: **Relatórios**
 - [x] Revisar comportamento de Categorias & Subcategorias na tela de **Transações**
 - [x] Refatorar e aprimorar a tela de **Configurações** (Perfil, Família e Categorias)
+- [x] **Auditoria e hardening de segurança** (2026-06-22)
+- [ ] **Migração Backend → Next.js API Routes** para deploy tudo no Cloudflare Pages (zero custo)
 
 ---
 
@@ -189,15 +191,37 @@ MY-FINANCE/
 - [x] Dark mode funcional (CSS custom properties + tokens semânticos, sem dark: prefixes)
 - [x] Múltiplos usuários por household (convite por email, token 48h, aceite cria/vincula conta)
 
-### ⏳ FASE 3 — Produção
-- [ ] CI/CD (GitHub Actions)
-- [ ] Dockerfile backend + frontend
-- [ ] Deploy backend (Railway/Render)
-- [ ] Deploy frontend (Vercel)
-- [ ] Domínio + SSL
-- [ ] Monitoramento (Sentry)
-- [ ] Backup automático do banco
-- [ ] Rate limiting + Helmet (segurança)
+### ✅ FASE 3 — Segurança e Pré-Produção — CONCLUÍDO (2026-06-22)
+- [x] Auditoria completa de segurança
+- [x] Tokens migrados de `localStorage` → cookies `httpOnly` (proteção XSS)
+- [x] JWT access token TTL corrigido: `30d` → `15m`
+- [x] JWT refresh token TTL corrigido: `365d` → `7d`
+- [x] JWT secrets substituídos por strings criptograficamente fortes (128 chars)
+- [x] `cookie-parser` instalado; `JwtStrategy` lê de cookie ou Bearer header
+- [x] Rate limiting adicionado em `/auth/refresh` e `/auth/accept-invite`
+- [x] Complexidade de senha obrigatória no cadastro (maiúscula + número)
+- [x] `getAvatarUrl` corrigido em `layout.tsx` e `settings/page.tsx` (não hardcoda mais `localhost`)
+- [x] Logout chama `POST /auth/logout` para limpar cookies no servidor
+- [x] CI/CD corrigido: branch `main` → `master` (deploys nunca executavam)
+- [x] Credenciais Supabase rotacionadas (`service_role` key + senha do banco)
+- [x] Helmet + CSP ativo em produção
+- [x] ValidationPipe global com `whitelist` e `forbidNonWhitelisted`
+- [x] Dockerfile multi-stage com usuário não-root
+
+### ⏳ FASE 4 — Migração para Next.js Full-Stack + Deploy Cloudflare Pages
+**Decisão:** Migrar o backend NestJS para Next.js API Routes, eliminando o servidor separado.
+**Motivo:** Deploy tudo no Cloudflare Pages (gratuito, sem Railway/Render).
+**Stack final:** Next.js 14 App Router + Supabase JS client + `jose` (JWT) + `bcryptjs`
+
+- [ ] Fase 4.1 — Setup: instalar pacotes, estrutura `src/app/api/`
+- [ ] Fase 4.2 — Auth: login, register, refresh, logout, accept-invite
+- [ ] Fase 4.3 — Usuários e Famílias
+- [ ] Fase 4.4 — Contas e Cartões
+- [ ] Fase 4.5 — Categorias e Transações (CSV/OFX import, anexos)
+- [ ] Fase 4.6 — Orçamentos, Metas, Investimentos
+- [ ] Fase 4.7 — Relatórios e Export PDF
+- [ ] Fase 4.8 — Atualizar `api.ts` para rotas internas + remover pasta `backend/`
+- [ ] Fase 4.9 — Deploy final no Cloudflare Pages
 
 ---
 
@@ -333,6 +357,30 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ---
 
 ## Log de Alterações
+
+### 2026-06-22 — Auditoria de Segurança + Hardening Completo
+
+#### 🔐 Segurança — Backend
+- **Cookies httpOnly:** Tokens JWT migrados de `localStorage` para cookies `httpOnly; Secure; SameSite` — proteção contra XSS. `cookie-parser` instalado, `JwtStrategy` atualizada para extrair de cookie (com fallback para Bearer).
+- **JWT TTLs corrigidos:** `JWT_EXPIRES_IN` de `30d` → `15m`; `JWT_REFRESH_EXPIRES_IN` de `365d` → `7d`.
+- **JWT secrets fortes:** Substituídos os secrets fracos por strings hexadecimais aleatórias de 128 chars.
+- **Rate limiting:** `@Throttle` adicionado nos endpoints `/auth/refresh` e `/auth/accept-invite` (antes sem proteção).
+- **Complexidade de senha:** `RegisterDto` e `AcceptInviteDto` agora exigem mínimo 8 chars + ao menos uma letra maiúscula e um número.
+- **Logout seguro:** `AuthService.logout` aceita token opcional; controller limpa os dois cookies no servidor.
+
+#### 🔐 Segurança — Frontend
+- **Removido `localStorage`:** `login/page.tsx`, `register/page.tsx` e `accept-invite/page.tsx` não armazenam mais tokens.
+- **`api.ts` com `withCredentials`:** Axios envia cookies automaticamente; interceptor 401 renova via `/auth/refresh` sem precisar ler token do `localStorage`.
+- **`logout` no layout:** Chama `POST /auth/logout` para invalidar o refresh token no banco e limpar cookies — em vez de só apagar o `localStorage`.
+- **`getAvatarUrl` corrigido:** `layout.tsx` e `settings/page.tsx` usam `NEXT_PUBLIC_API_URL` em vez de `http://localhost:3001` hardcoded.
+
+#### ⚙️ CI/CD
+- **Branch corrigida:** `ci-cd.yml` apontava para `refs/heads/main` — corrigido para `refs/heads/master`. Os jobs de deploy nunca tinham executado.
+
+#### 🔑 Credenciais Supabase
+- `SUPABASE_SERVICE_KEY` rotacionada para o novo formato `sb_secret_...` (legacy JWT key descontinuada).
+- Senha do banco de dados rotacionada via Supabase Dashboard → Database → Reset password.
+- `DATABASE_URL` e `DIRECT_URL` atualizadas com a nova senha.
 
 ### 2026-06-20 (Tarde) — UX de Categorias, Gráfico de Caixa e Correções de Configurações
 

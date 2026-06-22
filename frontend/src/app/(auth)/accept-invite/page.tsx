@@ -21,9 +21,7 @@ function AcceptInviteContent() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.post('/auth/accept-invite', { token, name, password });
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
+      await api.post('/auth/accept-invite', { token, name, password });
       toast.success('Bem-vindo(a) ao MY-FINANCE!');
       router.replace('/dashboard');
     } catch (err: any) {
@@ -78,8 +76,8 @@ function AcceptInviteContent() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
-                placeholder="Mínimo 6 caracteres"
+                minLength={8}
+                placeholder="Mínimo 8 caracteres, uma maiúscula e um número"
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-[#006c49]/60 focus:bg-white/8 transition-all"
               />
             </div>

@@ -26,9 +26,7 @@ export default function LoginPage() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', data);
-      localStorage.setItem('accessToken', res.data.accessToken);
-      localStorage.setItem('refreshToken', res.data.refreshToken);
+      await api.post('/auth/login', data);
       toast.success('Bem-vindo!');
       router.push('/dashboard');
     } catch (err: any) {

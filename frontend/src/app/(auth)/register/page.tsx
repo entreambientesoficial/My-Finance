@@ -12,7 +12,7 @@ import { api } from '@/lib/api';
 const schema = z.object({
   name: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
   email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'Senha deve ter ao menos 6 caracteres'),
+  password: z.string().min(8, 'Senha deve ter ao menos 8 caracteres'),
   householdName: z.string().optional(),
 });
 type FormData = z.infer<typeof schema>;
@@ -28,9 +28,7 @@ export default function RegisterPage() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      const res = await api.post('/auth/register', data);
-      localStorage.setItem('accessToken', res.data.accessToken);
-      localStorage.setItem('refreshToken', res.data.refreshToken);
+      await api.post('/auth/register', data);
       toast.success('Conta criada com sucesso!');
       router.push('/dashboard');
     } catch (err: any) {
@@ -81,7 +79,7 @@ export default function RegisterPage() {
               <input
                 type="password"
                 {...register('password')}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Mínimo 8 caracteres, uma maiúscula e um número"
                 autoComplete="new-password"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#031632]/20 focus:border-[#031632]"
               />

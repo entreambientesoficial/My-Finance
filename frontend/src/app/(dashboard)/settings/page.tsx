@@ -17,7 +17,7 @@ const profileSchema = z.object({
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, 'Senha atual é obrigatória'),
-  newPassword: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres'),
+  newPassword: z.string().min(8, 'A nova senha deve ter no mínimo 8 caracteres'),
   confirmPassword: z.string().min(1, 'Confirmação de senha é obrigatória'),
 }).refine((data) => data.newPassword === data.confirmPassword, {
   message: 'As senhas não coincidem',
@@ -69,7 +69,8 @@ const COLORS = [
 const getAvatarUrl = (url?: string) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `http://localhost:3001${url}`;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  return `${apiUrl}${url}`;
 };
 
 export default function SettingsPage() {
