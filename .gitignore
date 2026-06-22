@@ -44,3 +44,8 @@ coverage/
 
 # Uploads
 uploads/
+
+# Scripts de debug/teste temporários
+backend/check-avatar.js
+backend/test-api.js
+backend/test-supabase.js

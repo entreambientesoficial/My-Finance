@@ -8,21 +8,17 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ─── Usuário ────────────────────────────────────────────────────────────────
-
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  avatarUrl    String?
-  householdId  String?
-
-  household     Household?     @relation(fields: [householdId], references: [id])
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  passwordHash  String
+  avatarUrl     String?
+  householdId   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   refreshTokens RefreshToken[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  household     Household?     @relation(fields: [householdId], references: [id])
 
   @@map("users")
 }
@@ -32,169 +28,122 @@ model RefreshToken {
   token     String   @unique
   userId    String
   expiresAt DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("refresh_tokens")
 }
 
-// ─── Household (Casa / Família) ──────────────────────────────────────────────
-
 model Household {
-  id       String @id @default(cuid())
-  name     String
-  currency String @default("BRL")
-
-  users        User[]
+  id           String        @id @default(cuid())
+  name         String
+  currency     String        @default("BRL")
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
   accounts     Account[]
+  budgets      Budget[]
   cards        Card[]
   categories   Category[]
-  transactions Transaction[]
-  budgets      Budget[]
   goals        Goal[]
   investments  Investment[]
   invites      Invite[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  transactions Transaction[]
+  users        User[]
 
   @@map("households")
 }
 
-// ─── Conta Bancária ──────────────────────────────────────────────────────────
-
 model Account {
-  id          String      @id @default(cuid())
-  householdId String
-  name        String
-  type        AccountType
-  bank        String?
-  balance     Decimal     @default(0) @db.Decimal(15, 2)
-  currency    String      @default("BRL")
-  color       String?
-  icon        String?
-  isActive    Boolean     @default(true)
-
+  id               String        @id @default(cuid())
+  householdId      String
+  name             String
+  type             AccountType
+  bank             String?
+  balance          Decimal       @default(0) @db.Decimal(15, 2)
+  currency         String        @default("BRL")
+  color            String?
+  icon             String?
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
   household        Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  cards            Card[]
   transactionsFrom Transaction[] @relation("TransactionFromAccount")
   transactionsTo   Transaction[] @relation("TransactionToAccount")
-  cards            Card[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   @@map("accounts")
 }
 
-enum AccountType {
-  CHECKING
-  SAVINGS
-  INVESTMENT
-  CASH
-  OTHER
-}
-
-// ─── Cartão de Crédito ────────────────────────────────────────────────────────
-
 model Card {
-  id             String    @id @default(cuid())
+  id             String        @id @default(cuid())
   householdId    String
   accountId      String?
   name           String
   lastFourDigits String?
-  brand          CardBrand @default(OTHER)
-  creditLimit    Decimal   @db.Decimal(15, 2)
+  brand          CardBrand     @default(OTHER)
+  creditLimit    Decimal       @db.Decimal(15, 2)
   billingDay     Int
   dueDay         Int
   color          String?
-  isActive       Boolean   @default(true)
-  isFrozen       Boolean   @default(false)
-
-  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  account      Account?      @relation(fields: [accountId], references: [id])
-  transactions Transaction[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive       Boolean       @default(true)
+  isFrozen       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  account        Account?      @relation(fields: [accountId], references: [id])
+  household      Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
 
   @@map("cards")
 }
 
-enum CardBrand {
-  VISA
-  MASTERCARD
-  ELO
-  AMEX
-  HIPERCARD
-  OTHER
-}
-
-// ─── Categoria ────────────────────────────────────────────────────────────────
-
 model Category {
-  id          String          @id @default(cuid())
-  householdId String
-  name        String
-  type        TransactionType
-  icon        String?
-  color       String?
-  parentId    String?
-  isDefault   Boolean         @default(false)
-
-  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children     Category[]    @relation("CategoryHierarchy")
-  transactions Transaction[]
+  id           String          @id @default(cuid())
+  householdId  String
+  name         String
+  type         TransactionType
+  icon         String?
+  color        String?
+  parentId     String?
+  isDefault    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
   budgets      Budget[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  household    Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  parent       Category?       @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children     Category[]      @relation("CategoryHierarchy")
+  transactions Transaction[]
 
   @@map("categories")
 }
 
-// ─── Transação ────────────────────────────────────────────────────────────────
-
 model Transaction {
-  id              String          @id @default(cuid())
-  householdId     String
-  accountId       String?
-  toAccountId     String?
-  cardId          String?
-  categoryId      String?
-  type            TransactionType
-  amount          Decimal         @db.Decimal(15, 2)
-  description     String?
-  date            DateTime
-  isPaid          Boolean         @default(true)
-  isRecurring     Boolean         @default(false)
-  recurrenceRule  String?
-  notes           String?
-  attachments     String[]
-
-  household   Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  account     Account?   @relation("TransactionFromAccount", fields: [accountId], references: [id])
-  toAccount   Account?   @relation("TransactionToAccount", fields: [toAccountId], references: [id])
-  card        Card?      @relation(fields: [cardId], references: [id])
-  category    Category?  @relation(fields: [categoryId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String          @id @default(cuid())
+  householdId    String
+  accountId      String?
+  toAccountId    String?
+  cardId         String?
+  categoryId     String?
+  type           TransactionType
+  amount         Decimal         @db.Decimal(15, 2)
+  description    String?
+  date           DateTime
+  isPaid         Boolean         @default(true)
+  isRecurring    Boolean         @default(false)
+  recurrenceRule String?
+  notes          String?
+  attachments    String[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  account        Account?        @relation("TransactionFromAccount", fields: [accountId], references: [id])
+  card           Card?           @relation(fields: [cardId], references: [id])
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  household      Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  toAccount      Account?        @relation("TransactionToAccount", fields: [toAccountId], references: [id])
 
   @@index([householdId, date])
   @@index([householdId, type])
   @@map("transactions")
 }
-
-enum TransactionType {
-  INCOME
-  EXPENSE
-  TRANSFER
-}
-
-// ─── Orçamento ────────────────────────────────────────────────────────────────
 
 model Budget {
   id          String       @id @default(cuid())
@@ -206,24 +155,13 @@ model Budget {
   month       Int?
   year        Int?
   isActive    Boolean      @default(true)
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category  Category? @relation(fields: [categoryId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  category    Category?    @relation(fields: [categoryId], references: [id])
+  household   Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@map("budgets")
 }
-
-enum BudgetPeriod {
-  MONTHLY
-  WEEKLY
-  YEARLY
-  CUSTOM
-}
-
-// ─── Meta Financeira ─────────────────────────────────────────────────────────
 
 model Goal {
   id            String    @id @default(cuid())
@@ -235,16 +173,12 @@ model Goal {
   icon          String?
   color         String?
   isCompleted   Boolean   @default(false)
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@map("goals")
 }
-
-// ─── Convite ─────────────────────────────────────────────────────────────────
 
 model Invite {
   id          String    @id @default(cuid())
@@ -253,15 +187,11 @@ model Invite {
   token       String    @unique
   expiresAt   DateTime
   acceptedAt  DateTime?
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
+  createdAt   DateTime  @default(now())
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@map("invites")
 }
-
-// ─── Investimento ─────────────────────────────────────────────────────────────
 
 model Investment {
   id            String         @id @default(cuid())
@@ -275,13 +205,41 @@ model Investment {
   purchaseDate  DateTime?
   broker        String?
   notes         String?
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  household     Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@map("investments")
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  INVESTMENT
+  CASH
+  OTHER
+}
+
+enum CardBrand {
+  VISA
+  MASTERCARD
+  ELO
+  AMEX
+  HIPERCARD
+  OTHER
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum BudgetPeriod {
+  MONTHLY
+  WEEKLY
+  YEARLY
+  CUSTOM
 }
 
 enum InvestmentType {
