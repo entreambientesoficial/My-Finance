@@ -24,12 +24,12 @@ export default function ReportsPage() {
   // Queries
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => api.get('/categories').then((r) => r.data),
+    queryFn: () => api.get('/api/categories').then((r) => r.data),
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => api.get('/accounts').then((r) => r.data),
+    queryFn: () => api.get('/api/accounts').then((r) => r.data),
   });
 
   // Reactive Cash Flow Query
@@ -41,7 +41,7 @@ export default function ReportsPage() {
       if (appliedFilters.accountId) {
         params.set('accountId', appliedFilters.accountId);
       }
-      return api.get(`/reports/cash-flow?${params.toString()}`).then((r) => r.data);
+      return api.get(`/api/reports/cash-flow?${params.toString()}`).then((r) => r.data);
     },
   });
 
@@ -59,7 +59,7 @@ export default function ReportsPage() {
       if (appliedFilters.accountId) {
         params.set('accountId', appliedFilters.accountId);
       }
-      return api.get(`/reports/expenses-by-category?${params.toString()}`).then((r) => r.data);
+      return api.get(`/api/reports/expenses-by-category?${params.toString()}`).then((r) => r.data);
     },
   });
 
@@ -79,7 +79,7 @@ export default function ReportsPage() {
         d.setDate(d.getDate() - Number(appliedFilters.period));
         params.set('startDate', d.toISOString());
       }
-      return api.get(`/transactions?${params.toString()}`).then((r) => r.data);
+      return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data);
     },
   });
 
@@ -97,9 +97,7 @@ export default function ReportsPage() {
   }
 
   function downloadPdf() {
-    const token = localStorage.getItem('accessToken');
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/reports/export/summary.pdf`;
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    fetch('/api/reports/export/summary.pdf', { credentials: 'include' })
       .then((r) => r.blob())
       .then((blob) => {
         const a = document.createElement('a');
@@ -112,7 +110,6 @@ export default function ReportsPage() {
   }
 
   function downloadCsv() {
-    const token = localStorage.getItem('accessToken');
     const params = new URLSearchParams();
     if (appliedFilters.period && appliedFilters.period !== 'all') {
       const d = new Date();
@@ -120,8 +117,7 @@ export default function ReportsPage() {
       params.set('startDate', d.toISOString().slice(0, 10));
       params.set('endDate', new Date().toISOString().slice(0, 10));
     }
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/reports/export/transactions.csv?${params.toString()}`;
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`/api/reports/export/transactions.csv?${params.toString()}`, { credentials: 'include' })
       .then((r) => r.blob())
       .then((blob) => {
         const a = document.createElement('a');
@@ -140,7 +136,7 @@ export default function ReportsPage() {
     expense: Number(flow.expenses),
   }));
 
-  const hasCashFlowData = displayCashFlow.some((d) => d.income > 0 || d.expense > 0);
+  const hasCashFlowData = displayCashFlow.some((d: any) => d.income > 0 || d.expense > 0);
 
   const totalExpenses = byCategory.reduce((sum: number, c: any) => sum + Number(c.total), 0);
 
@@ -394,10 +390,10 @@ export default function ReportsPage() {
                         </td>
                         <td className="px-xl py-md font-body-md text-body-md text-on-surface-variant text-left">{tx.account?.name || 'Carteira'}</td>
                         <td className={cn(
-                          "px-xl py-md font-numeric text-numeric-data text-right font-bold",
+                          "px-xl py-md font-numeric text-numeric-data text-right font-bold whitespace-nowrap",
                           isIncome ? "text-secondary" : "text-error"
                         )}>
-                          {isIncome ? '+' : '-'}{formatCurrency(Number(tx.amount))}
+                          {`${isIncome ? '+' : '-'}${formatCurrency(Number(tx.amount))}`}
                         </td>
                         <td className="px-xl py-md text-left">
                           <span className={cn(

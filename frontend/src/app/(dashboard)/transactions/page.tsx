@@ -675,22 +675,22 @@ export default function TransactionsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['transactions', filters, selectedType],
-    queryFn: () => api.get('/transactions', { params: { ...filters, ...(selectedType && { type: selectedType }) } }).then((r) => r.data),
+    queryFn: () => api.get('/api/transactions', { params: { ...filters, ...(selectedType && { type: selectedType }) } }).then((r) => r.data),
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => api.get('/categories').then((r) => r.data),
+    queryFn: () => api.get('/api/categories').then((r) => r.data),
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => api.get('/accounts').then((r) => r.data),
+    queryFn: () => api.get('/api/accounts').then((r) => r.data),
   });
 
   const { data: cards = [] } = useQuery({
     queryKey: ['cards'],
-    queryFn: () => api.get('/cards').then((r) => r.data),
+    queryFn: () => api.get('/api/cards').then((r) => r.data),
   });
 
   const { register, handleSubmit, reset, watch, setValue, control } = useForm<any>({ defaultValues: { type: 'EXPENSE', isPaid: true } });
@@ -713,7 +713,7 @@ export default function TransactionsPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post('/transactions', { ...data, amount: Number(data.amount), isPaid: data.isPaid === 'true' || data.isPaid === true }),
+    mutationFn: (data: any) => api.post('/api/transactions', { ...data, amount: Number(data.amount), isPaid: data.isPaid === 'true' || data.isPaid === true }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['monthly-summary'] });
@@ -730,10 +730,10 @@ export default function TransactionsPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => 
-      api.patch(`/transactions/${id}`, { 
-        ...data, 
-        amount: Number(data.amount), 
-        isPaid: data.isPaid === 'true' || data.isPaid === true 
+      api.patch(`/api/transactions/${id}`, {
+        ...data,
+        amount: Number(data.amount),
+        isPaid: data.isPaid === 'true' || data.isPaid === true
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
@@ -747,7 +747,7 @@ export default function TransactionsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/transactions/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/transactions/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['monthly-summary'] });
@@ -759,7 +759,7 @@ export default function TransactionsPage() {
 
   const togglePaidMutation = useMutation({
     mutationFn: ({ id, isPaid }: { id: string; isPaid: boolean }) =>
-      api.patch(`/transactions/${id}`, { isPaid }),
+      api.patch(`/api/transactions/${id}`, { isPaid }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['monthly-summary'] });
@@ -776,10 +776,7 @@ export default function TransactionsPage() {
     if (filters.endDate) params.set('endDate', filters.endDate);
     if (selectedType) params.set('type', selectedType);
 
-    const token = localStorage.getItem('accessToken');
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/reports/export/transactions.csv?${params}`;
-
-    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`/api/reports/export/transactions.csv?${params}`, { credentials: 'include' })
       .then((r) => r.blob())
       .then((blob) => {
         const a = document.createElement('a');
@@ -797,7 +794,7 @@ export default function TransactionsPage() {
       const form = new FormData();
       form.append('file', file);
       if (importAccountId) form.append('accountId', importAccountId);
-      return api.post('/transactions/import/ofx', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+      return api.post('/api/transactions/import/ofx', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
     },
     onSuccess: (result) => {
       setImportResult(result);
@@ -814,7 +811,7 @@ export default function TransactionsPage() {
       const form = new FormData();
       form.append('file', file);
       if (importAccountId) form.append('accountId', importAccountId);
-      return api.post('/transactions/import/csv', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+      return api.post('/api/transactions/import/csv', form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
     },
     onSuccess: (result) => {
       setImportResult(result);
@@ -830,7 +827,7 @@ export default function TransactionsPage() {
     mutationFn: async ({ id, file }: { id: string; file: File }) => {
       const form = new FormData();
       form.append('file', file);
-      return api.post(`/transactions/${id}/attachments`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+      return api.post(`/api/transactions/${id}/attachments`, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
     },
     onSuccess: (updated) => {
       setAttachTx(updated);
@@ -842,7 +839,7 @@ export default function TransactionsPage() {
 
   const removeAttachment = useMutation({
     mutationFn: ({ id, filename }: { id: string; filename: string }) =>
-      api.delete(`/transactions/${id}/attachments/${filename}`).then((r) => r.data),
+      api.delete(`/api/transactions/${id}/attachments/${filename}`).then((r) => r.data),
     onSuccess: (updated) => {
       setAttachTx(updated);
       qc.invalidateQueries({ queryKey: ['transactions'] });
@@ -1047,7 +1044,7 @@ export default function TransactionsPage() {
                           <td className="px-md lg:px-sm py-md">
                             <div className="flex flex-col max-w-[200px] lg:max-w-[260px]">
                               <span className="font-bold text-primary truncate text-sm">{t.description || 'Sem descrição'}</span>
-                              {t.notes && <span className="text-xs text-on-surface-variant truncate mt-0.5">{t.notes}</span>}
+                              {t.notes && !t.notes.startsWith('ofx:') && <span className="text-xs text-on-surface-variant truncate mt-0.5">{t.notes}</span>}
                               <div className="mt-1">
                                 <CategoryBadge category={t.category} type={t.type} />
                               </div>
@@ -1259,7 +1256,7 @@ export default function TransactionsPage() {
                 {/* Description & Account */}
                 <div>
                   <p className="font-bold text-primary text-sm">{t.description || 'Sem descrição'}</p>
-                  {t.notes && <p className="text-xs text-on-surface-variant mt-0.5">{t.notes}</p>}
+                  {t.notes && !t.notes.startsWith('ofx:') && <p className="text-xs text-on-surface-variant mt-0.5">{t.notes}</p>}
                   <div className="flex items-center justify-between mt-2 text-xs text-on-surface-variant">
                     <span>{formatDateLong(t.date)}</span>
                     <AccountInfo account={t.account} card={t.card} toAccount={t.toAccount} type={t.type} />
@@ -1641,15 +1638,14 @@ export default function TransactionsPage() {
             {attachTx.attachments?.length > 0 ? (
               <div className="space-y-2">
                 {attachTx.attachments.map((url: string) => {
-                  const filename = url.split('/').pop() || '';
+                  const filename = url.split('/').pop()?.split('?')[0] || '';
                   const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(filename);
-                  const apiBase = (process.env.NEXT_PUBLIC_API_URL || '').replace('/api', '');
                   return (
                     <div key={url} className="flex items-center gap-3 p-2.5 bg-surface-container rounded-lg">
                       <span className="material-symbols-outlined text-[20px] text-on-surface-variant">
                         {isImage ? 'image' : 'description'}
                       </span>
-                      <a href={`${apiBase}${url}`} target="_blank" rel="noopener noreferrer"
+                      <a href={url} target="_blank" rel="noopener noreferrer"
                         className="flex-1 text-sm text-primary hover:text-secondary truncate transition-colors font-medium">
                         {filename}
                       </a>

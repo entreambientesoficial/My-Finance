@@ -12,34 +12,47 @@ export default function DashboardPage() {
   // Fetch real data from NestJS API
   const { data: summary } = useQuery({
     queryKey: ['household-summary'],
-    queryFn: () => api.get('/households/mine/summary').then((r) => r.data),
+    queryFn: () => api.get('/api/households/mine/summary').then((r) => r.data),
   });
 
   const { data: cashFlow } = useQuery({
     queryKey: ['cash-flow'],
-    queryFn: () => api.get('/reports/cash-flow?months=6').then((r) => r.data),
+    queryFn: () => api.get('/api/reports/cash-flow?months=6').then((r) => r.data),
   });
 
   const { data: upcomingBills } = useQuery({
     queryKey: ['upcoming-bills'],
-    queryFn: () => api.get('/reports/upcoming-bills?daysAhead=15').then((r) => r.data),
+    queryFn: () => api.get('/api/reports/upcoming-bills?daysAhead=30').then((r) => r.data),
+  });
+
+  const currentYear = new Date().getFullYear();
+  const { data: proventosData } = useQuery({
+    queryKey: ['proventos'],
+    queryFn: () => api.get(`/api/proventos?year=${currentYear}`).then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  const { data: incomeScheduled = [] } = useQuery({
+    queryKey: ['income-scheduled'],
+    queryFn: () => api.get('/api/transactions?type=INCOME&isPaid=false&limit=50').then((r) => r.data?.data || r.data || []),
+    staleTime: 60_000,
   });
 
   const { data: transactionsData } = useQuery({
     queryKey: ['recent-transactions-dash'],
-    queryFn: () => api.get('/transactions?limit=4').then((r) => r.data?.data || r.data || []),
+    queryFn: () => api.get('/api/transactions?limit=4').then((r) => r.data?.data || r.data || []),
   });
 
   // Extract logged in user profile
   const { data: me } = useQuery({
     queryKey: ['me'],
-    queryFn: () => api.get('/users/me').then((r) => r.data),
+    queryFn: () => api.get('/api/users/me').then((r) => r.data),
   });
 
   // Fetch real investments portfolio
   const { data: portfolio } = useQuery({
     queryKey: ['portfolio'],
-    queryFn: () => api.get('/investments/portfolio').then((r) => r.data),
+    queryFn: () => api.get('/api/investments/portfolio').then((r) => r.data),
   });
 
   const userName = me?.name || 'Marcus';
@@ -86,7 +99,23 @@ export default function DashboardPage() {
 
   // Real transactions and bills list (empty if no data, no mocks)
   const displayTransactions = transactionsData?.length > 0 ? transactionsData : [];
-  const displayBills = upcomingBills?.length > 0 ? upcomingBills.filter((b: any) => b.status === 'Pending' || !b.isPaid).slice(0, 3) : [];
+  const allBills = upcomingBills?.filter((b: any) => b.status === 'Pending' || !b.isPaid) ?? [];
+  const displayBills = allBills.slice(0, 3);
+
+  // Secondary cards calculations
+  const totalContasAPagar = allBills.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
+  const contasAPagarCount = allBills.length;
+
+  const now30 = new Date(); now30.setDate(now30.getDate() + 30);
+  const upcomingIncome = (incomeScheduled as any[]).filter((t: any) => {
+    const d = new Date(t.date);
+    return d <= now30;
+  });
+  const totalContasAReceber = upcomingIncome.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  const contasAReceberCount = upcomingIncome.length;
+
+  const totalProventosRecebidos = Number(proventosData?.totalRecebido ?? 0);
+  const totalProventosAReceber = Number(proventosData?.totalAReceber ?? 0);
 
   // Check if there is any real cash flow data (non-zero income or expenses)
   const hasCashFlowData = cashFlow && cashFlow.length > 0 && cashFlow.some((flow: any) => Number(flow.income || 0) > 0 || Number(flow.expenses || 0) > 0);
@@ -107,6 +136,20 @@ export default function DashboardPage() {
         Despesas: flow.expenses
       }))
     : [];
+
+  // Dynamic subtitle based on current month cash flow
+  let subtitleMessage = "Acompanhe sua evolução financeira.";
+  if (hasCashFlowData) {
+    const lastMonthData = cashFlow[cashFlow.length - 1];
+    if (lastMonthData) {
+      const netThisMonth = Number(lastMonthData.income || 0) - Number(lastMonthData.expenses || 0);
+      if (netThisMonth > 0) {
+        subtitleMessage = `Saldo positivo de ${formatCurrency(netThisMonth)} este mês.`;
+      } else if (netThisMonth < 0) {
+        subtitleMessage = `Atenção: saldo negativo de ${formatCurrency(Math.abs(netThisMonth))} este mês.`;
+      }
+    }
+  }
 
   // Dynamic Insight Recommendation Logic
   let insightTitle = "Finanças em Dia";
@@ -138,7 +181,7 @@ export default function DashboardPage() {
           <div>
             <h2 className="font-display text-display-lg text-primary">Resumo Financeiro</h2>
             <p className="font-body-lg text-body-lg text-on-surface-variant">
-              Olá, {userName}. Sua carteira cresceu 2.4% este mês.
+              Olá, {userName}. {subtitleMessage}
             </p>
           </div>
           <div className="flex gap-md">
@@ -213,6 +256,51 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Secondary KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter -mt-2">
+              {/* Contas a Pagar */}
+              <div className="bg-surface-container-lowest px-md py-sm rounded-xl border border-outline-variant custom-card-shadow flex items-center gap-md">
+                <div className="w-9 h-9 bg-error/10 rounded-lg flex items-center justify-center text-error flex-shrink-0">
+                  <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider truncate">Contas a Pagar <span className="text-outline">(30 dias)</span></p>
+                  <p className="font-display text-lg text-primary font-bold">{formatCurrency(totalContasAPagar)}</p>
+                </div>
+                {contasAPagarCount > 0 && (
+                  <span className="text-[10px] font-bold bg-error/10 text-error px-xs py-0.5 rounded-full flex-shrink-0">{contasAPagarCount} lançto{contasAPagarCount !== 1 ? 's' : ''}</span>
+                )}
+              </div>
+
+              {/* Contas a Receber */}
+              <div className="bg-surface-container-lowest px-md py-sm rounded-xl border border-outline-variant custom-card-shadow flex items-center gap-md">
+                <div className="w-9 h-9 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary flex-shrink-0">
+                  <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider truncate">Contas a Receber <span className="text-outline">(30 dias)</span></p>
+                  <p className="font-display text-lg text-secondary font-bold">{formatCurrency(totalContasAReceber)}</p>
+                </div>
+                {contasAReceberCount > 0 && (
+                  <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-xs py-0.5 rounded-full flex-shrink-0">{contasAReceberCount} lançto{contasAReceberCount !== 1 ? 's' : ''}</span>
+                )}
+              </div>
+
+              {/* Proventos */}
+              <div className="bg-surface-container-lowest px-md py-sm rounded-xl border border-outline-variant custom-card-shadow flex items-center gap-md">
+                <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center text-primary flex-shrink-0">
+                  <span className="material-symbols-outlined text-[20px]">savings</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider truncate">Proventos {currentYear}</p>
+                  <p className="font-display text-lg text-primary font-bold">{formatCurrency(totalProventosRecebidos)}</p>
+                </div>
+                {totalProventosAReceber > 0 && (
+                  <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-xs py-0.5 rounded-full flex-shrink-0 whitespace-nowrap">+{formatCurrency(totalProventosAReceber)}</span>
+                )}
+              </div>
+            </div>
+
             {/* Recent Transactions (Bottom Left - 8 columns) */}
             <div className="bg-surface-container-lowest rounded-xl border border-outline-variant custom-card-shadow">
               <div className="p-lg flex justify-between items-center border-b border-outline-variant/60">
@@ -265,10 +353,10 @@ export default function DashboardPage() {
                             </td>
                             <td className="px-lg py-md font-body-md text-body-md text-on-surface-variant">{formattedDate}</td>
                             <td className={cn(
-                              "px-lg py-md font-numeric text-numeric-data text-right font-bold",
+                              "px-lg py-md font-numeric text-numeric-data text-right font-bold whitespace-nowrap",
                               isIncome ? "text-secondary" : "text-error"
                             )}>
-                              {isIncome ? '+' : '-'}{formatCurrency(Number(tx.amount))}
+                              {`${isIncome ? '+' : '-'}${formatCurrency(Number(tx.amount))}`}
                             </td>
                           </tr>
                         );
@@ -340,12 +428,14 @@ export default function DashboardPage() {
               <div>
                 <div className="flex justify-between items-center mb-xl">
                   <h4 className="font-headline text-headline-md text-primary">Próximas Contas</h4>
-                  <span className="w-6 h-6 flex items-center justify-center bg-error text-white text-[10px] font-bold rounded-full">{displayBills.length}</span>
+                  {displayBills.length > 0 && (
+                    <span className="w-6 h-6 flex items-center justify-center bg-error text-white text-[10px] font-bold rounded-full">{displayBills.length}</span>
+                  )}
                 </div>
                 <div className="space-y-lg">
                   {displayBills.length === 0 ? (
                     <p className="text-center py-xl text-on-surface-variant font-body-md text-sm">
-                      Nenhuma conta pendente nos próximos 15 dias.
+                      Nenhuma conta pendente nos próximos 30 dias.
                     </p>
                   ) : (
                     displayBills.map((bill: any) => {

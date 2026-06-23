@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useTheme } from '@/lib/theme';
 
 const getAvatarUrl = (url?: string) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return `http://localhost:3001${url}`;
+  return '';
 };
 
 const navItems = [
@@ -31,6 +33,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (onClose) onClose();
@@ -38,14 +41,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const { data: me } = useQuery({
     queryKey: ['me'],
-    queryFn: () => api.get('/users/me').then((r) => r.data),
+    queryFn: () => api.get('/api/users/me').then((r) => r.data),
     retry: false,
     staleTime: 300_000,
   });
 
-  function logout() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+  async function logout() {
+    try { await api.post('/api/auth/logout'); } catch {}
     window.location.href = '/login';
   }
 
@@ -56,11 +58,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
     )}>
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-[#006c49] text-2xl">account_balance_wallet</span>
-          <span className="text-white font-bold text-lg tracking-tight">MY-FINANCE</span>
-        </div>
+      <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+        <Image
+          src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'}
+          alt="MY-FINANCE"
+          width={148}
+          height={40}
+          className="object-contain h-10 w-auto"
+          priority
+        />
         {onClose && (
           <button onClick={onClose} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white md:hidden">
             <span className="material-symbols-outlined text-xl">close</span>

@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { useTheme } from '@/lib/theme';
 
 const getAvatarUrl = (url?: string) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  return `${apiUrl}${url}`;
+  return '';
 };
 
 const desktopNavItems = [
@@ -35,17 +36,18 @@ const mobileNavItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { theme } = useTheme();
 
   const { data: me } = useQuery({
     queryKey: ['me'],
-    queryFn: () => api.get('/users/me').then((r) => r.data),
+    queryFn: () => api.get('/api/users/me').then((r) => r.data),
     retry: false,
     staleTime: 300_000,
   });
 
   async function logout() {
     try {
-      await api.post('/auth/logout');
+      await api.post('/api/auth/logout');
     } catch {
       // ignora erro e redireciona de qualquer forma
     }
@@ -60,7 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const { data: upcomingBills = [] } = useQuery({
     queryKey: ['upcoming-bills-layout'],
-    queryFn: () => api.get('/reports/upcoming-bills?daysAhead=15').then((r) => r.data || []),
+    queryFn: () => api.get('/api/reports/upcoming-bills?daysAhead=15').then((r) => r.data || []),
     retry: false,
     staleTime: 60_000,
   });
@@ -75,8 +77,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* SideNavBar Shell */}
         <aside className="fixed left-0 top-0 h-full w-64 bg-surface border-r border-outline-variant/40 flex flex-col py-lg px-md z-50">
           <div className="mb-xl px-xs">
-            <h1 className="font-headline-md text-headline-md font-bold text-primary tracking-tight">My-Finance</h1>
-            <p className="font-label-sm text-label-sm text-on-surface-variant">Gestão Financeira</p>
+            <Image
+              src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'}
+              alt="MY-FINANCE"
+              width={148}
+              height={40}
+              className="object-contain h-10 w-auto"
+              priority
+            />
           </div>
           
           <nav className="flex-grow flex flex-col gap-base">

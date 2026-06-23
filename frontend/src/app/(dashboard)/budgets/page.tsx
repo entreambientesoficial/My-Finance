@@ -13,20 +13,24 @@ export default function BudgetsPage() {
   const { month, year } = getCurrentMonthYear();
   const [showForm, setShowForm] = useState(false);
 
-  const { data: budgets = [], isLoading } = useQuery({
+  const { data: budgetsData, isLoading } = useQuery({
     queryKey: ['budgets-progress', month, year],
-    queryFn: () => api.get(`/budgets/progress?month=${month}&year=${year}`).then((r) => r.data),
+    queryFn: () => api.get(`/api/budgets/progress?month=${month}&year=${year}`).then((r) => r.data),
   });
+
+  const budgets: any[] = budgetsData?.budgets ?? [];
+  const topTransactions: any[] = budgetsData?.topTransactions ?? [];
+  const apiMonthlyHistory: any[] = budgetsData?.monthlyHistory ?? [];
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => api.get('/categories?type=EXPENSE').then((r) => r.data),
+    queryFn: () => api.get('/api/categories?type=EXPENSE').then((r) => r.data),
   });
 
   const { register, handleSubmit, reset, control } = useForm<any>();
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post('/budgets', { ...data, amount: Number(data.amount), month, year }),
+    mutationFn: (data: any) => api.post('/api/budgets', { ...data, amount: Number(data.amount), month, year }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['budgets-progress'] });
       toast.success('Orçamento personalizado criado!');
@@ -37,7 +41,7 @@ export default function BudgetsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/budgets/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/budgets/${id}`),
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['budgets-progress'] }); 
       toast.success('Orçamento personalizado removido!'); 
@@ -47,7 +51,7 @@ export default function BudgetsPage() {
   const totalBudget = (budgets as any[]).reduce((s: number, b: any) => s + Number(b.amount), 0);
   const totalSpent = (budgets as any[]).reduce((s: number, b: any) => s + Number(b.spent || 0), 0);
   const totalRemaining = totalBudget - totalSpent;
-  const overallPercent = totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 61.6;
+  const overallPercent = totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
 
   // Fallbacks if no data exists
   const hasRealBudgets = budgets.length > 0;
@@ -62,14 +66,16 @@ export default function BudgetsPage() {
     { id: 'b4', name: 'Lazer', amount: 1500, spent: 440, remaining: 1060, percentage: 29.3, category: { name: 'Lazer', icon: 'theater_comedy', color: '#8b5cf6' }, description: 'Média de R$ 1.500,00 nos últimos 3 meses.', isAutomatic: true }
   ];
 
-  const chartHistory = [
-    { label: 'Jan', planned: 8000, actual: 7400 },
-    { label: 'Fev', planned: 8500, actual: 9100 },
-    { label: 'Mar', planned: 8500, actual: 8100 },
-    { label: 'Abr', planned: 8500, actual: 7800 },
-    { label: 'Mai', planned: 8500, actual: 8400 },
-    { label: 'Jun', planned: displayTotalBudget, actual: displayTotalSpent }
-  ];
+  const chartHistory = apiMonthlyHistory.length > 0
+    ? apiMonthlyHistory
+    : [
+        { label: 'Jan', planned: 8000, actual: 7400 },
+        { label: 'Fev', planned: 8500, actual: 9100 },
+        { label: 'Mar', planned: 8500, actual: 8100 },
+        { label: 'Abr', planned: 8500, actual: 7800 },
+        { label: 'Mai', planned: 8500, actual: 8400 },
+        { label: 'Jun', planned: displayTotalBudget, actual: displayTotalSpent },
+      ];
 
   return (
     <>
@@ -374,30 +380,34 @@ export default function BudgetsPage() {
           <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl border border-outline-variant p-lg shadow-sm text-left">
             <h3 className="font-headline text-headline-md text-primary font-bold mb-md">Movimentações de Impacto</h3>
             <div className="divide-y divide-outline-variant/30">
-              <div className="py-md flex justify-between items-center">
-                <div className="flex items-center gap-md">
-                  <div className="w-10 h-10 rounded-full bg-error-container/20 text-error flex items-center justify-center">
-                    <span className="material-symbols-outlined">car_repair</span>
+              {topTransactions.length === 0 ? (
+                <p className="py-md text-on-surface-variant text-sm">Nenhuma movimentação registrada este mês.</p>
+              ) : (
+                topTransactions.map((tx: any) => (
+                  <div key={tx.id} className="py-md flex justify-between items-center">
+                    <div className="flex items-center gap-md">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center"
+                        style={{
+                          backgroundColor: `${tx.category?.color || '#ef4444'}22`,
+                          color: tx.category?.color || '#ef4444',
+                        }}
+                      >
+                        <span className="material-symbols-outlined">{tx.category?.icon || 'payments'}</span>
+                      </div>
+                      <div>
+                        <p className="font-body-lg text-body-lg font-bold text-primary">{tx.description}</p>
+                        <p className="text-[12px] text-on-surface-variant">
+                          {tx.category?.name || 'Sem categoria'} · {new Date(tx.date).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="font-numeric text-numeric-data text-error font-bold whitespace-nowrap">
+                      {`- ${formatCurrency(Number(tx.amount))}`}
+                    </p>
                   </div>
-                  <div>
-                    <p className="font-body-lg text-body-lg font-bold text-primary">Manutenção Preventiva</p>
-                    <p className="text-[12px] text-on-surface-variant">Transporte · Hoje às 14:30</p>
-                  </div>
-                </div>
-                <p className="font-numeric text-numeric-data text-error font-bold">- R$ 450,00</p>
-              </div>
-              <div className="py-md flex justify-between items-center">
-                <div className="flex items-center gap-md">
-                  <div className="w-10 h-10 rounded-full bg-secondary-container/20 text-on-secondary-container flex items-center justify-center">
-                    <span className="material-symbols-outlined">shopping_basket</span>
-                  </div>
-                  <div>
-                    <p className="font-body-lg text-body-lg font-bold text-primary">Supermercado Continental</p>
-                    <p className="text-[12px] text-on-surface-variant">Alimentação · Ontem às 18:12</p>
-                  </div>
-                </div>
-                <p className="font-numeric text-numeric-data text-error font-bold">- R$ 382,15</p>
-              </div>
+                ))
+              )}
             </div>
           </div>
         </div>

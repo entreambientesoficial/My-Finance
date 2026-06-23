@@ -88,27 +88,27 @@ export default function AccountsPage() {
 
   const { data: accounts = [], isLoading: loadingAccounts } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => api.get('/accounts').then((r) => r.data),
+    queryFn: () => api.get('/api/accounts').then((r) => r.data),
   });
 
   const { data: cards = [], isLoading: loadingCards } = useQuery({
     queryKey: ['cards'],
-    queryFn: () => api.get('/cards').then((r) => r.data),
+    queryFn: () => api.get('/api/cards').then((r) => r.data),
   });
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['recent-transactions-activity'],
-    queryFn: () => api.get('/transactions?limit=20').then((r) => r.data?.data || r.data || []),
+    queryFn: () => api.get('/api/transactions?limit=20').then((r) => r.data?.data || r.data || []),
   });
 
   const { data: goals = [] } = useQuery({
     queryKey: ['goals'],
-    queryFn: () => api.get('/goals').then((r) => r.data),
+    queryFn: () => api.get('/api/goals').then((r) => r.data),
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
-    queryFn: () => api.get('/categories?type=EXPENSE').then((r) => r.data),
+    queryFn: () => api.get('/api/categories?type=EXPENSE').then((r) => r.data),
   });
 
   const accountForm = useForm<AccountForm>({
@@ -122,7 +122,7 @@ export default function AccountsPage() {
   });
 
   const createAccount = useMutation({
-    mutationFn: (data: AccountForm) => api.post('/accounts', data),
+    mutationFn: (data: AccountForm) => api.post('/api/accounts', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['household-summary'] });
@@ -134,7 +134,7 @@ export default function AccountsPage() {
   });
 
   const createCard = useMutation({
-    mutationFn: (data: CardForm) => api.post('/cards', data),
+    mutationFn: (data: CardForm) => api.post('/api/cards', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cards'] });
       toast.success('Cartão adicionado!');
@@ -145,7 +145,7 @@ export default function AccountsPage() {
   });
 
   const freezeMutation = useMutation({
-    mutationFn: (id: string) => api.patch(`/cards/${id}/freeze`),
+    mutationFn: (id: string) => api.patch(`/api/cards/${id}/freeze`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['cards'] });
       toast.success('Cartão atualizado!');
@@ -153,7 +153,7 @@ export default function AccountsPage() {
   });
 
   const deleteAccount = useMutation({
-    mutationFn: (id: string) => api.delete(`/accounts/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/accounts/${id}`),
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: ['accounts'] });
       toast.success('Conta removida.');
@@ -162,7 +162,7 @@ export default function AccountsPage() {
   });
 
   const deleteCard = useMutation({
-    mutationFn: (id: string) => api.delete(`/cards/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/cards/${id}`),
     onSuccess: (_, id) => {
       qc.invalidateQueries({ queryKey: ['cards'] });
       toast.success('Cartão removido.');
@@ -172,7 +172,7 @@ export default function AccountsPage() {
 
   const progressMutation = useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) =>
-      api.post(`/goals/${id}/progress`, { amount }),
+      api.post(`/api/goals/${id}/progress`, { amount }),
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['goals'] }); 
       qc.invalidateQueries({ queryKey: ['accounts'] });
@@ -187,7 +187,7 @@ export default function AccountsPage() {
 
   const payInvoiceMutation = useMutation({
     mutationFn: (data: { accountId: string; amount: number; date: string; description: string; categoryId?: string }) =>
-      api.post('/transactions', { ...data, type: 'EXPENSE', isPaid: true }),
+      api.post('/api/transactions', { ...data, type: 'EXPENSE', isPaid: true }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['cards'] });
@@ -294,7 +294,18 @@ export default function AccountsPage() {
                     
                     <div className="space-y-base relative z-10 mt-auto">
                       <p className="font-label-sm text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Saldo Disponível</p>
-                      <p className="font-display text-display-lg text-primary">{formatCurrency(Number(account.balance), account.currency)}</p>
+                      <p
+                        className="font-display text-display-lg font-bold"
+                        style={{ color: Number(account.balance) < 0 ? 'var(--error)' : 'var(--primary)' }}
+                      >
+                        {formatCurrency(Number(account.balance), account.currency)}
+                      </p>
+                      {Number(account.balance) < 0 && (
+                        <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-xs" style={{ color: 'var(--error)' }}>
+                          <span className="material-symbols-outlined text-[12px]">warning</span>
+                          Saldo negativo
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))
@@ -356,10 +367,10 @@ export default function AccountsPage() {
                             </span>
                           </td>
                           <td className={cn(
-                            "px-lg py-md text-right font-numeric text-numeric-data font-bold",
+                            "px-lg py-md text-right font-numeric text-numeric-data font-bold whitespace-nowrap",
                             isIncome ? "text-secondary" : "text-error"
                           )}>
-                            {isIncome ? '+' : '-'}{formatCurrency(Number(tx.amount))}
+                            {`${isIncome ? '+' : '-'}${formatCurrency(Number(tx.amount))}`}
                           </td>
                         </tr>
                       );
@@ -702,8 +713,18 @@ export default function AccountsPage() {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-numeric text-body-lg font-bold text-primary">{formatCurrency(Number(account.balance), account.currency)}</p>
-                    <p className="text-[10px] text-secondary font-bold uppercase tracking-wider">DISPONÍVEL</p>
+                    <p
+                      className="font-numeric text-body-lg font-bold"
+                      style={{ color: Number(account.balance) < 0 ? 'var(--error)' : 'var(--primary)' }}
+                    >
+                      {formatCurrency(Number(account.balance), account.currency)}
+                    </p>
+                    <p
+                      className="text-[10px] font-bold uppercase tracking-wider"
+                      style={{ color: Number(account.balance) < 0 ? 'var(--error)' : 'var(--secondary)' }}
+                    >
+                      {Number(account.balance) < 0 ? 'NEGATIVO' : 'DISPONÍVEL'}
+                    </p>
                   </div>
                 </div>
               ))

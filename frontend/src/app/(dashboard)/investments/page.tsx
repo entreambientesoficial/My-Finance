@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -42,6 +42,7 @@ const TYPE_COLORS: Record<string, string> = {
 export default function InvestmentsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({
     STOCK: true,
     FUND: true,
@@ -50,17 +51,46 @@ export default function InvestmentsPage() {
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['portfolio'],
-    queryFn: () => api.get('/investments/portfolio').then((r) => r.data),
+    queryFn: () => api.get('/api/investments/portfolio').then((r) => r.data),
   });
 
-  const { data: transactions = [] } = useQuery({
-    queryKey: ['transactions-dividends'],
-    queryFn: () => api.get('/transactions?limit=100').then((r) => r.data?.data || r.data || []),
+  const syncProventosMutation = useMutation({
+    mutationFn: () => api.post('/api/proventos/sync').then((r) => r.data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proventos'] }),
+  });
+
+  const updatePricesMutation = useMutation({
+    mutationFn: () => api.post('/api/investments/update-prices').then((r) => r.data),
+    onSuccess: (result) => {
+      if (result.updated > 0) {
+        qc.invalidateQueries({ queryKey: ['portfolio'] });
+        qc.invalidateQueries({ queryKey: ['household-summary'] });
+        toast.success(`${result.updated} cotação(ões) atualizada(s)!`);
+      }
+      setLastUpdated(new Date());
+      syncProventosMutation.mutate();
+    },
+    onError: () => toast.error('Não foi possível atualizar cotações agora'),
+  });
+
+  useEffect(() => {
+    if (portfolio?.investments?.length > 0) {
+      updatePricesMutation.mutate();
+    }
+  // Executa apenas quando o portfólio carrega pela primeira vez
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!portfolio]);
+
+  const currentYear = new Date().getFullYear();
+  const { data: proventosData } = useQuery({
+    queryKey: ['proventos'],
+    queryFn: () => api.get(`/api/proventos?year=${currentYear}`).then((r) => r.data),
+    staleTime: 60_000,
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => api.get('/accounts').then((r) => r.data),
+    queryFn: () => api.get('/api/accounts').then((r) => r.data),
   });
 
   const { register, handleSubmit, reset, control } = useForm<any>({
@@ -68,7 +98,7 @@ export default function InvestmentsPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post('/investments', {
+    mutationFn: (data: any) => api.post('/api/investments', {
       ...data,
       quantity: data.quantity ? Number(data.quantity) : undefined,
       purchasePrice: data.purchasePrice ? Number(data.purchasePrice) : undefined,
@@ -89,7 +119,7 @@ export default function InvestmentsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/investments/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/investments/${id}`),
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['portfolio'] }); 
       qc.invalidateQueries({ queryKey: ['accounts'] });
@@ -112,17 +142,11 @@ export default function InvestmentsPage() {
   const displayTotalGain = hasRealInvestments ? Number(portfolio.totalGain) : 0;
   const displayTotalGainPct = hasRealInvestments ? Number(portfolio.totalGainPct) : 0;
 
-  // Calculate dividends dynamically from real transactions
-  const displayDividends = transactions
-    .filter((t: any) => 
-      t.type === 'INCOME' && 
-      (t.description?.toLowerCase().includes('dividendo') || 
-       t.description?.toLowerCase().includes('rendimento') || 
-       t.description?.toLowerCase().includes('provento') || 
-       t.description?.toLowerCase().includes('jcp') ||
-       t.account?.type === 'INVESTMENT')
-    )
-    .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+  const allProventos: any[] = proventosData?.proventos ?? [];
+  const displayDividends = Number(proventosData?.totalRecebido ?? 0);
+  const displayAReceber = Number(proventosData?.totalAReceber ?? 0);
+  const proventosAReceber = allProventos.filter((p) => p.status === 'A_RECEBER');
+  const proventosPagos = allProventos.filter((p) => p.status === 'PAGO');
 
   // Group investments by category/type
   const groupedInvestments = hasRealInvestments 
@@ -202,14 +226,32 @@ export default function InvestmentsPage() {
         <div>
           <h2 className="font-display text-display-lg text-primary">Gestão de Investimentos</h2>
           <p className="font-body-lg text-body-lg text-on-surface-variant">Acompanhe seu portfólio de ativos e analise a rentabilidade consolidada.</p>
+          {lastUpdated && (
+            <p className="text-xs text-placeholder mt-1">
+              Cotações atualizadas às {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
         </div>
-        <button 
-          onClick={() => setShowForm(!showForm)}
-          className="flex items-center gap-xs bg-primary text-on-primary px-lg py-md rounded-lg font-label-sm text-label-sm active:scale-95 transition-transform font-bold"
-        >
-          <span className="material-symbols-outlined text-[18px]">add</span>
-          Adicionar Ativo
-        </button>
+        <div className="flex items-center gap-sm">
+          <button
+            onClick={() => updatePricesMutation.mutate()}
+            disabled={updatePricesMutation.isPending}
+            className="flex items-center gap-xs border border-outline text-on-surface-variant px-lg py-md rounded-lg font-label-sm text-label-sm active:scale-95 transition-transform hover:bg-surface-container disabled:opacity-50"
+            title="Atualizar cotações via brapi.dev"
+          >
+            <span className={cn('material-symbols-outlined text-[18px]', updatePricesMutation.isPending && 'animate-spin')}>
+              {updatePricesMutation.isPending ? 'refresh' : 'sync'}
+            </span>
+            <span className="hidden sm:inline">Atualizar Cotações</span>
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-xs bg-primary text-on-primary px-lg py-md rounded-lg font-label-sm text-label-sm active:scale-95 transition-transform font-bold"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            Adicionar Ativo
+          </button>
+        </div>
       </div>
 
       {/* Shared Create Form */}
@@ -305,10 +347,9 @@ export default function InvestmentsPage() {
               <span className="material-symbols-outlined text-primary bg-surface-container p-1 rounded">account_balance_wallet</span>
             </div>
             <h2 className="font-display text-display-lg text-primary font-bold">{formatCurrency(displayTotalCurrent)}</h2>
-            <div className="flex items-center gap-xs mt-xs">
-              <span className="material-symbols-outlined text-secondary text-sm">trending_up</span>
-              <p className="text-secondary font-numeric text-numeric-data font-bold">+{formatCurrency(displayTotalGain)} acumulado</p>
-            </div>
+            <p className="text-on-surface-variant font-numeric text-numeric-data mt-xs font-semibold">
+              Custo: {formatCurrency(displayTotalCost)}
+            </p>
           </div>
           
           {/* Total Profit */}
@@ -317,7 +358,10 @@ export default function InvestmentsPage() {
               <p className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider font-bold">Resultado Consolidado</p>
               <span className="material-symbols-outlined text-secondary bg-secondary-container/20 p-1 rounded">payments</span>
             </div>
-            <h2 className={cn("font-display text-display-lg font-bold", displayTotalGain >= 0 ? "text-secondary" : "text-error")}>
+            <h2
+              className="font-display text-display-lg font-bold"
+              style={{ color: displayTotalGain >= 0 ? 'var(--secondary)' : 'var(--error)' }}
+            >
               {formatCurrency(displayTotalGain)}
             </h2>
             <p className="text-on-surface-variant font-numeric text-numeric-data mt-xs font-semibold">Rentabilidade: {displayTotalGainPct.toFixed(1)}%</p>
@@ -326,11 +370,14 @@ export default function InvestmentsPage() {
           {/* Dividends */}
           <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm text-left">
             <div className="flex justify-between items-start mb-sm">
-              <p className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider font-bold">Proventos Recebidos</p>
+              <p className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider font-bold">Proventos {currentYear}</p>
               <span className="material-symbols-outlined text-primary bg-surface-container p-1 rounded">savings</span>
             </div>
             <h2 className="font-display text-display-lg text-primary font-bold">{formatCurrency(displayDividends)}</h2>
-            <p className="text-on-surface-variant font-numeric text-numeric-data mt-xs font-semibold">Média mensal: {formatCurrency(displayDividends / 12)}</p>
+            <div className="flex items-center gap-xs mt-xs">
+              <span className="material-symbols-outlined text-[14px] text-secondary">schedule</span>
+              <p className="text-secondary font-numeric text-numeric-data font-semibold text-xs">+{formatCurrency(displayAReceber)} a receber</p>
+            </div>
           </div>
 
           {/* Global Yield */}
@@ -343,7 +390,10 @@ export default function InvestmentsPage() {
               <h2 className="font-display text-display-lg text-primary font-bold">{displayYieldVsCdi} <span className="text-label-sm font-label-sm text-on-surface-variant font-normal">vs CDI</span></h2>
             </div>
             <div className="w-full bg-surface-container rounded-full h-1.5 mt-2 overflow-hidden">
-              <div className="bg-secondary h-full" style={{ width: `${displayCDIProgress}%` }}></div>
+              <div
+                className={cn("h-full", displayCDIProgress >= 0 ? "bg-secondary" : "bg-error")}
+                style={{ width: `${Math.max(0, displayCDIProgress)}%` }}
+              ></div>
             </div>
           </div>
         </section>
@@ -368,7 +418,7 @@ export default function InvestmentsPage() {
                   <BarChart data={displayEvolution}>
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--outline)' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 9, fill: 'var(--outline)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v/1000}k`} />
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)' }} />
+                    <Tooltip formatter={(v: number) => [formatCurrency(v), 'Patrimônio']} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)' }} />
                     <Bar dataKey="value" fill="var(--primary)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -476,7 +526,7 @@ export default function InvestmentsPage() {
                       </div>
                       <div className="text-left">
                         <h4 className="font-headline text-headline-md text-primary font-bold">{label}</h4>
-                        <p className="text-on-surface-variant font-label-sm text-label-sm">{list.length} ativos ativos</p>
+                        <p className="text-on-surface-variant font-label-sm text-label-sm">{list.length} {list.length === 1 ? 'ativo' : 'ativos'}</p>
                       </div>
                     </div>
 
@@ -554,6 +604,106 @@ export default function InvestmentsPage() {
             })
           )}
         </section>
+
+        {/* ─── PROVENTOS SECTION ─── */}
+        {allProventos.length > 0 && (
+          <section className="space-y-sm mt-gutter text-left">
+            <div className="flex items-center justify-between px-sm">
+              <h3 className="font-headline text-headline-md text-primary font-bold">Histórico de Proventos</h3>
+              <div className="flex items-center gap-sm">
+                {syncProventosMutation.isPending && (
+                  <span className="text-xs text-on-surface-variant flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px] animate-spin">refresh</span>
+                    Sincronizando...
+                  </span>
+                )}
+                <span className="text-xs text-on-surface-variant">{currentYear}</span>
+              </div>
+            </div>
+
+            {/* A Receber */}
+            {proventosAReceber.length > 0 && (
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+                <div className="flex items-center gap-sm px-lg py-sm bg-secondary/10 border-b border-outline-variant">
+                  <span className="material-symbols-outlined text-secondary text-[18px]">schedule</span>
+                  <h4 className="font-label-sm text-label-sm font-bold text-secondary uppercase tracking-wider">
+                    A Receber — {formatCurrency(displayAReceber)}
+                  </h4>
+                </div>
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-surface-container-low font-label-sm text-label-sm uppercase font-bold">
+                    <tr className="border-b border-outline-variant/60">
+                      <th className="px-lg py-sm font-bold">Ativo</th>
+                      <th className="px-lg py-sm font-bold">Tipo</th>
+                      <th className="px-lg py-sm font-bold">Referência</th>
+                      <th className="px-lg py-sm font-bold text-right">Data COM</th>
+                      <th className="px-lg py-sm font-bold text-right">Pagamento</th>
+                      <th className="px-lg py-sm font-bold text-right">R$/cota</th>
+                      <th className="px-lg py-sm font-bold text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-numeric text-numeric-data text-on-surface-variant">
+                    {proventosAReceber.map((p: any) => (
+                      <tr key={p.id} className="border-b border-outline-variant/40 hover:bg-surface-container-high/30 transition-colors">
+                        <td className="px-lg py-md text-primary font-bold">{p.ticker}</td>
+                        <td className="px-lg py-md">{p.tipo}</td>
+                        <td className="px-lg py-md text-on-surface-variant">{p.relatedTo || '—'}</td>
+                        <td className="px-lg py-md text-right">{new Date(p.dataCom).toLocaleDateString('pt-BR')}</td>
+                        <td className="px-lg py-md text-right font-semibold text-secondary">{new Date(p.dataPagamento).toLocaleDateString('pt-BR')}</td>
+                        <td className="px-lg py-md text-right">{formatCurrency(Number(p.valorPorCota))}</td>
+                        <td className="px-lg py-md text-right font-bold text-secondary">{formatCurrency(Number(p.valorTotal))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagos */}
+            {proventosPagos.length > 0 && (
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+                <div className="flex items-center gap-sm px-lg py-sm bg-surface-container-low border-b border-outline-variant">
+                  <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                  <h4 className="font-label-sm text-label-sm font-bold text-on-surface-variant uppercase tracking-wider">
+                    Recebidos — {formatCurrency(displayDividends)}
+                  </h4>
+                </div>
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-surface-container-low font-label-sm text-label-sm uppercase font-bold">
+                    <tr className="border-b border-outline-variant/60">
+                      <th className="px-lg py-sm font-bold">Ativo</th>
+                      <th className="px-lg py-sm font-bold">Tipo</th>
+                      <th className="px-lg py-sm font-bold">Referência</th>
+                      <th className="px-lg py-sm font-bold text-right">Data COM</th>
+                      <th className="px-lg py-sm font-bold text-right">Pago em</th>
+                      <th className="px-lg py-sm font-bold text-right">R$/cota</th>
+                      <th className="px-lg py-sm font-bold text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-numeric text-numeric-data text-on-surface-variant">
+                    {proventosPagos.map((p: any) => (
+                      <tr key={p.id} className="border-b border-outline-variant/40 hover:bg-surface-container-high/30 transition-colors">
+                        <td className="px-lg py-md text-primary font-bold">{p.ticker}</td>
+                        <td className="px-lg py-md">{p.tipo}</td>
+                        <td className="px-lg py-md text-on-surface-variant">{p.relatedTo || '—'}</td>
+                        <td className="px-lg py-md text-right">{new Date(p.dataCom).toLocaleDateString('pt-BR')}</td>
+                        <td className="px-lg py-md text-right">{new Date(p.dataPagamento).toLocaleDateString('pt-BR')}</td>
+                        <td className="px-lg py-md text-right">{formatCurrency(Number(p.valorPorCota))}</td>
+                        <td className="px-lg py-md text-right font-bold text-primary">{formatCurrency(Number(p.valorTotal))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {allProventos.length === 0 && !syncProventosMutation.isPending && (
+              <div className="text-center py-xl text-on-surface-variant text-sm">
+                Nenhum provento encontrado. Clique em "Atualizar Cotações" para sincronizar.
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       {/* ─── MOBILE INVESTMENTS VIEW ─── */}

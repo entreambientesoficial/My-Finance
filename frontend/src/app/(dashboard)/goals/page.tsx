@@ -17,18 +17,18 @@ export default function GoalsPage() {
 
   const { data: goals = [], isLoading } = useQuery({
     queryKey: ['goals'],
-    queryFn: () => api.get('/goals').then((r) => r.data),
+    queryFn: () => api.get('/api/goals').then((r) => r.data),
   });
 
   const { data: accounts = [] } = useQuery({
     queryKey: ['accounts'],
-    queryFn: () => api.get('/accounts').then((r) => r.data),
+    queryFn: () => api.get('/api/accounts').then((r) => r.data),
   });
 
   const { register, handleSubmit, reset, control } = useForm<any>();
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post('/goals', { 
+    mutationFn: (data: any) => api.post('/api/goals', {
       ...data, 
       targetAmount: Number(data.targetAmount),
       currentAmount: Number(data.currentAmount || 0)
@@ -44,7 +44,7 @@ export default function GoalsPage() {
 
   const progressMutation = useMutation({
     mutationFn: ({ id, amount, accountId }: { id: string; amount: number; accountId?: string }) =>
-      api.post(`/goals/${id}/progress`, { amount, accountId }),
+      api.post(`/api/goals/${id}/progress`, { amount, accountId }),
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['goals'] }); 
       qc.invalidateQueries({ queryKey: ['accounts'] });
@@ -59,7 +59,7 @@ export default function GoalsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/goals/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/goals/${id}`),
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['goals'] }); 
       toast.success('Meta removida.'); 
@@ -507,7 +507,7 @@ export default function GoalsPage() {
                   </div>
                 ) : (
                   <div className="space-y-md">
-                    {recentActivities.map((act) => (
+                    {recentActivities.map((act: any) => (
                       <div key={act.id} className="flex items-center gap-md p-sm hover:bg-surface-container-low/20 rounded-lg transition-colors text-left">
                         <div className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center",

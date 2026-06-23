@@ -8,7 +8,7 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 
-type Tab = 'profile' | 'household' | 'categories';
+type Tab = 'profile' | 'household' | 'categories' | 'privacy';
 
 const profileSchema = z.object({
   name: z.string().min(2, 'Mínimo 2 caracteres'),
@@ -69,8 +69,7 @@ const COLORS = [
 const getAvatarUrl = (url?: string) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  return `${apiUrl}${url}`;
+  return '';
 };
 
 export default function SettingsPage() {
@@ -80,6 +79,8 @@ export default function SettingsPage() {
   const [categoryType, setCategoryType] = useState<'INCOME' | 'EXPENSE'>('EXPENSE');
   const [editingCategory, setEditingCategory] = useState<any | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const toggleCategory = (id: string) => {
     setExpandedCategories(prev => {
@@ -92,17 +93,17 @@ export default function SettingsPage() {
 
   const { data: me } = useQuery({
     queryKey: ['me'],
-    queryFn: () => api.get('/users/me').then((r) => r.data),
+    queryFn: () => api.get('/api/users/me').then((r) => r.data),
   });
 
   const { data: household } = useQuery({
     queryKey: ['household'],
-    queryFn: () => api.get('/households/mine').then((r) => r.data),
+    queryFn: () => api.get('/api/households/mine').then((r) => r.data),
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ['all-categories'],
-    queryFn: () => api.get('/categories').then((r) => r.data),
+    queryFn: () => api.get('/api/categories').then((r) => r.data),
   });
 
   const profileForm = useForm<ProfileForm>({ resolver: zodResolver(profileSchema) });
@@ -122,7 +123,7 @@ export default function SettingsPage() {
     mutationFn: (file: File) => {
       const formData = new FormData();
       formData.append('file', file);
-      return api.post('/users/me/avatar', formData, {
+      return api.post('/api/users/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
     },
@@ -144,13 +145,13 @@ export default function SettingsPage() {
   };
 
   const updateProfile = useMutation({
-    mutationFn: (data: ProfileForm) => api.patch('/users/me', data),
+    mutationFn: (data: ProfileForm) => api.patch('/api/users/me', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['me'] }); toast.success('Perfil atualizado!'); },
     onError: () => toast.error('Erro ao atualizar perfil'),
   });
 
   const updatePassword = useMutation({
-    mutationFn: (data: PasswordForm) => api.patch('/users/me', {
+    mutationFn: (data: PasswordForm) => api.patch('/api/users/me', {
       currentPassword: data.currentPassword,
       newPassword: data.newPassword
     }),
@@ -164,13 +165,13 @@ export default function SettingsPage() {
   });
 
   const updateHousehold = useMutation({
-    mutationFn: (data: HouseholdForm) => api.patch('/households/mine', data),
+    mutationFn: (data: HouseholdForm) => api.patch('/api/households/mine', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['household'] }); toast.success('Configurações salvas!'); },
     onError: () => toast.error('Erro ao salvar'),
   });
 
   const createCategory = useMutation({
-    mutationFn: (data: CategoryForm) => api.post('/categories', {
+    mutationFn: (data: CategoryForm) => api.post('/api/categories', {
       ...data,
       parentId: data.parentId || null
     }),
@@ -185,7 +186,7 @@ export default function SettingsPage() {
   });
 
   const updateCategory = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: CategoryForm }) => api.patch(`/categories/${id}`, {
+    mutationFn: ({ id, data }: { id: string; data: CategoryForm }) => api.patch(`/api/categories/${id}`, {
       ...data,
       parentId: data.parentId || null
     }),
@@ -221,36 +222,13 @@ export default function SettingsPage() {
   };
 
   const deleteCategory = useMutation({
-    mutationFn: (id: string) => api.delete(`/categories/${id}`),
+    mutationFn: (id: string) => api.delete(`/api/categories/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['all-categories'] });
       qc.invalidateQueries({ queryKey: ['categories'] });
       toast.success('Categoria removida.');
     },
     onError: () => toast.error('Não é possível remover categoria com lançamentos vinculados'),
-  });
-
-  const [inviteEmail, setInviteEmail] = useState('');
-
-  const { data: invites = [] } = useQuery({
-    queryKey: ['invites'],
-    queryFn: () => api.get('/households/invites').then((r) => r.data),
-    enabled: tab === 'household',
-  });
-
-  const sendInvite = useMutation({
-    mutationFn: (email: string) => api.post('/households/invite', { email }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['invites'] });
-      toast.success('Convite enviado!');
-      setInviteEmail('');
-    },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao enviar convite'),
-  });
-
-  const cancelInvite = useMutation({
-    mutationFn: (id: string) => api.delete(`/households/invites/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['invites'] }); toast.success('Convite cancelado.'); },
   });
 
   const sortByName = (arr: any[]) => [...arr].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
@@ -269,7 +247,7 @@ export default function SettingsPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 bg-surface-container p-1 rounded-xl w-fit border border-outline-variant/60">
-        {([['profile', 'Perfil'], ['household', 'Família'], ['categories', 'Categorias']] as [Tab, string][]).map(([t, label]) => (
+        {([['profile', 'Perfil'], ['household', 'Família'], ['categories', 'Categorias'], ['privacy', 'Privacidade']] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${tab === t ? 'bg-primary text-on-primary shadow-sm scale-[1.02]' : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high'}`}>
             {label}
@@ -443,49 +421,242 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Convidar membro */}
-          <div className="bg-card rounded-xl p-6 shadow-sm border border-outline-variant">
-            <h2 className="font-semibold text-base text-on-surface mb-1">Convidar membro</h2>
-            <p className="text-xs text-on-surface-variant mb-4">A pessoa receberá um link por e-mail para criar a conta e entrar na família.</p>
-            <div className="flex gap-3">
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="email@exemplo.com"
-                className="flex-1 border border-outline-variant bg-surface-container-lowest rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary text-on-surface"
-              />
-              <button
-                onClick={() => inviteEmail && sendInvite.mutate(inviteEmail)}
-                disabled={sendInvite.isPending || !inviteEmail}
-                className="bg-primary text-on-primary px-4 py-2.5 rounded-lg text-sm font-bold hover:opacity-90 disabled:opacity-60 transition-all active:scale-[0.98]"
-              >
-                {sendInvite.isPending ? 'Enviando...' : 'Enviar convite'}
-              </button>
-            </div>
+        </div>
+      )}
 
-            {/* Convites pendentes */}
-            {(invites as any[]).length > 0 && (
-              <div className="mt-4 border-t border-outline-variant/60 pt-4">
-                <p className="text-xs font-semibold text-on-surface-variant mb-2">Convites pendentes</p>
-                <div className="space-y-2">
-                  {(invites as any[]).map((inv: any) => (
-                    <div key={inv.id} className="flex items-center justify-between py-2 border-b border-outline-variant/30 last:border-0">
-                      <div>
-                        <p className="text-sm text-on-surface font-medium">{inv.email}</p>
-                        <p className="text-xs text-on-surface-variant">Expira: {new Date(inv.expiresAt).toLocaleDateString('pt-BR')}</p>
-                      </div>
-                      <button
-                        onClick={() => cancelInvite.mutate(inv.id)}
-                        className="text-xs text-red-500 hover:text-red-600 transition-colors font-semibold px-2.5 py-1 hover:bg-red-500/10 rounded-lg"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ))}
-                </div>
+      {/* ── PRIVACIDADE ─────────────────────────────────────────────────────── */}
+      {tab === 'privacy' && (
+        <div className="space-y-6">
+
+          {/* Cabeçalho LGPD */}
+          <div className="bg-card rounded-xl p-6 shadow-sm border border-outline-variant">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-primary text-[22px]">shield</span>
               </div>
-            )}
+              <div>
+                <h2 className="font-semibold text-base text-on-surface">Política de Privacidade e Proteção de Dados</h2>
+                <p className="text-xs text-on-surface-variant mt-0.5">Em conformidade com a Lei Geral de Proteção de Dados Pessoais — LGPD (Lei nº 13.709/2018) e o Marco Civil da Internet (Lei nº 12.965/2014).</p>
+              </div>
+            </div>
+            <div className="bg-primary/5 border border-primary/15 rounded-lg p-3 text-xs text-on-surface-variant leading-relaxed">
+              O <strong className="text-on-surface">MY-FINANCE</strong> coleta e trata seus dados pessoais exclusivamente para a prestação do serviço de gestão financeira pessoal e familiar. Nenhum dado é vendido ou compartilhado com terceiros para fins comerciais.
+            </div>
+          </div>
+
+          {/* Dados coletados */}
+          <div className="bg-card rounded-xl p-6 shadow-sm border border-outline-variant">
+            <h3 className="font-semibold text-sm text-on-surface mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">database</span>
+              Dados que Coletamos
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {[
+                { icon: 'person', label: 'Dados Cadastrais', desc: 'Nome, e-mail e senha (armazenada em hash bcrypt, nunca em texto puro).' },
+                { icon: 'account_balance', label: 'Dados Financeiros', desc: 'Contas, cartões, transações, investimentos, metas e orçamentos inseridos por você.' },
+                { icon: 'photo_camera', label: 'Foto de Perfil', desc: 'Imagem enviada voluntariamente. Armazenada em servidor seguro (Supabase Storage).' },
+                { icon: 'analytics', label: 'Dados de Uso', desc: 'Data e hora de acesso para segurança da conta. Não rastreamos comportamento de navegação.' },
+              ].map((item) => (
+                <div key={item.label} className="flex gap-3 p-3 bg-surface-container-low/50 rounded-lg border border-outline-variant/40">
+                  <span className="material-symbols-outlined text-[18px] text-primary/70 flex-shrink-0 mt-0.5">{item.icon}</span>
+                  <div>
+                    <p className="text-xs font-semibold text-on-surface">{item.label}</p>
+                    <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Finalidade e Base Legal */}
+          <div className="bg-card rounded-xl p-6 shadow-sm border border-outline-variant">
+            <h3 className="font-semibold text-sm text-on-surface mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">gavel</span>
+              Finalidade e Base Legal (LGPD Art. 7º)
+            </h3>
+            <div className="space-y-3">
+              {[
+                { base: 'Execução de Contrato — Art. 7º, V', desc: 'Seus dados são tratados para viabilizar o serviço que você contratou ao criar sua conta.' },
+                { base: 'Legítimo Interesse — Art. 7º, IX', desc: 'Utilizamos logs de acesso para segurança da conta e detecção de acessos indevidos.' },
+                { base: 'Consentimento — Art. 7º, I', desc: 'Funcionalidades opcionais (ex: foto de perfil) são ativadas com seu consentimento explícito e podem ser revogadas a qualquer momento.' },
+              ].map((item) => (
+                <div key={item.base} className="flex gap-3 text-xs">
+                  <span className="text-primary font-bold min-w-[10px]">•</span>
+                  <div>
+                    <span className="font-semibold text-on-surface">{item.base}:</span>
+                    <span className="text-on-surface-variant ml-1">{item.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Retenção e Segurança */}
+          <div className="bg-card rounded-xl p-6 shadow-sm border border-outline-variant">
+            <h3 className="font-semibold text-sm text-on-surface mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">lock</span>
+              Retenção de Dados e Segurança
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-on-surface-variant">
+              <div className="space-y-2">
+                <p className="font-semibold text-on-surface">Período de Retenção</p>
+                <p className="leading-relaxed">Seus dados são mantidos enquanto sua conta estiver ativa. Após a exclusão da conta, os dados são removidos permanentemente em até <strong className="text-on-surface">30 dias</strong>, salvo obrigações legais em contrário.</p>
+              </div>
+              <div className="space-y-2">
+                <p className="font-semibold text-on-surface">Medidas de Segurança</p>
+                <ul className="space-y-1 leading-relaxed">
+                  <li>• Senhas criptografadas com bcrypt</li>
+                  <li>• Comunicação via HTTPS/TLS</li>
+                  <li>• Banco de dados em ambiente isolado (Supabase)</li>
+                  <li>• Autenticação com tokens JWT de curta duração</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* Seus Direitos — LGPD Art. 18 */}
+          <div className="bg-card rounded-xl p-6 shadow-sm border border-outline-variant">
+            <h3 className="font-semibold text-sm text-on-surface mb-1 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">verified_user</span>
+              Seus Direitos como Titular (LGPD Art. 18)
+            </h3>
+            <p className="text-xs text-on-surface-variant mb-4">Você pode exercer os seguintes direitos a qualquer momento, gratuitamente:</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {[
+                { icon: 'search', right: 'Confirmação e Acesso', desc: 'Confirmar se tratamos seus dados e acessar cópia completa.' },
+                { icon: 'edit', right: 'Correção', desc: 'Corrigir dados incompletos, inexatos ou desatualizados.' },
+                { icon: 'download', right: 'Portabilidade', desc: 'Receber seus dados em formato estruturado (CSV/JSON).' },
+                { icon: 'delete_forever', right: 'Eliminação', desc: 'Solicitar exclusão dos dados tratados com base em consentimento.' },
+                { icon: 'block', right: 'Revogação do Consentimento', desc: 'Revogar o consentimento para tratamentos opcionais a qualquer momento.' },
+                { icon: 'info', right: 'Informação sobre Compartilhamento', desc: 'Saber com quais entidades seus dados foram compartilhados.' },
+              ].map((item) => (
+                <div key={item.right} className="flex gap-2.5 p-2.5 rounded-lg bg-surface-container-low/40 border border-outline-variant/30">
+                  <span className="material-symbols-outlined text-[16px] text-secondary flex-shrink-0 mt-0.5">{item.icon}</span>
+                  <div className="text-xs">
+                    <p className="font-semibold text-on-surface">{item.right}</p>
+                    <p className="text-on-surface-variant mt-0.5">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Encarregado / DPO */}
+          <div className="bg-card rounded-xl p-6 shadow-sm border border-outline-variant">
+            <h3 className="font-semibold text-sm text-on-surface mb-3 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-primary">contact_mail</span>
+              Controlador e Encarregado de Dados (DPO)
+            </h3>
+            <div className="text-xs text-on-surface-variant space-y-1.5 leading-relaxed">
+              <p><strong className="text-on-surface">Controlador:</strong> MY-FINANCE — Gestão Financeira Pessoal</p>
+              <p><strong className="text-on-surface">Encarregado (DPO):</strong> Responsável pela privacidade e proteção de dados</p>
+              <p><strong className="text-on-surface">Contato:</strong> privacidade@myfinance.com.br</p>
+              <p className="mt-2 italic">Para exercer qualquer direito previsto na LGPD ou esclarecer dúvidas sobre o tratamento de seus dados, entre em contato pelo e-mail acima. Respondemos em até 15 dias úteis.</p>
+            </div>
+          </div>
+
+          {/* Zona de Perigo */}
+          <div className="bg-card rounded-xl p-6 shadow-sm border border-error/30">
+            <h3 className="font-semibold text-sm text-error mb-4 flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">warning</span>
+              Exportar e Encerrar Conta
+            </h3>
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4 p-4 bg-surface-container-low rounded-lg border border-outline-variant/60">
+                <div>
+                  <p className="text-sm font-semibold text-on-surface">Exportar meus dados</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Baixe uma cópia completa de todos os seus dados financeiros em formato CSV (exercício do direito de portabilidade — LGPD Art. 18, V).</p>
+                </div>
+                <a
+                  href="/api/reports/export/transactions.csv"
+                  download
+                  className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 border border-outline-variant rounded-lg text-xs font-bold text-on-surface hover:bg-surface-container transition-colors whitespace-nowrap"
+                >
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  Baixar CSV
+                </a>
+              </div>
+
+              <div className="flex items-start justify-between gap-4 p-4 bg-error/5 rounded-lg border border-error/20">
+                <div>
+                  <p className="text-sm font-semibold text-error">Excluir minha conta</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">Remove permanentemente sua conta e todos os dados financeiros associados. Esta ação é irreversível e não pode ser desfeita.</p>
+                </div>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 bg-error text-on-error rounded-lg text-xs font-bold hover:opacity-90 transition-opacity whitespace-nowrap active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined text-[16px]">delete_forever</span>
+                  Excluir conta
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-on-surface-variant/60 text-center pb-2">
+            Política de Privacidade MY-FINANCE · Última atualização: Junho de 2026 · Em conformidade com a LGPD (Lei 13.709/2018)
+          </p>
+        </div>
+      )}
+
+      {/* ── MODAL: EXCLUIR CONTA ─────────────────────────────────────────────── */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-error/30 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="p-5 border-b border-outline-variant flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-error text-[20px]">delete_forever</span>
+              </div>
+              <div>
+                <h2 className="font-bold text-base text-error">Excluir conta permanentemente</h2>
+                <p className="text-xs text-on-surface-variant">Esta ação não pode ser revertida</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-error/5 border border-error/20 rounded-lg p-3 text-xs text-on-surface-variant space-y-1.5 leading-relaxed">
+                <p>Ao confirmar, serão excluídos permanentemente:</p>
+                <ul className="space-y-1 ml-2">
+                  <li>• Sua conta e dados de perfil</li>
+                  <li>• Todas as contas bancárias e cartões</li>
+                  <li>• Todo o histórico de transações</li>
+                  <li>• Investimentos, metas e orçamentos</li>
+                </ul>
+                <p className="mt-2 font-medium text-error">Os dados serão removidos em até 30 dias conforme a LGPD.</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant block mb-1.5">
+                  Para confirmar, digite <span className="text-error font-bold">EXCLUIR</span> abaixo:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="EXCLUIR"
+                  className="w-full border border-outline-variant bg-surface-container-lowest rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-error/20 focus:border-error text-on-surface"
+                />
+              </div>
+              <div className="flex gap-3 justify-end pt-2 border-t border-outline-variant/60">
+                <button
+                  type="button"
+                  onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(''); }}
+                  className="px-4 py-2 text-sm border border-outline-variant rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteConfirmText !== 'EXCLUIR'}
+                  onClick={() => {
+                    toast.error('Funcionalidade disponível em breve. Entre em contato com privacidade@myfinance.com.br para solicitar a exclusão.');
+                    setShowDeleteModal(false);
+                    setDeleteConfirmText('');
+                  }}
+                  className="px-4 py-2 text-sm bg-error text-on-error rounded-lg font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98]"
+                >
+                  Excluir permanentemente
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

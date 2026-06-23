@@ -1,18 +1,12 @@
 {
-  "name": "capital-flow-dev-env",
+  "name": "my-finance",
   "version": "1.0.0",
-  "description": "Capital Flow Dev Environment unifing Stitch screens",
-  "main": "index.html",
+  "private": true,
   "scripts": {
-    "dev:prototype": "vite",
-    "dev:frontend": "npm run dev --prefix frontend",
-    "dev:backend": "npm run start:dev --prefix backend",
-    "dev": "node ./node_modules/concurrently/dist/bin/concurrently.js \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "concurrently": "^10.0.3",
-    "vite": "^5.0.0"
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "start": "npm run start --prefix frontend",
+    "lint": "npm run lint --prefix frontend",
+    "type-check": "npm run type-check --prefix frontend"
   }
 }

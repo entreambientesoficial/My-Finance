@@ -28,7 +28,7 @@ export default function RegisterPage() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      await api.post('/auth/register', data);
+      await api.post('/api/auth/register', data);
       toast.success('Conta criada com sucesso!');
       router.push('/dashboard');
     } catch (err: any) {

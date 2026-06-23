@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-06-22
+> Atualizado em: 2026-06-23 (sessão tarde)
 > Stack: NestJS + Next.js 14 + PostgreSQL (Supabase) + Prisma
 
 ---
@@ -23,6 +23,7 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 - [x] Revisar comportamento de Categorias & Subcategorias na tela de **Transações**
 - [x] Refatorar e aprimorar a tela de **Configurações** (Perfil, Família e Categorias)
 - [x] **Auditoria e hardening de segurança** (2026-06-22)
+- [x] **Correções pós-auditoria:** logout inesperado, orçamentos, OFX, LGPD (2026-06-23)
 - [ ] **Migração Backend → Next.js API Routes** para deploy tudo no Cloudflare Pages (zero custo)
 
 ---
@@ -208,19 +209,25 @@ MY-FINANCE/
 - [x] ValidationPipe global com `whitelist` e `forbidNonWhitelisted`
 - [x] Dockerfile multi-stage com usuário não-root
 
+### ✅ FASE 3.5 — Ajustes Pós-Auditoria (2026-06-23)
+- [x] Migração nodemailer → **Resend SDK** (`RESEND_API_KEY` + `MAIL_FROM`)
+- [x] Sistema de convites por e-mail **removido** (invite, accept-invite, endpoints e UI)
+- [x] `cookie-parser` corrigido: `import cookieParser from` → `import * as cookieParser from`
+- [x] Modelo `Invite` removido do schema Prisma + tabela dropada no Supabase
+
 ### ⏳ FASE 4 — Migração para Next.js Full-Stack + Deploy Cloudflare Pages
 **Decisão:** Migrar o backend NestJS para Next.js API Routes, eliminando o servidor separado.
 **Motivo:** Deploy tudo no Cloudflare Pages (gratuito, sem Railway/Render).
 **Stack final:** Next.js 14 App Router + Supabase JS client + `jose` (JWT) + `bcryptjs`
 
-- [ ] Fase 4.1 — Setup: instalar pacotes, estrutura `src/app/api/`
-- [ ] Fase 4.2 — Auth: login, register, refresh, logout, accept-invite
-- [ ] Fase 4.3 — Usuários e Famílias
-- [ ] Fase 4.4 — Contas e Cartões
-- [ ] Fase 4.5 — Categorias e Transações (CSV/OFX import, anexos)
-- [ ] Fase 4.6 — Orçamentos, Metas, Investimentos
-- [ ] Fase 4.7 — Relatórios e Export PDF
-- [ ] Fase 4.8 — Atualizar `api.ts` para rotas internas + remover pasta `backend/`
+- [x] Fase 4.1 — Setup: `bcryptjs`, `jose`, `@supabase/supabase-js`; libs `prisma.ts`, `auth.ts`, `api-response.ts`, `with-auth.ts`, `storage.ts`
+- [x] Fase 4.2 — Auth: `/api/auth/register`, `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout`
+- [x] Fase 4.3 — Usuários e Famílias: `/api/users/me`, `/api/users/me/avatar`, `/api/households/mine`, `/api/households/mine/summary`
+- [x] Fase 4.4 — Contas e Cartões: `/api/accounts`, `/api/accounts/[id]`, `/api/cards`, `/api/cards/[id]`, `/api/cards/[id]/freeze`, `/api/cards/[id]/invoice`
+- [x] Fase 4.5 — Categorias e Transações: `/api/categories`, `/api/categories/[id]`, `/api/transactions`, `/api/transactions/[id]`, `/api/transactions/summary/monthly`, `/api/transactions/[id]/attachments`, `/api/transactions/import/csv`, `/api/transactions/import/ofx`
+- [x] Fase 4.6 — Orçamentos, Metas, Investimentos: `/api/budgets`, `/api/budgets/progress`, `/api/budgets/[id]`, `/api/goals`, `/api/goals/[id]`, `/api/goals/[id]/progress`, `/api/investments`, `/api/investments/portfolio`, `/api/investments/[id]`
+- [x] Fase 4.7 — Relatórios e Export PDF: `/api/reports/cash-flow`, `/api/reports/expenses-by-category`, `/api/reports/net-worth`, `/api/reports/upcoming-bills`, `/api/reports/export/transactions.csv`, `/api/reports/export/summary.pdf`
+- [x] Fase 4.8 — Limpeza completa: zero referências ao backend NestJS; `getAvatarUrl` e anexos usam URLs absolutas do Supabase; `api.ts` usa `baseURL: ''`; `.env.local` limpo
 - [ ] Fase 4.9 — Deploy final no Cloudflare Pages
 
 ---
@@ -239,7 +246,6 @@ MY-FINANCE/
 | Goal | id, name, targetAmount, currentAmount, targetDate, isCompleted |
 | Investment | id, name, type, ticker, quantity, purchasePrice, currentPrice |
 | RefreshToken | id, token, userId, expiresAt |
-| Invite | id, householdId, email, token, expiresAt, acceptedAt |
 
 ---
 
@@ -313,12 +319,6 @@ POST   /transactions/import/csv        (multipart: file + accountId?)
 POST   /transactions/import/ofx        (multipart: file + accountId?)
 POST   /transactions/:id/attachments   (multipart: file)
 DELETE /transactions/:id/attachments/:filename
-
-POST   /auth/accept-invite             (token, name, password)
-
-POST   /households/invite              (email)
-GET    /households/invites
-DELETE /households/invites/:id
 ```
 
 ---
@@ -357,6 +357,32 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ---
 
 ## Log de Alterações
+
+### 2026-06-23 (Tarde) — UX, Correções de Dados e Conformidade LGPD
+
+#### 🔐 Auth — Correção de Logout Inesperado
+- **Access token estendido:** `15m` → `8h` — o TTL curto causava expiração durante o uso normal.
+- **Refresh token estendido:** `7d` → `30d` — evita re-login semanal forçado.
+- **Race condition corrigida em `api.ts`:** Múltiplas requisições simultâneas com 401 (ex.: React Query na montagem) disparavam várias chamadas de `/auth/refresh` em paralelo. A rotação do token fazia as chamadas subsequentes falharem e o sistema deslogava. Implementado padrão **subscriber queue**: apenas a primeira chamada executa o refresh; as demais aguardam na fila e retentam após o refresh concluir.
+
+#### 📊 Orçamentos — Correção de Dados
+- **Filtro de categorias corrigido:** Todas as 40+ categorias apareciam como "AUTOMÁTICO" por causa de um filtro `|| r.amount > 100` que sempre era verdadeiro (fallback = 500 > 100). Removido o bypass; agora só exibe categorias com gasto real OU orçamento manual definido.
+- **Hierarquia de categorias:** A query retornava pai e filho separadamente, duplicando entradas. Corrigido com `parentId: null` na query + agregação dos gastos dos filhos no pai.
+- **Dados reais no gráfico:** Histórico mensal de 6 meses e "Movimentações de Impacto" agora usam dados reais do banco em vez de arrays de fallback mockados.
+
+#### 📈 Relatórios — Correções de UI e PDF
+- **Quebra de valor corrigida:** Valores na tabela de transações quebravam linha entre o sinal (`+`/`-`) e o montante. Resolvido com `whitespace-nowrap` + template literal no `<td>`.
+- **PDF — prazo corrigido:** "Próximas Contas a Pagar" no PDF exibia "15 dias" mas consultava 30 dias. Texto e query agora consistentes em **30 dias**.
+
+#### 💳 Transações — OFX e Notas
+- **Encoding OFX corrigido:** Extratos OFX de bancos brasileiros usam Windows-1252, mas `file.text()` assume UTF-8, gerando `AÃ§Ã£o` em vez de `Ação`. Corrigido com detecção do cabeçalho OFX (`CHARSET:1252`) e `TextDecoder('windows-1252')`.
+- **FITID oculto na UI:** O prefixo `ofx:FITID` armazenado em `notes` para deduplicação era exibido ao usuário. Filtro `notes.startsWith('ofx:')` adicionado na lista de transações (desktop e mobile) sem alterar a lógica de deduplicação.
+
+#### ⚙️ Configurações — Privacidade e LGPD
+- **Aba Privacidade adicionada:** Nova aba completa em `/settings` com política de privacidade, base legal (Art. 7º, I, V e IX da Lei 13.709/2018), retenção de dados, segurança, e listagem dos 6 direitos do titular (Art. 18).
+- **Seção "Exportar e Encerrar Conta":** Renomeada de "Zona de Perigo" para linguagem acessível a usuários não-técnicos. Inclui botão de download CSV e modal de exclusão de conta com confirmação por digitação de "EXCLUIR".
+
+---
 
 ### 2026-06-22 — Auditoria de Segurança + Hardening Completo
 
