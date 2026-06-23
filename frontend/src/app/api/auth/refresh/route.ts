@@ -1,9 +1,15 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyRefresh, signAccess, signRefresh, setAuthCookies } from '@/lib/auth';
-import { ok, unauthorized, serverError } from '@/lib/api-response';
+import { ok, unauthorized, tooManyRequests, serverError } from '@/lib/api-response';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
+  // 30 renovações por IP a cada 15 minutos
+  if (!rateLimit(`refresh:${getClientIp(req)}`, 30, 15 * 60 * 1000)) {
+    return tooManyRequests();
+  }
+
   try {
     const token = req.cookies.get('refreshToken')?.value;
     if (!token) return unauthorized('Refresh token ausente');

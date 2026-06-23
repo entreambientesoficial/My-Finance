@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signAccess, signRefresh, setAuthCookies } from '@/lib/auth';
-import { ok, conflict, badRequest, serverError } from '@/lib/api-response';
+import { ok, conflict, badRequest, tooManyRequests, serverError } from '@/lib/api-response';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const DEFAULT_CATEGORIES = [
   { name: 'Alimentação', type: 'EXPENSE', icon: 'restaurant', color: '#f59e0b' },
@@ -27,6 +28,11 @@ const DEFAULT_CATEGORIES = [
 ] as const;
 
 export async function POST(req: NextRequest) {
+  // 5 cadastros por IP a cada hora
+  if (!rateLimit(`register:${getClientIp(req)}`, 5, 60 * 60 * 1000)) {
+    return tooManyRequests();
+  }
+
   try {
     const body = await req.json();
     const { name, email, password, householdName } = body;

@@ -2,9 +2,15 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signAccess, signRefresh, setAuthCookies } from '@/lib/auth';
-import { ok, unauthorized, badRequest, serverError } from '@/lib/api-response';
+import { ok, unauthorized, badRequest, tooManyRequests, serverError } from '@/lib/api-response';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
+  // 10 tentativas por IP a cada 15 minutos
+  if (!rateLimit(`login:${getClientIp(req)}`, 10, 15 * 60 * 1000)) {
+    return tooManyRequests();
+  }
+
   try {
     const body = await req.json();
     const { email, password } = body;
@@ -22,7 +28,7 @@ export async function POST(req: NextRequest) {
     const refreshToken = await signRefresh(payload);
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
+    expiresAt.setDate(expiresAt.getDate() + 30);
     await prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id, expiresAt } });
 
     setAuthCookies(accessToken, refreshToken);

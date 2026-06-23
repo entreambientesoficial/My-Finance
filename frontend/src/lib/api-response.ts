@@ -32,6 +32,10 @@ export function conflict(message: string) {
   return NextResponse.json({ message }, { status: 409 });
 }
 
+export function tooManyRequests(message = 'Muitas tentativas. Tente novamente em alguns minutos.') {
+  return NextResponse.json({ message }, { status: 429 });
+}
+
 export function serverError(message = 'Erro interno do servidor') {
   return NextResponse.json({ message }, { status: 500 });
 }
