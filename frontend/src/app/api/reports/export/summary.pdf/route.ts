@@ -1,9 +1,16 @@
-﻿export const runtime = 'nodejs';
-
 import { NextRequest, NextResponse } from 'next/server';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth';
 import { unauthorized, serverError } from '@/lib/api-response';
+
+const PRIMARY = rgb(0.012, 0.086, 0.196); // #031632
+const WHITE   = rgb(1, 1, 1);
+const GRAY    = rgb(0.392, 0.455, 0.545); // #64748b
+const GREEN   = rgb(0.024, 0.42, 0.286);  // #006c49
+const RED     = rgb(0.937, 0.267, 0.267); // #ef4444
+const LIGHT   = rgb(0.969, 0.976, 0.984); // #f7f9fb
+const BORDER  = rgb(0.886, 0.906, 0.937); // #e2e8f0
 
 async function getCashFlow(householdId: string, months: number) {
   const now = new Date();
@@ -11,13 +18,13 @@ async function getCashFlow(householdId: string, months: number) {
   for (let i = months - 1; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
-    const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+    const endDate   = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
     const base = { householdId, isPaid: true, date: { gte: startDate, lte: endDate } };
     const [inc, exp] = await Promise.all([
-      prisma.transaction.aggregate({ where: { ...base, type: 'INCOME' }, _sum: { amount: true } }),
+      prisma.transaction.aggregate({ where: { ...base, type: 'INCOME'  }, _sum: { amount: true } }),
       prisma.transaction.aggregate({ where: { ...base, type: 'EXPENSE' }, _sum: { amount: true } }),
     ]);
-    const income = Number(inc._sum.amount || 0);
+    const income   = Number(inc._sum.amount || 0);
     const expenses = Number(exp._sum.amount || 0);
     result.push({ label: date.toLocaleString('pt-BR', { month: 'short', year: 'numeric' }), income, expenses, balance: income - expenses });
   }
@@ -30,7 +37,8 @@ export async function GET(req: NextRequest) {
     if (!user || !user.householdId) return unauthorized();
 
     const householdId = user.householdId;
-    const PDFDocument = require('pdfkit');
+    const fmt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const now = new Date();
 
     const [household, accounts, investments, cashFlow, upcomingBills] = await Promise.all([
       prisma.household.findUnique({ where: { id: householdId } }),
@@ -45,64 +53,84 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
-    const bankBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
+    const bankBalance     = accounts.reduce((s, a) => s + Number(a.balance), 0);
     const investmentValue = investments.reduce((s, i) => s + Number(i.quantity || 0) * Number(i.currentPrice || i.purchasePrice || 0), 0);
-    const netWorth = bankBalance + investmentValue;
-    const fmt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const now = new Date();
+    const netWorth        = bankBalance + investmentValue;
 
-    const pdfBuffer: Buffer = await new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      const doc = new PDFDocument({ size: 'A4', margin: 50 });
-      doc.on('data', (c: Buffer) => chunks.push(c));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
+    // ── Build PDF ──────────────────────────────────────────────────────────
+    const pdfDoc  = await PDFDocument.create();
+    const page    = pdfDoc.addPage([595, 842]); // A4
+    const bold    = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const regular = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-      doc.rect(0, 0, 595, 80).fill('#031632');
-      doc.fillColor('#ffffff').fontSize(20).font('Helvetica-Bold').text('MY-FINANCE', 50, 25);
-      doc.fontSize(11).font('Helvetica').text(`Relatório Financeiro — ${household?.name || ''}`, 50, 50);
-      doc.text(now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }), 50, 62);
-      doc.moveDown(3);
+    const { height } = page.getSize();
+    const toY = (y: number) => height - y; // pdf-lib origin is bottom-left
 
-      doc.fillColor('#031632').fontSize(14).font('Helvetica-Bold').text('Patrimônio Líquido', 50, 110);
-      doc.moveTo(50, 128).lineTo(545, 128).strokeColor('#e2e8f0').stroke();
-      let x = 50;
-      for (const card of [{ label: 'Saldo em Contas', value: fmt(bankBalance) }, { label: 'Investimentos', value: fmt(investmentValue) }, { label: 'Total', value: fmt(netWorth) }]) {
-        doc.rect(x, 135, 155, 60).fillColor('#f7f9fb').fill();
-        doc.fillColor('#64748b').fontSize(9).font('Helvetica').text(card.label, x + 10, 145);
-        doc.fillColor('#031632').fontSize(13).font('Helvetica-Bold').text(card.value, x + 10, 160);
-        x += 165;
-      }
+    // Header background
+    page.drawRectangle({ x: 0, y: toY(80), width: 595, height: 80, color: PRIMARY });
+    page.drawText('MY-FINANCE', { x: 50, y: toY(45), size: 20, font: bold, color: WHITE });
+    page.drawText(`Relatório Financeiro — ${household?.name || ''}`, { x: 50, y: toY(60), size: 11, font: regular, color: WHITE });
+    page.drawText(now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }), { x: 50, y: toY(72), size: 9, font: regular, color: WHITE });
 
-      doc.fillColor('#031632').fontSize(14).font('Helvetica-Bold').text('Fluxo de Caixa — últimos 3 meses', 50, 220);
-      doc.moveTo(50, 238).lineTo(545, 238).strokeColor('#e2e8f0').stroke();
-      let y = 245;
-      doc.fillColor('#64748b').fontSize(9).font('Helvetica').text('Mês', 50, y).text('Receitas', 200, y).text('Despesas', 320, y).text('Saldo', 440, y);
-      y += 15;
-      for (const row of cashFlow) {
-        doc.fillColor('#031632').fontSize(10).font('Helvetica').text(row.label, 50, y).fillColor('#006c49').text(fmt(row.income), 200, y).fillColor('#ef4444').text(fmt(row.expenses), 320, y).fillColor(row.balance >= 0 ? '#006c49' : '#ef4444').text(fmt(row.balance), 440, y);
-        y += 20;
-        doc.moveTo(50, y - 5).lineTo(545, y - 5).strokeColor('#f1f5f9').stroke();
-      }
+    // Section: Patrimônio Líquido
+    page.drawText('Patrimônio Líquido', { x: 50, y: toY(110), size: 14, font: bold, color: PRIMARY });
+    page.drawLine({ start: { x: 50, y: toY(128) }, end: { x: 545, y: toY(128) }, thickness: 1, color: BORDER });
 
-      if (upcomingBills.length > 0) {
-        y += 15;
-        doc.fillColor('#031632').fontSize(14).font('Helvetica-Bold').text('Próximas Contas a Pagar (30 dias)', 50, y);
-        y += 20;
-        doc.moveTo(50, y - 2).lineTo(545, y - 2).strokeColor('#e2e8f0').stroke();
-        y += 5;
-        for (const bill of upcomingBills) {
-          doc.fillColor('#031632').fontSize(10).font('Helvetica').text(bill.description || 'Lançamento', 50, y, { width: 280 }).text(new Date(bill.date).toLocaleDateString('pt-BR'), 340, y).fillColor('#ef4444').text(fmt(Number(bill.amount)), 440, y);
-          y += 18;
-        }
-      }
-
-      doc.moveTo(50, 780).lineTo(545, 780).strokeColor('#e2e8f0').stroke();
-      doc.fillColor('#94a3b8').fontSize(8).font('Helvetica').text(`Gerado em ${now.toLocaleString('pt-BR')} — MY-FINANCE`, 50, 785, { align: 'center', width: 495 });
-      doc.end();
+    const cards = [
+      { label: 'Saldo em Contas', value: fmt(bankBalance) },
+      { label: 'Investimentos',   value: fmt(investmentValue) },
+      { label: 'Total',           value: fmt(netWorth) },
+    ];
+    cards.forEach((card, i) => {
+      const cx = 50 + i * 165;
+      page.drawRectangle({ x: cx, y: toY(195), width: 155, height: 60, color: LIGHT });
+      page.drawText(card.label, { x: cx + 10, y: toY(150), size: 9, font: regular, color: GRAY });
+      page.drawText(card.value, { x: cx + 10, y: toY(165), size: 11, font: bold, color: PRIMARY });
     });
 
-    return new NextResponse(new Uint8Array(pdfBuffer), {
+    // Section: Fluxo de Caixa
+    page.drawText('Fluxo de Caixa — últimos 3 meses', { x: 50, y: toY(220), size: 14, font: bold, color: PRIMARY });
+    page.drawLine({ start: { x: 50, y: toY(238) }, end: { x: 545, y: toY(238) }, thickness: 1, color: BORDER });
+
+    let y = 255;
+    page.drawText('Mês',       { x: 50,  y: toY(y), size: 9, font: regular, color: GRAY });
+    page.drawText('Receitas',  { x: 200, y: toY(y), size: 9, font: regular, color: GRAY });
+    page.drawText('Despesas',  { x: 320, y: toY(y), size: 9, font: regular, color: GRAY });
+    page.drawText('Saldo',     { x: 440, y: toY(y), size: 9, font: regular, color: GRAY });
+    y += 18;
+
+    for (const row of cashFlow) {
+      page.drawText(row.label,         { x: 50,  y: toY(y), size: 10, font: regular, color: PRIMARY });
+      page.drawText(fmt(row.income),   { x: 200, y: toY(y), size: 10, font: regular, color: GREEN });
+      page.drawText(fmt(row.expenses), { x: 320, y: toY(y), size: 10, font: regular, color: RED });
+      page.drawText(fmt(row.balance),  { x: 440, y: toY(y), size: 10, font: regular, color: row.balance >= 0 ? GREEN : RED });
+      y += 20;
+      page.drawLine({ start: { x: 50, y: toY(y - 5) }, end: { x: 545, y: toY(y - 5) }, thickness: 0.5, color: LIGHT });
+    }
+
+    // Section: Próximas Contas
+    if (upcomingBills.length > 0) {
+      y += 15;
+      page.drawText('Próximas Contas a Pagar (30 dias)', { x: 50, y: toY(y), size: 14, font: bold, color: PRIMARY });
+      y += 20;
+      page.drawLine({ start: { x: 50, y: toY(y - 2) }, end: { x: 545, y: toY(y - 2) }, thickness: 1, color: BORDER });
+      y += 5;
+      for (const bill of upcomingBills) {
+        const desc = (bill.description || 'Lançamento').slice(0, 40);
+        page.drawText(desc, { x: 50, y: toY(y), size: 10, font: regular, color: PRIMARY });
+        page.drawText(new Date(bill.date).toLocaleDateString('pt-BR'), { x: 340, y: toY(y), size: 10, font: regular, color: GRAY });
+        page.drawText(fmt(Number(bill.amount)), { x: 440, y: toY(y), size: 10, font: regular, color: RED });
+        y += 18;
+      }
+    }
+
+    // Footer
+    page.drawLine({ start: { x: 50, y: toY(780) }, end: { x: 545, y: toY(780) }, thickness: 1, color: BORDER });
+    page.drawText(`Gerado em ${now.toLocaleString('pt-BR')} — MY-FINANCE`, { x: 50, y: toY(792), size: 8, font: regular, color: GRAY });
+
+    const pdfBytes = await pdfDoc.save();
+
+    return new NextResponse(pdfBytes, {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
@@ -114,4 +142,3 @@ export async function GET(req: NextRequest) {
     return serverError();
   }
 }
-
