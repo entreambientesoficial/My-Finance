@@ -1,20 +1,36 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
 
-const PUBLIC_ROUTES = ['/login', '/register'];
+const ACCESS_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!);
 
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+const PROTECTED = [
+  '/dashboard',
+  '/accounts',
+  '/transactions',
+  '/budgets',
+  '/goals',
+  '/investments',
+  '/reports',
+  '/settings',
+];
 
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  const isProtected = PROTECTED.some((p) => pathname === p || pathname.startsWith(p + '/'));
+  if (!isProtected) return NextResponse.next();
+
+  const token = req.cookies.get('accessToken')?.value;
+  if (!token) return NextResponse.redirect(new URL('/login', req.url));
+
+  try {
+    await jwtVerify(token, ACCESS_SECRET);
     return NextResponse.next();
+  } catch {
+    return NextResponse.redirect(new URL('/login', req.url));
   }
-
-  // Verificação básica: o token é validado pelo backend em cada request
-  // Aqui apenas redireciona para login se não há token no cookie (opcional)
-  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon|icons|logo|sw\\.js|manifest\\.json|robots\\.txt).*)'],
 };

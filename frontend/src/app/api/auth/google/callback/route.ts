@@ -48,7 +48,11 @@ export async function GET(req: NextRequest) {
         grant_type: 'authorization_code',
       }),
     });
-    if (!tokenRes.ok) return fail('google_failed');
+    if (!tokenRes.ok) {
+      const errBody = await tokenRes.text();
+      console.error('[google/callback] token exchange error:', errBody);
+      return fail('google_failed');
+    }
     const { access_token } = await tokenRes.json();
 
     // 2. Buscar dados do usuário no Google

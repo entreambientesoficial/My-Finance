@@ -54,9 +54,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     window.location.href = '/login';
   }
 
-  const userDisplayName = me?.name || 'Alex Rivera';
-  const userRole = me?.household?.name ? `${me.household.name}` : 'Membro Premium';
-  const userInitials = me?.name?.slice(0, 2).toUpperCase() || 'AR';
+  const userDisplayName = me?.name || '';
+  const userRole = me?.household?.name || '';
+  const userInitials = me?.name?.slice(0, 2).toUpperCase() || '';
 
   const [showNotifications, setShowNotifications] = useState(false);
 
