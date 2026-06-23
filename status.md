@@ -1,7 +1,7 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-06-23 (sessão tarde)
-> Stack: NestJS + Next.js 14 + PostgreSQL (Supabase) + Prisma
+> Atualizado em: 2026-06-23 (sessão noite)
+> Stack: Next.js 14 App Router full-stack + PostgreSQL (Supabase) + Prisma
 
 ---
 
@@ -24,7 +24,8 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 - [x] Refatorar e aprimorar a tela de **Configurações** (Perfil, Família e Categorias)
 - [x] **Auditoria e hardening de segurança** (2026-06-22)
 - [x] **Correções pós-auditoria:** logout inesperado, orçamentos, OFX, LGPD (2026-06-23)
-- [ ] **Migração Backend → Next.js API Routes** para deploy tudo no Cloudflare Pages (zero custo)
+- [x] **PWA, Google OAuth, middleware JWT, correção "Alex Rivera"** (2026-06-23)
+- [ ] **Deploy no Cloudflare Pages** — projeto `myfinance` criado, build falhando (ver log abaixo)
 
 ---
 
@@ -228,7 +229,11 @@ MY-FINANCE/
 - [x] Fase 4.6 — Orçamentos, Metas, Investimentos: `/api/budgets`, `/api/budgets/progress`, `/api/budgets/[id]`, `/api/goals`, `/api/goals/[id]`, `/api/goals/[id]/progress`, `/api/investments`, `/api/investments/portfolio`, `/api/investments/[id]`
 - [x] Fase 4.7 — Relatórios e Export PDF: `/api/reports/cash-flow`, `/api/reports/expenses-by-category`, `/api/reports/net-worth`, `/api/reports/upcoming-bills`, `/api/reports/export/transactions.csv`, `/api/reports/export/summary.pdf`
 - [x] Fase 4.8 — Limpeza completa: zero referências ao backend NestJS; `getAvatarUrl` e anexos usam URLs absolutas do Supabase; `api.ts` usa `baseURL: ''`; `.env.local` limpo
-- [ ] Fase 4.9 — Deploy final no Cloudflare Pages
+- [x] Fase 4.9a — **PWA:** manifest.json, service worker, ícones gerados, installable
+- [x] Fase 4.9b — **Google OAuth:** fluxo manual (sem NextAuth); `/api/auth/google` + `/api/auth/google/callback`; vincula conta existente por email
+- [x] Fase 4.9c — **Middleware JWT real:** substituiu stub por `jwtVerify` com `jose`; rotas protegidas redirecionam para `/login` no servidor
+- [x] Fase 4.9d — **Fix "Alex Rivera":** removidos mock fallbacks do layout; middleware elimina flash de usuário fictício
+- [ ] Fase 4.9e — **Deploy Cloudflare Pages** ← EM ANDAMENTO (build falhando — ver abaixo)
 
 ---
 
@@ -357,6 +362,30 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ---
 
 ## Log de Alterações
+
+### 2026-06-23 (Noite) — Deploy Cloudflare Pages (em andamento)
+
+#### 🚀 Preparação para Produção
+- **DATABASE_URL atualizado** para Transaction pooler Supabase (porta 6543, `?pgbouncer=true`); `DIRECT_URL` mantém conexão direta (porta 5432) para migrations.
+- **`pdfkit` → `pdf-lib`:** Substituído por versão edge-compatible; rota de export PDF reescrita com API do `pdf-lib`; removido `export const runtime = 'nodejs'`.
+- **`wrangler.toml` criado** com `nodejs_compat` e `pages_build_output_dir`.
+- **`@cloudflare/next-on-pages@1.13.15` adicionado** (pinado — versão 1.13.16 adicionou peer dep `next>=14.3.0` incompatível com `next@14.2.3`).
+- **`.npmrc` com `legacy-peer-deps=true`** para suprimir conflito de peer deps no npm install automático do Cloudflare.
+- **`storage.ts` corrigido:** `createClient` movido para dentro de função `getClient()` (lazy) — evita erro "supabaseUrl is required" quando Next.js importa o módulo durante `next build`.
+
+#### ⚠️ Estado atual do deploy (projeto: `myfinance` em `myfinance-c83.pages.dev`)
+- Projeto criado no Cloudflare Pages, conectado ao GitHub (`entreambientesoficial/My-Finance`).
+- **Build ainda falhando.** Erros corrigidos em sequência: peer dep npm → TypeScript Uint8Array → supabaseUrl no module level.
+- Último commit `8b3f0cd` (lazy Supabase client) ainda não teve resultado confirmado.
+- **Opções para amanhã:**
+  1. Verificar se `8b3f0cd` resolveu o build — se sim, configurar domínio e variáveis de produção.
+  2. Se ainda falhar, considerar migrar para **OpenNext** (adaptador oficial recomendado pelo Cloudflare, substituindo o deprecated `@cloudflare/next-on-pages`).
+  3. Alternativa: deletar projeto e recriar com configurações ajustadas.
+
+#### Variáveis configuradas no Cloudflare Pages (Production)
+`DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `NEXT_PUBLIC_APP_URL` (https://myfinance-c83.pages.dev), `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BRAPI_TOKEN`, `NODE_VERSION=20`
+
+---
 
 ### 2026-06-23 (Tarde) — UX, Correções de Dados e Conformidade LGPD
 
