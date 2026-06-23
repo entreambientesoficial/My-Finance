@@ -20,6 +20,10 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return unauthorized('Credenciais inválidas');
 
+    if (!user.passwordHash) {
+      return unauthorized('Esta conta usa login com Google. Clique em "Entrar com Google".');
+    }
+
     const match = await bcrypt.compare(password, user.passwordHash);
     if (!match) return unauthorized('Credenciais inválidas');
 

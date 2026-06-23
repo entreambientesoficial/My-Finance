@@ -39,6 +39,7 @@ export const PATCH = withAuth(async (req: NextRequest, user) => {
       if (!currentPassword) return badRequest('A senha atual é obrigatória para cadastrar uma nova senha');
       const existing = await prisma.user.findUnique({ where: { id: user.sub } });
       if (!existing) return notFound('Usuário não encontrado');
+      if (!existing.passwordHash) return badRequest('Esta conta usa login com Google e não possui senha.');
       const match = await bcrypt.compare(currentPassword, existing.passwordHash);
       if (!match) return badRequest('Senha atual incorreta');
       updateData.passwordHash = await bcrypt.hash(newPassword, 10);

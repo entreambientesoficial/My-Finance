@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 const ACCESS_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!);
 const REFRESH_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!);
@@ -55,14 +55,14 @@ export async function verifyRefresh(token: string): Promise<JwtPayload | null> {
 
 export function setAuthCookies(accessToken: string, refreshToken: string) {
   const cookieStore = cookies();
-  cookieStore.set('accessToken', accessToken, {
-    ...COOKIE_BASE,
-    maxAge: 8 * 60 * 60,
-  });
-  cookieStore.set('refreshToken', refreshToken, {
-    ...COOKIE_BASE,
-    maxAge: 30 * 24 * 60 * 60,
-  });
+  cookieStore.set('accessToken', accessToken, { ...COOKIE_BASE, maxAge: 8 * 60 * 60 });
+  cookieStore.set('refreshToken', refreshToken, { ...COOKIE_BASE, maxAge: 30 * 24 * 60 * 60 });
+}
+
+// For routes that return a redirect response (e.g. OAuth callback)
+export function setAuthCookiesOnResponse(res: NextResponse, accessToken: string, refreshToken: string) {
+  res.cookies.set('accessToken', accessToken, { ...COOKIE_BASE, maxAge: 8 * 60 * 60 });
+  res.cookies.set('refreshToken', refreshToken, { ...COOKIE_BASE, maxAge: 30 * 24 * 60 * 60 });
 }
 
 export function clearAuthCookies() {
