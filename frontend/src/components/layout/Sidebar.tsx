@@ -58,7 +58,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
     )}>
       {/* Logo */}
-      <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+      <div className="px-5 py-4 border-b border-white/10 relative flex items-center justify-center">
         <Image
           src={theme === 'dark' ? '/logo-dark.png' : '/logo-light.png'}
           alt="MY-FINANCE"
@@ -68,7 +68,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           priority
         />
         {onClose && (
-          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white md:hidden">
+          <button onClick={onClose} className="absolute right-3 p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white md:hidden">
             <span className="material-symbols-outlined text-xl">close</span>
           </button>
         )}
