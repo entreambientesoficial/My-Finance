@@ -2,7 +2,6 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient as createServerClient } from '@/lib/supabase/server';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, badRequest, serverError } from '@/lib/api-response';
 
