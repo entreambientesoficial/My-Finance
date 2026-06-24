@@ -28,8 +28,29 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 - [x] **PWA, Google OAuth, middleware JWT, correção "Alex Rivera"** (2026-06-23)
 - [x] **Tentativa de deploy Cloudflare Pages** — fracassou por incompatibilidade Prisma + Edge Runtime (2026-06-24, ver log)
 - [x] **Hard reset** para commit `251e1b9` — codebase voltou ao estado de 2026-06-23 noite
-- [ ] **FASE 5 — Migração Supabase Auth + Supabase client** ← EM ANDAMENTO
-- [ ] **Pós-migração — Revisão geral de integrações** (Supabase, GitHub, Google Cloud, Cloudflare)
+- [x] **FASE 5 — Migração Supabase Auth + Supabase client** — CONCLUÍDA (2026-06-24)
+- [x] **Build Cloudflare Pages passando** — commit `803fd11` (2026-06-24)
+- [ ] **PRÓXIMO PASSO IMEDIATO:** Adicionar variáveis de ambiente no Cloudflare Pages ← FAZER PRIMEIRO
+- [ ] **Pós-deploy — Revisão geral de integrações** (Supabase, GitHub, Google Cloud)
+
+---
+
+## ⚠️ PRÓXIMO PASSO — Cloudflare Pages sem variáveis de ambiente
+
+O build está passando mas o app retorna 500 porque o projeto `my-finance-my` não tem variáveis configuradas.
+
+**Cloudflare Pages → my-finance-my → Settings → Variables and secrets → + Add**
+
+| Variável | De onde pegar | Tipo |
+|----------|---------------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL | Text |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon key | Text |
+| `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API → service_role key | Secret |
+| `NEXT_PUBLIC_APP_URL` | `https://my-finance-my.pages.dev` | Text |
+
+Após salvar → clicar em **Redeploy** para o build rodar com as variáveis.
+
+**Observação importante:** `NEXT_PUBLIC_*` precisam estar disponíveis no momento do build (não só no runtime) para serem embutidas no Next.js.
 
 ---
 
@@ -406,33 +427,34 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 
 ## Log de Alterações
 
-### 2026-06-24 (Tarde) — Correções Edge Runtime + Deploy em Andamento
+### 2026-06-24 (Tarde) — Correções Edge Runtime + Build Passando
 
 #### ✅ Fix 1 — `useSearchParams` sem Suspense
 - `@cloudflare/next-on-pages` exige que `useSearchParams()` seja envolvido em `<Suspense>` em páginas estáticas.
 - Extraído `SearchParamsHandler` em componente separado dentro de `login/page.tsx`, envolto em `<Suspense fallback={null}>`.
 - Commit: `f073da6`
 
-#### ✅ Fix 2 — `export const runtime = 'edge'` faltando em 40 arquivos
+#### ✅ Fix 2 — `export const runtime = 'edge'` faltando em rotas raiz
 - `@cloudflare/next-on-pages` requer a declaração em TODA rota dinâmica de API.
-- PowerShell script adicionou o export como primeira linha nos 40 arquivos de rota.
+- Script adicionou o export nos arquivos de rota sem `[id]` no caminho.
 - Commit: `06f0aad`
 
 #### ✅ Fix 3 — `import { extname } from 'path'` em `storage.ts`
 - Webpack não consegue empacotar módulos Node.js (`path`, `fs`, etc.) para Edge Runtime.
-- Substituído por função inline de 3 linhas. `Buffer.from()` em outros arquivos é seguro — é global no Edge Runtime.
+- Substituído por função inline de 3 linhas.
 - Commit: `1f51513`
 
 #### ✅ Fix 4 — Import não utilizado em `users/me/route.ts`
-- `import { createClient as createServerClient } from '@/lib/supabase/server'` removido.
 - Commit: `e4e484c`
 
-#### 🔍 Varredura proativa pré-deploy
-- Zero imports de módulos Node.js restantes no codebase (`path`, `fs`, `crypto`, `stream`, etc.)
-- Zero imports de `@prisma/client` no runtime
-- Zero imports de `jsonwebtoken`, `bcrypt`, `jose`
-- `next.config.mjs` verificado — configuração limpa, sem problemas
-- **Push realizado em `e4e484c` — aguardando resultado do build no Cloudflare Pages**
+#### ✅ Fix 5 — `export const runtime = 'edge'` faltando em rotas `[id]`
+- O script anterior usava glob PowerShell que trata `[id]` como classe de caractere, pulando todos os arquivos em pastas com colchetes no nome.
+- 12 arquivos corrigidos manualmente: `accounts/[id]`, `budgets/[id]`, `cards/[id]`, `cards/[id]/freeze`, `cards/[id]/invoice`, `categories/[id]`, `goals/[id]`, `goals/[id]/progress`, `investments/[id]`, `transactions/[id]`, `transactions/[id]/attachments`, `transactions/[id]/attachments/[filename]`.
+- Commit: `803fd11` — **BUILD PASSOU** ✅
+
+#### ❌ App ainda retorna 500 — causa: zero variáveis de ambiente configuradas
+- O projeto `my-finance-my` no Cloudflare Pages está sem nenhuma variável.
+- **Pendente para amanhã:** adicionar as 4 variáveis (ver seção "Próximo Passo" acima).
 
 ---
 
