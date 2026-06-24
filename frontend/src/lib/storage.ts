@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
-import { extname } from 'path';
+
+const extname = (filename: string) => {
+  const idx = filename.lastIndexOf('.');
+  return idx !== -1 ? filename.slice(idx) : '';
+};
 
 const AVATARS = 'avatars';
 const ATTACHMENTS = 'attachments';
