@@ -1,14 +1,19 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, serverError } from '@/lib/api-response';
 
 export const GET = withAuth(async (_req: NextRequest, user) => {
   try {
     if (!user.householdId) return notFound();
-    const investments = await prisma.investment.findMany({ where: { householdId: user.householdId }, orderBy: { name: 'asc' } });
+    const supabase = createAdminClient();
+    const { data: investments } = await supabase
+      .from('investments')
+      .select('*')
+      .eq('householdId', user.householdId)
+      .order('name', { ascending: true });
 
-    const summary = investments.map((inv) => {
+    const summary = (investments ?? []).map((inv) => {
       const cost = Number(inv.quantity || 0) * Number(inv.purchasePrice || 0);
       const current = Number(inv.quantity || 0) * Number(inv.currentPrice || inv.purchasePrice || 0);
       const gain = current - cost;

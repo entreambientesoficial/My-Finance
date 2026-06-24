@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, badRequest, serverError } from '@/lib/api-response';
 
@@ -33,9 +33,8 @@ function detectColumns(headers: string[]) {
   };
 }
 
-function mapRow(cols: string[], _headers: string[], colMap: ReturnType<typeof detectColumns>) {
+function mapRow(cols: string[], colMap: ReturnType<typeof detectColumns>) {
   const get = (idx: number) => (idx >= 0 && idx < cols.length ? cols[idx] : '');
-
   let date: Date | null = null;
   const rawDate = get(colMap.date);
   if (rawDate) {
@@ -45,10 +44,8 @@ function mapRow(cols: string[], _headers: string[], colMap: ReturnType<typeof de
       date = a.length === 4 ? new Date(`${a}-${b}-${c}`) : new Date(`${c}-${b}-${a}`);
     }
   }
-
   let amount = 0;
   let type: 'INCOME' | 'EXPENSE' = 'EXPENSE';
-
   if (colMap.credit >= 0 && colMap.debit >= 0) {
     const credit = parseAmount(get(colMap.credit));
     const debit = parseAmount(get(colMap.debit));
@@ -58,11 +55,9 @@ function mapRow(cols: string[], _headers: string[], colMap: ReturnType<typeof de
     amount = Math.abs(raw);
     type = raw >= 0 ? 'INCOME' : 'EXPENSE';
   }
-
   const rawType = get(colMap.type).toLowerCase();
   if (rawType.includes('credito') || rawType.includes('recebimento') || rawType === 'c') type = 'INCOME';
   if (rawType.includes('debito') || rawType.includes('pagamento') || rawType === 'd') type = 'EXPENSE';
-
   return { date, amount, type, description: get(colMap.description) || null };
 }
 
@@ -82,17 +77,20 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const headers = lines[0].split(sep).map((h) => h.toLowerCase().trim().replace(/"/g, ''));
     const colMap = detectColumns(headers);
 
+    const supabase = createAdminClient();
     const created: any[] = [];
     const errors: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
       const cols = parseCsvLine(lines[i], sep);
       try {
-        const row = mapRow(cols, headers, colMap);
+        const row = mapRow(cols, colMap);
         if (!row.amount || !row.date) continue;
-        const tx = await prisma.transaction.create({
-          data: { householdId: user.householdId, type: row.type, amount: Math.abs(row.amount), description: row.description, date: row.date, isPaid: true, accountId },
-        });
+        const { data: tx } = await supabase
+          .from('transactions')
+          .insert({ householdId: user.householdId, type: row.type, amount: Math.abs(row.amount), description: row.description, date: row.date.toISOString(), isPaid: true, accountId })
+          .select()
+          .single();
         created.push(tx);
       } catch {
         errors.push(`Linha ${i + 1}: formato inválido`);

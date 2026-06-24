@@ -1,19 +1,25 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, serverError } from '@/lib/api-response';
 
 type Ctx = { params: { id: string } };
 
-const INCLUDE = { category: true, account: true, toAccount: true, card: true };
+const TX_SELECT = '*, category:categories(*), account:accounts(*), toAccount:accounts!toAccountId(*), card:cards(*)';
 
 export function GET(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const tx = await prisma.transaction.findFirst({ where: { id: params.id, householdId: user.householdId }, include: INCLUDE });
-      if (!tx) return notFound('Transação não encontrada');
-      return ok(tx);
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from('transactions')
+        .select(TX_SELECT)
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .maybeSingle();
+      if (!data) return notFound('Transação não encontrada');
+      return ok(data);
     } catch (err) {
       console.error('[transactions/:id GET]', err);
       return serverError();
@@ -25,39 +31,56 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
   return withAuth(async (r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const oldTx = await prisma.transaction.findFirst({ where: { id: params.id, householdId: user.householdId } });
+      const supabase = createAdminClient();
+      const { data: oldTx } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .maybeSingle();
       if (!oldTx) return notFound('Transação não encontrada');
 
       const body = await r.json();
-      const data: any = {
+      const updateData: any = {
         ...body,
-        ...(body.date && { date: new Date(body.date) }),
+        ...(body.date && { date: new Date(body.date).toISOString() }),
         ...(body.categoryId !== undefined && { categoryId: body.categoryId || null }),
         ...(body.accountId !== undefined && { accountId: body.accountId || null }),
         ...(body.toAccountId !== undefined && { toAccountId: body.toAccountId || null }),
         ...(body.cardId !== undefined && { cardId: body.cardId || null }),
       };
 
-      const updated = await prisma.transaction.update({ where: { id: params.id }, data });
+      const { data: updated } = await supabase
+        .from('transactions')
+        .update(updateData)
+        .eq('id', params.id)
+        .select()
+        .single();
 
       if (body.isPaid !== undefined && oldTx.isPaid !== (body.isPaid === true)) {
         const isMarkedPaid = body.isPaid === true;
-        const amount = Number(oldTx.amount);
+        const amount = parseFloat(oldTx.amount);
         const accId = oldTx.accountId;
         const toAccId = oldTx.toAccountId;
+
+        const adjustBalance = async (id: string, delta: number) => {
+          const { data: acc } = await supabase.from('accounts').select('balance').eq('id', id).single();
+          await supabase.from('accounts').update({ balance: parseFloat(acc?.balance ?? '0') + delta }).eq('id', id);
+        };
+
         if (isMarkedPaid) {
-          if (oldTx.type === 'INCOME' && accId) await prisma.account.update({ where: { id: accId }, data: { balance: { increment: amount } } });
-          else if (oldTx.type === 'EXPENSE' && accId) await prisma.account.update({ where: { id: accId }, data: { balance: { decrement: amount } } });
+          if (oldTx.type === 'INCOME' && accId) await adjustBalance(accId, amount);
+          else if (oldTx.type === 'EXPENSE' && accId) await adjustBalance(accId, -amount);
           else if (oldTx.type === 'TRANSFER' && accId && toAccId) {
-            await prisma.account.update({ where: { id: accId }, data: { balance: { decrement: amount } } });
-            await prisma.account.update({ where: { id: toAccId }, data: { balance: { increment: amount } } });
+            await adjustBalance(accId, -amount);
+            await adjustBalance(toAccId, amount);
           }
         } else {
-          if (oldTx.type === 'INCOME' && accId) await prisma.account.update({ where: { id: accId }, data: { balance: { decrement: amount } } });
-          else if (oldTx.type === 'EXPENSE' && accId) await prisma.account.update({ where: { id: accId }, data: { balance: { increment: amount } } });
+          if (oldTx.type === 'INCOME' && accId) await adjustBalance(accId, -amount);
+          else if (oldTx.type === 'EXPENSE' && accId) await adjustBalance(accId, amount);
           else if (oldTx.type === 'TRANSFER' && accId && toAccId) {
-            await prisma.account.update({ where: { id: accId }, data: { balance: { increment: amount } } });
-            await prisma.account.update({ where: { id: toAccId }, data: { balance: { decrement: amount } } });
+            await adjustBalance(accId, amount);
+            await adjustBalance(toAccId, -amount);
           }
         }
       }
@@ -74,9 +97,15 @@ export function DELETE(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const tx = await prisma.transaction.findFirst({ where: { id: params.id, householdId: user.householdId } });
+      const supabase = createAdminClient();
+      const { data: tx } = await supabase
+        .from('transactions')
+        .select('id')
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .maybeSingle();
       if (!tx) return notFound('Transação não encontrada');
-      await prisma.transaction.delete({ where: { id: params.id } });
+      await supabase.from('transactions').delete().eq('id', params.id);
       return ok({ message: 'Transação removida' });
     } catch (err) {
       console.error('[transactions/:id DELETE]', err);

@@ -1,42 +1,48 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, serverError } from '@/lib/api-response';
 
 type Ctx = { params: { id: string } };
 
-async function findCard(id: string, householdId: string) {
-  return prisma.card.findFirst({
-    where: { id, householdId, isActive: true },
-    include: { account: { select: { name: true, balance: true } } },
-  });
-}
-
-export function GET(_req: NextRequest, { params }: Ctx) {
+export function GET(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const card = await findCard(params.id, user.householdId);
-      if (!card) return notFound('Cartão não encontrado');
-      return ok(card);
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from('cards')
+        .select('*, account:accounts(name, balance)')
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .eq('isActive', true)
+        .maybeSingle();
+      if (!data) return notFound('Cartão não encontrado');
+      return ok(data);
     } catch (err) {
       console.error('[cards/:id GET]', err);
       return serverError();
     }
-  })(_req);
+  })(req);
 }
 
 export function PATCH(req: NextRequest, { params }: Ctx) {
   return withAuth(async (r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const card = await findCard(params.id, user.householdId);
-      if (!card) return notFound('Cartão não encontrado');
       const body = await r.json();
       if (body.accountId === '') body.accountId = null;
       if (body.lastFourDigits === '') body.lastFourDigits = null;
-      const updated = await prisma.card.update({ where: { id: params.id }, data: body });
-      return ok(updated);
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from('cards')
+        .update(body)
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .select()
+        .single();
+      if (!data) return notFound('Cartão não encontrado');
+      return ok(data);
     } catch (err) {
       console.error('[cards/:id PATCH]', err);
       return serverError();
@@ -48,10 +54,13 @@ export function DELETE(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const card = await findCard(params.id, user.householdId);
-      if (!card) return notFound('Cartão não encontrado');
-      const updated = await prisma.card.update({ where: { id: params.id }, data: { isActive: false } });
-      return ok(updated);
+      const supabase = createAdminClient();
+      await supabase
+        .from('cards')
+        .update({ isActive: false })
+        .eq('id', params.id)
+        .eq('householdId', user.householdId);
+      return ok({ message: 'Cartão removido' });
     } catch (err) {
       console.error('[cards/:id DELETE]', err);
       return serverError();

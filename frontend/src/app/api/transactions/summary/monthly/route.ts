@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, badRequest, serverError } from '@/lib/api-response';
 
@@ -11,23 +11,28 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     const year = parseInt(sp.get('year') ?? '');
     if (!month || !year) return badRequest('month e year são obrigatórios');
 
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    const startDate = new Date(year, month - 1, 1).toISOString();
+    const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
 
-    const transactions = await prisma.transaction.findMany({
-      where: { householdId: user.householdId, date: { gte: startDate, lte: endDate }, isPaid: true },
-      include: { category: { select: { name: true, color: true, icon: true } } },
-    });
+    const supabase = createAdminClient();
+    const { data: transactions } = await supabase
+      .from('transactions')
+      .select('*, category:categories(id, name, color, icon)')
+      .eq('householdId', user.householdId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('isPaid', true);
 
-    const income = transactions.filter((t) => t.type === 'INCOME').reduce((s, t) => s + Number(t.amount), 0);
-    const expenses = transactions.filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + Number(t.amount), 0);
+    const txs = transactions ?? [];
+    const income = txs.filter((t) => t.type === 'INCOME').reduce((s, t) => s + parseFloat(t.amount), 0);
+    const expenses = txs.filter((t) => t.type === 'EXPENSE').reduce((s, t) => s + parseFloat(t.amount), 0);
 
-    const byCategory = transactions
+    const byCategory = txs
       .filter((t) => t.type === 'EXPENSE' && t.category)
       .reduce((acc: Record<string, any>, t) => {
         const key = t.categoryId!;
         if (!acc[key]) acc[key] = { ...t.category, total: 0 };
-        acc[key].total += Number(t.amount);
+        acc[key].total += parseFloat(t.amount);
         return acc;
       }, {});
 

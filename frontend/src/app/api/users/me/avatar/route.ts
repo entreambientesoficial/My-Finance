@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { uploadAvatar } from '@/lib/storage';
 import { ok, badRequest, serverError } from '@/lib/api-response';
@@ -17,7 +17,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const buffer = Buffer.from(await file.arrayBuffer());
     const avatarUrl = await uploadAvatar(user.sub, buffer, file.type);
 
-    await prisma.user.update({ where: { id: user.sub }, data: { avatarUrl } });
+    await createAdminClient().from('users').update({ avatarUrl }).eq('id', user.sub);
     return ok({ avatarUrl });
   } catch (err) {
     console.error('[users/me/avatar POST]', err);

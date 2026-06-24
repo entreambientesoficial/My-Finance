@@ -1,17 +1,19 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, created, notFound, serverError } from '@/lib/api-response';
 
 export const GET = withAuth(async (_req, user) => {
   try {
     if (!user.householdId) return notFound();
-    const cards = await prisma.card.findMany({
-      where: { householdId: user.householdId, isActive: true },
-      include: { account: { select: { name: true, balance: true } } },
-      orderBy: { name: 'asc' },
-    });
-    return ok(cards);
+    const supabase = createAdminClient();
+    const { data: cards } = await supabase
+      .from('cards')
+      .select('*, account:accounts(name, balance)')
+      .eq('householdId', user.householdId)
+      .eq('isActive', true)
+      .order('name', { ascending: true });
+    return ok(cards ?? []);
   } catch (err) {
     console.error('[cards GET]', err);
     return serverError();
@@ -24,9 +26,12 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const body = await req.json();
     if (body.accountId === '') body.accountId = null;
     if (body.lastFourDigits === '') body.lastFourDigits = null;
-    const card = await prisma.card.create({
-      data: { ...body, householdId: user.householdId },
-    });
+    const supabase = createAdminClient();
+    const { data: card } = await supabase
+      .from('cards')
+      .insert({ ...body, householdId: user.householdId })
+      .select()
+      .single();
     return created(card);
   } catch (err) {
     console.error('[cards POST]', err);

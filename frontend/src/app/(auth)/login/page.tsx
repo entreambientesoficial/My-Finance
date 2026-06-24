@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { api } from '@/lib/api';
+import { createClient } from '@/lib/supabase/client';
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -39,19 +39,29 @@ export default function LoginPage() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      await api.post('/api/auth/login', data);
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({ email: data.email, password: data.password });
+      if (error) {
+        toast.error(error.message === 'Invalid login credentials' ? 'Credenciais inválidas' : error.message);
+        return;
+      }
       toast.success('Bem-vindo!');
       router.push('/dashboard');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Credenciais inválidas');
+      router.refresh();
+    } catch {
+      toast.error('Erro ao fazer login. Tente novamente.');
     } finally {
       setLoading(false);
     }
   }
 
-  function handleGoogleLogin() {
+  async function handleGoogleLogin() {
     setGoogleLoading(true);
-    window.location.href = '/api/auth/google';
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
+    });
   }
 
   return (
@@ -125,10 +135,6 @@ export default function LoginPage() {
               Criar conta
             </Link>
           </p>
-
-          <div className="mt-4 p-3 bg-slate-50 rounded-lg text-xs text-slate-500">
-            <strong>Demo:</strong> demo@myfinance.com / demo123
-          </div>
         </div>
       </div>
     </div>

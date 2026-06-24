@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, badRequest, serverError } from '@/lib/api-response';
 
@@ -9,7 +9,13 @@ export function POST(req: NextRequest, { params }: Ctx) {
   return withAuth(async (r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const goal = await prisma.goal.findFirst({ where: { id: params.id, householdId: user.householdId } });
+      const supabase = createAdminClient();
+      const { data: goal } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .maybeSingle();
       if (!goal) return notFound('Meta não encontrada');
 
       const body = await r.json();
@@ -17,17 +23,33 @@ export function POST(req: NextRequest, { params }: Ctx) {
       if (!amount || amount <= 0) return badRequest('Valor inválido');
 
       if (body.accountId) {
-        const account = await prisma.account.findFirst({ where: { id: body.accountId, householdId: user.householdId } });
+        const { data: account } = await supabase
+          .from('accounts')
+          .select('balance')
+          .eq('id', body.accountId)
+          .eq('householdId', user.householdId)
+          .maybeSingle();
         if (!account) return notFound('Conta não encontrada');
-        await prisma.account.update({ where: { id: body.accountId }, data: { balance: { decrement: amount } } });
-        await prisma.transaction.create({
-          data: { householdId: user.householdId, accountId: body.accountId, amount, description: `Aporte: ${goal.name}`, type: 'EXPENSE', isPaid: true, date: new Date() },
+        await supabase.from('accounts').update({ balance: parseFloat(account.balance) - amount }).eq('id', body.accountId);
+        await supabase.from('transactions').insert({
+          householdId: user.householdId,
+          accountId: body.accountId,
+          amount,
+          description: `Aporte: ${goal.name}`,
+          type: 'EXPENSE',
+          isPaid: true,
+          date: new Date().toISOString(),
         });
       }
 
-      const newAmount = Number(goal.currentAmount) + amount;
-      const isCompleted = newAmount >= Number(goal.targetAmount);
-      const updated = await prisma.goal.update({ where: { id: params.id }, data: { currentAmount: newAmount, isCompleted } });
+      const newAmount = parseFloat(goal.currentAmount) + amount;
+      const isCompleted = newAmount >= parseFloat(goal.targetAmount);
+      const { data: updated } = await supabase
+        .from('goals')
+        .update({ currentAmount: newAmount, isCompleted })
+        .eq('id', params.id)
+        .select()
+        .single();
       return ok(updated);
     } catch (err) {
       console.error('[goals/:id/progress POST]', err);

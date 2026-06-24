@@ -1,23 +1,18 @@
 import { NextRequest } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
+import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, badRequest, serverError } from '@/lib/api-response';
 
 export const GET = withAuth(async (_req, user) => {
   try {
-    const me = await prisma.user.findUnique({
-      where: { id: user.sub },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        avatarUrl: true,
-        householdId: true,
-        household: { select: { id: true, name: true, currency: true } },
-        createdAt: true,
-      },
-    });
+    const supabase = createAdminClient();
+    const { data: me } = await supabase
+      .from('users')
+      .select('id, name, email, avatarUrl, householdId, household:households(id, name, currency), createdAt')
+      .eq('id', user.sub)
+      .maybeSingle();
     if (!me) return notFound('Usuário não encontrado');
     return ok(me);
   } catch (err) {
@@ -37,19 +32,32 @@ export const PATCH = withAuth(async (req: NextRequest, user) => {
 
     if (newPassword) {
       if (!currentPassword) return badRequest('A senha atual é obrigatória para cadastrar uma nova senha');
-      const existing = await prisma.user.findUnique({ where: { id: user.sub } });
-      if (!existing) return notFound('Usuário não encontrado');
-      if (!existing.passwordHash) return badRequest('Esta conta usa login com Google e não possui senha.');
-      const match = await bcrypt.compare(currentPassword, existing.passwordHash);
-      if (!match) return badRequest('Senha atual incorreta');
-      updateData.passwordHash = await bcrypt.hash(newPassword, 10);
+
+      const tempClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      const { error: signInError } = await tempClient.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (signInError) return badRequest('Senha atual incorreta');
+
+      const { error: updateError } = await createAdminClient().auth.admin.updateUserById(user.supabaseId, { password: newPassword });
+      if (updateError) return badRequest('Não foi possível alterar a senha');
     }
 
-    const updated = await prisma.user.update({
-      where: { id: user.sub },
-      data: updateData,
-      select: { id: true, name: true, email: true, avatarUrl: true },
-    });
+    if (Object.keys(updateData).length > 0) {
+      const supabase = createAdminClient();
+      await supabase.from('users').update(updateData).eq('id', user.sub);
+    }
+
+    const supabase = createAdminClient();
+    const { data: updated } = await supabase
+      .from('users')
+      .select('id, name, email, avatarUrl')
+      .eq('id', user.sub)
+      .single();
     return ok(updated);
   } catch (err) {
     console.error('[users/me PATCH]', err);

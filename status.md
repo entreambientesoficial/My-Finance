@@ -1,7 +1,8 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-06-23 (sessão noite)
-> Stack: Next.js 14 App Router full-stack + PostgreSQL (Supabase) + Prisma
+> Atualizado em: 2026-06-24
+> Stack atual: Next.js 14 App Router + PostgreSQL (Supabase) + Prisma + JWT manual
+> Stack alvo: Next.js 14 App Router + Supabase client + Supabase Auth (sem Prisma runtime, sem JWT manual)
 
 ---
 
@@ -25,7 +26,10 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 - [x] **Auditoria e hardening de segurança** (2026-06-22)
 - [x] **Correções pós-auditoria:** logout inesperado, orçamentos, OFX, LGPD (2026-06-23)
 - [x] **PWA, Google OAuth, middleware JWT, correção "Alex Rivera"** (2026-06-23)
-- [ ] **Deploy no Cloudflare Pages** — projeto `myfinance` criado, build falhando (ver log abaixo)
+- [x] **Tentativa de deploy Cloudflare Pages** — fracassou por incompatibilidade Prisma + Edge Runtime (2026-06-24, ver log)
+- [x] **Hard reset** para commit `251e1b9` — codebase voltou ao estado de 2026-06-23 noite
+- [ ] **FASE 5 — Migração Supabase Auth + Supabase client** ← EM ANDAMENTO
+- [ ] **Pós-migração — Revisão geral de integrações** (Supabase, GitHub, Google Cloud, Cloudflare)
 
 ---
 
@@ -233,7 +237,42 @@ MY-FINANCE/
 - [x] Fase 4.9b — **Google OAuth:** fluxo manual (sem NextAuth); `/api/auth/google` + `/api/auth/google/callback`; vincula conta existente por email
 - [x] Fase 4.9c — **Middleware JWT real:** substituiu stub por `jwtVerify` com `jose`; rotas protegidas redirecionam para `/login` no servidor
 - [x] Fase 4.9d — **Fix "Alex Rivera":** removidos mock fallbacks do layout; middleware elimina flash de usuário fictício
-- [ ] Fase 4.9e — **Deploy Cloudflare Pages** ← EM ANDAMENTO (build falhando — ver abaixo)
+- [x] Fase 4.9e — **Deploy Cloudflare Pages** — ABANDONADO (incompatibilidade fundamental: ver log 2026-06-24)
+
+### ✅ FASE 5 — Migração Real: Supabase Auth + Supabase Client (sem Prisma runtime) — CONCLUÍDO (2026-06-24)
+
+**Decisão:** Substituir Prisma + JWT manual por Supabase Auth + Supabase JS client — mesma arquitetura dos projetos que deployaram no Cloudflare Pages sem problemas.
+
+**O que NÃO muda:** todas as telas, componentes, lógica de negócio, cálculos, endpoints (mesmas URLs), estrutura de tabelas do banco.
+
+**O que mudou:**
+- Auth: JWT manual (bcryptjs + jose) → Supabase Auth (Google OAuth incluso, sem implementação manual)
+- Banco: `prisma.X.query()` → `supabase.from('X').query()` (37 arquivos de API migrados)
+- Schema: removidos `passwordHash`, `googleId`, tabela `RefreshToken`; adicionado `supabaseId` em `User`
+- Middleware: verificação JWT → verificação de sessão Supabase via `@supabase/ssr`
+- `@prisma/client` removido das dependências de runtime; `prisma` fica só como devDependency
+
+**Passos concluídos:**
+
+- [x] 5.1 — `package.json`: removido `bcryptjs`, `jose`, `next-auth`; adicionado `@supabase/ssr`; `prisma` movido para devDependencies
+- [x] 5.2 — Criados `lib/supabase/client.ts` (browser), `lib/supabase/server.ts` (SSR) e `lib/supabase/admin.ts` (service role)
+- [x] 5.3 — Schema Prisma atualizado; `prisma db push` executado com sucesso
+- [x] 5.4 — `lib/with-auth.ts` reescrito para verificar sessão Supabase; `lib/auth.ts` vira shim de tipos
+- [x] 5.5 — `middleware.ts` reescrito com `@supabase/ssr` + `createServerClient`
+- [x] 5.6 — Rotas de auth antigas deletadas; criadas `/api/auth/callback` (OAuth) e `/api/auth/setup` (perfil pós-signup)
+- [x] 5.7 — 37 arquivos de API migrados: zero importações de `@prisma/client` no runtime
+- [x] 5.8 — `login/page.tsx` e `register/page.tsx` usam `createClient()` do Supabase diretamente
+- [x] 5.9 — `tsc --noEmit` passa sem erros; `lib/prisma.ts` deletado; `.next` cache limpo
+- [x] 5.10 — Servidor de dev rodando em http://localhost:3001 — pronto para commit e deploy
+
+### ⏳ PÓS-MIGRAÇÃO — Revisão Geral de Integrações
+
+Após o sistema estar funcionando em produção, revisar cada serviço externo:
+
+- [ ] **Supabase** — Verificar Auth providers (Google OAuth configurado), RLS policies, Storage buckets, variáveis de ambiente de produção
+- [ ] **GitHub** — Limpar secrets desnecessários (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID); verificar se workflow de CI ainda faz sentido
+- [ ] **Google Cloud Console** — Atualizar Authorized redirect URIs para o domínio de produção do Cloudflare; verificar se o OAuth Client está ativo
+- [ ] **Cloudflare Pages** — Recriar projeto conectado ao GitHub; configurar variáveis de ambiente de produção; verificar domínio
 
 ---
 
@@ -362,6 +401,32 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ---
 
 ## Log de Alterações
+
+### 2026-06-24 — Tentativa de Deploy + Reset + Decisão de Migração
+
+#### ❌ Deploy Cloudflare Pages — FRACASSOU (causa raiz: Prisma + Edge Runtime incompatíveis)
+- Tentadas múltiplas abordagens: `@cloudflare/next-on-pages`, `@opennextjs/cloudflare`, Cloudflare Workers + GitHub Actions
+- Todas falharam por razão fundamental: Prisma requer Node.js; Cloudflare Pages roda Edge Runtime (V8 isolates sem Node.js)
+- Worker `my-finance` deployado via GitHub Actions, mas sem variáveis de ambiente configuradas → Internal Server Error
+- Upgrade acidental para Next.js 15 durante tentativas → quebrou o app localmente
+- **Decisão:** hard reset para commit `251e1b9` (estado de 2026-06-23 noite). Um dia de trabalho descartado.
+
+#### ✅ Hard Reset
+```
+git reset --hard 251e1b93c9eeaed508fac5ee64e92ef9f55c45e5
+git push --force origin master
+```
+Projeto voltou ao estado de 2026-06-23. Projeto Cloudflare Pages deletado. Secrets GitHub mantidos (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID) — podem ser deletados.
+
+#### 🔍 Diagnóstico — Por que esse projeto foi mais difícil que os anteriores
+- Projetos anteriores: Next.js na raiz + Supabase client + Supabase Auth → deploy Cloudflare de primeira
+- Este projeto: Next.js em subpasta + Prisma (Node.js) + JWT manual → incompatível com Edge Runtime
+- A remoção do backend NestJS foi só mudança de estrutura, não de tecnologia — Prisma continuou no runtime
+
+#### 📋 Próximo passo definido
+Migração completa para Supabase Auth + Supabase client (Fase 5 acima). Todas as telas e lógica de negócio ficam intactas.
+
+---
 
 ### 2026-06-23 (Noite) — Deploy Cloudflare Pages (em andamento)
 

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, serverError } from '@/lib/api-response';
 
@@ -9,14 +9,17 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
   return withAuth(async (r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const goal = await prisma.goal.findFirst({ where: { id: params.id, householdId: user.householdId } });
-      if (!goal) return notFound('Meta não encontrada');
       const body = await r.json();
-      const updated = await prisma.goal.update({
-        where: { id: params.id },
-        data: { ...body, ...(body.targetDate && { targetDate: new Date(body.targetDate) }) },
-      });
-      return ok(updated);
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from('goals')
+        .update({ ...body, ...(body.targetDate && { targetDate: new Date(body.targetDate).toISOString() }) })
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .select()
+        .single();
+      if (!data) return notFound('Meta não encontrada');
+      return ok(data);
     } catch (err) {
       console.error('[goals/:id PATCH]', err);
       return serverError();
@@ -28,9 +31,8 @@ export function DELETE(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const goal = await prisma.goal.findFirst({ where: { id: params.id, householdId: user.householdId } });
-      if (!goal) return notFound('Meta não encontrada');
-      await prisma.goal.delete({ where: { id: params.id } });
+      const supabase = createAdminClient();
+      await supabase.from('goals').delete().eq('id', params.id).eq('householdId', user.householdId);
       return ok({ message: 'Meta removida' });
     } catch (err) {
       console.error('[goals/:id DELETE]', err);

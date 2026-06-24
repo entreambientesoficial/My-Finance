@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, serverError } from '@/lib/api-response';
-import type { JwtPayload } from '@/lib/auth';
 
 const BRAPI_BASE = 'https://brapi.dev/api';
 const TOKEN = process.env.BRAPI_TOKEN || '';
@@ -29,36 +28,31 @@ async function fetchDividends(ticker: string): Promise<BrapiDividend[]> {
   }
 }
 
-export const POST = withAuth(async (_req: NextRequest, user: JwtPayload) => {
+export const POST = withAuth(async (_req: NextRequest, user) => {
   if (!user.householdId) return serverError();
 
+  const supabase = createAdminClient();
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  // Busca todos os investimentos com ticker (exclui crypto — dividendos via equity)
-  const investments = await prisma.investment.findMany({
-    where: {
-      householdId: user.householdId,
-      ticker: { not: null },
-      type: { notIn: ['CRYPTO', 'SAVINGS'] },
-    },
-    select: { ticker: true, quantity: true, purchaseDate: true },
-  });
+  const { data: investments } = await supabase
+    .from('investments')
+    .select('ticker, quantity, purchaseDate')
+    .eq('householdId', user.householdId)
+    .not('ticker', 'is', null)
+    .not('type', 'in', '("CRYPTO","SAVINGS")');
 
-  if (investments.length === 0) return ok({ synced: 0, aReceber: 0 });
+  if (!investments?.length) return ok({ synced: 0, aReceber: 0 });
 
-  // Agrupa por ticker e soma quantidades (caso haja compras parciais)
   const tickerMap: Record<string, { quantidade: number; purchaseDate: Date | null }> = {};
   for (const inv of investments) {
     if (!inv.ticker) continue;
     const tk = inv.ticker.toUpperCase();
-    if (!tickerMap[tk]) {
-      tickerMap[tk] = { quantidade: 0, purchaseDate: inv.purchaseDate };
-    }
+    if (!tickerMap[tk]) tickerMap[tk] = { quantidade: 0, purchaseDate: inv.purchaseDate ? new Date(inv.purchaseDate) : null };
     tickerMap[tk].quantidade += Number(inv.quantity || 0);
-    // usa a data de compra mais antiga
-    if (inv.purchaseDate && (!tickerMap[tk].purchaseDate || inv.purchaseDate < tickerMap[tk].purchaseDate!)) {
-      tickerMap[tk].purchaseDate = inv.purchaseDate;
+    if (inv.purchaseDate) {
+      const d = new Date(inv.purchaseDate);
+      if (!tickerMap[tk].purchaseDate || d < tickerMap[tk].purchaseDate!) tickerMap[tk].purchaseDate = d;
     }
   }
 
@@ -67,7 +61,6 @@ export const POST = withAuth(async (_req: NextRequest, user: JwtPayload) => {
 
   for (const [ticker, { quantidade, purchaseDate }] of Object.entries(tickerMap)) {
     if (quantidade <= 0) continue;
-
     const dividends = await fetchDividends(ticker);
 
     for (const div of dividends) {
@@ -76,10 +69,8 @@ export const POST = withAuth(async (_req: NextRequest, user: JwtPayload) => {
       const dataCom = new Date(div.lastDatePrior);
       const dataPagamento = new Date(div.paymentDate);
 
-      // Só contabiliza se o usuário era dono na data COM
       if (purchaseDate && purchaseDate > dataCom) continue;
 
-      // Só processa dividendos dos últimos 24 meses
       const limite = new Date();
       limite.setMonth(limite.getMonth() - 24);
       if (dataCom < limite) continue;
@@ -89,53 +80,35 @@ export const POST = withAuth(async (_req: NextRequest, user: JwtPayload) => {
       const tipo = div.label || 'Rendimento';
 
       try {
-        await prisma.provento.upsert({
-          where: {
-            householdId_ticker_dataCom_tipo: {
-              householdId: user.householdId!,
-              ticker,
-              dataCom,
-              tipo,
-            },
-          },
-          update: {
-            valorPorCota: div.rate,
-            dataPagamento,
-            status,
-            quantidade,
-            valorTotal,
-            relatedTo: div.relatedTo || null,
-          },
-          create: {
-            householdId: user.householdId!,
+        await supabase.from('proventos').upsert(
+          {
+            householdId: user.householdId,
             ticker,
             tipo,
             valorPorCota: div.rate,
-            dataCom,
-            dataPagamento,
+            dataCom: dataCom.toISOString(),
+            dataPagamento: dataPagamento.toISOString(),
             status,
             quantidade,
             valorTotal,
             relatedTo: div.relatedTo || null,
           },
-        });
+          { onConflict: 'householdId,ticker,dataCom,tipo' }
+        );
         synced++;
         if (status === 'A_RECEBER') aReceber++;
       } catch {
-        // ignora conflito de unique constraint em corridas paralelas
+        // ignora conflito em corridas paralelas
       }
     }
   }
 
-  // Atualiza status de PAGO para registros cuja data de pagamento já passou
-  await prisma.provento.updateMany({
-    where: {
-      householdId: user.householdId,
-      status: 'A_RECEBER',
-      dataPagamento: { lte: hoje },
-    },
-    data: { status: 'PAGO' },
-  });
+  await supabase
+    .from('proventos')
+    .update({ status: 'PAGO' })
+    .eq('householdId', user.householdId)
+    .eq('status', 'A_RECEBER')
+    .lte('dataPagamento', hoje.toISOString());
 
   return ok({ synced, aReceber });
 });

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, serverError } from '@/lib/api-response';
 
@@ -9,14 +9,17 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
   return withAuth(async (r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const cat = await prisma.category.findFirst({ where: { id: params.id, householdId: user.householdId } });
-      if (!cat) return notFound('Categoria não encontrada');
       const body = await r.json();
-      const updated = await prisma.category.update({
-        where: { id: params.id },
-        data: { ...body, parentId: body.parentId || null },
-      });
-      return ok(updated);
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from('categories')
+        .update({ ...body, parentId: body.parentId || null })
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .select()
+        .single();
+      if (!data) return notFound('Categoria não encontrada');
+      return ok(data);
     } catch (err) {
       console.error('[categories/:id PATCH]', err);
       return serverError();
@@ -28,9 +31,12 @@ export function DELETE(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const cat = await prisma.category.findFirst({ where: { id: params.id, householdId: user.householdId } });
-      if (!cat) return notFound('Categoria não encontrada');
-      await prisma.category.delete({ where: { id: params.id } });
+      const supabase = createAdminClient();
+      await supabase
+        .from('categories')
+        .delete()
+        .eq('id', params.id)
+        .eq('householdId', user.householdId);
       return ok({ message: 'Categoria removida' });
     } catch (err) {
       console.error('[categories/:id DELETE]', err);

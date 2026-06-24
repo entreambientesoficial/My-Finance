@@ -1,15 +1,10 @@
-import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { clearAuthCookies } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 import { noContent, serverError } from '@/lib/api-response';
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
-    const token = req.cookies.get('refreshToken')?.value;
-    if (token) {
-      await prisma.refreshToken.deleteMany({ where: { token } }).catch(() => {});
-    }
-    clearAuthCookies();
+    const supabase = createClient();
+    await supabase.auth.signOut();
     return noContent();
   } catch (err) {
     console.error('[logout]', err);

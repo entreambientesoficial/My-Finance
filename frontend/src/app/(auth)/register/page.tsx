@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
+import { createClient } from '@/lib/supabase/client';
 import { api } from '@/lib/api';
 
 const schema = z.object({
@@ -29,19 +30,42 @@ export default function RegisterPage() {
   async function onSubmit(data: FormData) {
     setLoading(true);
     try {
-      await api.post('/api/auth/register', data);
+      const supabase = createClient();
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: { data: { name: data.name, householdName: data.householdName } },
+      });
+
+      if (error) {
+        toast.error(error.message === 'User already registered' ? 'E-mail já cadastrado' : error.message);
+        return;
+      }
+
+      if (!authData.session) {
+        toast.success('Conta criada! Verifique seu e-mail para confirmar.');
+        router.push('/login');
+        return;
+      }
+
+      await api.post('/api/auth/setup', { name: data.name, householdName: data.householdName });
       toast.success('Conta criada com sucesso!');
       router.push('/dashboard');
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao criar conta');
+      router.refresh();
+    } catch {
+      toast.error('Erro ao criar conta. Tente novamente.');
     } finally {
       setLoading(false);
     }
   }
 
-  function handleGoogleRegister() {
+  async function handleGoogleRegister() {
     setGoogleLoading(true);
-    window.location.href = '/api/auth/google';
+    const supabase = createClient();
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
+    });
   }
 
   return (
@@ -102,7 +126,7 @@ export default function RegisterPage() {
               <input
                 type="password"
                 {...register('password')}
-                placeholder="Mínimo 8 caracteres, uma maiúscula e um número"
+                placeholder="Mínimo 8 caracteres"
                 autoComplete="new-password"
                 className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-[#031632]/20 focus:border-[#031632]"
               />

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, serverError } from '@/lib/api-response';
 
@@ -9,14 +9,17 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
   return withAuth(async (r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const inv = await prisma.investment.findFirst({ where: { id: params.id, householdId: user.householdId } });
-      if (!inv) return notFound('Investimento não encontrado');
       const body = await r.json();
-      const updated = await prisma.investment.update({
-        where: { id: params.id },
-        data: { ...body, ...(body.purchaseDate && { purchaseDate: new Date(body.purchaseDate) }) },
-      });
-      return ok(updated);
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from('investments')
+        .update({ ...body, ...(body.purchaseDate && { purchaseDate: new Date(body.purchaseDate).toISOString() }) })
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .select()
+        .single();
+      if (!data) return notFound('Investimento não encontrado');
+      return ok(data);
     } catch (err) {
       console.error('[investments/:id PATCH]', err);
       return serverError();
@@ -28,9 +31,8 @@ export function DELETE(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const inv = await prisma.investment.findFirst({ where: { id: params.id, householdId: user.householdId } });
-      if (!inv) return notFound('Investimento não encontrado');
-      await prisma.investment.delete({ where: { id: params.id } });
+      const supabase = createAdminClient();
+      await supabase.from('investments').delete().eq('id', params.id).eq('householdId', user.householdId);
       return ok({ message: 'Investimento removido' });
     } catch (err) {
       console.error('[investments/:id DELETE]', err);

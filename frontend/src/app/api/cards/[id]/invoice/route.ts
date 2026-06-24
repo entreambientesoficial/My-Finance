@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, badRequest, serverError } from '@/lib/api-response';
 
@@ -14,20 +14,29 @@ export function GET(req: NextRequest, { params }: Ctx) {
       const year = parseInt(searchParams.get('year') ?? '');
       if (!month || !year) return badRequest('month e year são obrigatórios');
 
-      const card = await prisma.card.findFirst({ where: { id: params.id, householdId: user.householdId, isActive: true } });
+      const supabase = createAdminClient();
+      const { data: card } = await supabase
+        .from('cards')
+        .select('id')
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .eq('isActive', true)
+        .maybeSingle();
       if (!card) return notFound('Cartão não encontrado');
 
-      const startDate = new Date(year, month - 1, 1);
-      const endDate = new Date(year, month, 0, 23, 59, 59);
+      const startDate = new Date(year, month - 1, 1).toISOString();
+      const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
 
-      const transactions = await prisma.transaction.findMany({
-        where: { cardId: params.id, date: { gte: startDate, lte: endDate } },
-        include: { category: { select: { name: true, color: true, icon: true } } },
-        orderBy: { date: 'desc' },
-      });
+      const { data: transactions } = await supabase
+        .from('transactions')
+        .select('*, category:categories(name, color, icon)')
+        .eq('cardId', params.id)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false });
 
-      const total = transactions.reduce((sum, t) => sum + Number(t.amount), 0);
-      return ok({ total, transactions });
+      const total = (transactions ?? []).reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      return ok({ total, transactions: transactions ?? [] });
     } catch (err) {
       console.error('[cards/:id/invoice GET]', err);
       return serverError();

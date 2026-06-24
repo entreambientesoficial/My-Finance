@@ -1,13 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser, JwtPayload } from './auth';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { unauthorized } from './api-response';
 
-type Handler = (req: NextRequest, user: JwtPayload) => Promise<NextResponse>;
+export interface AuthUser {
+  sub: string;
+  email: string;
+  householdId?: string;
+  supabaseId: string;
+}
+
+export type JwtPayload = AuthUser;
+
+type Handler = (req: NextRequest, user: AuthUser) => Promise<NextResponse>;
 
 export function withAuth(handler: Handler) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const user = await getAuthUser(req);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return unauthorized();
-    return handler(req, user);
+
+    const admin = createAdminClient();
+    const { data: profile } = await admin
+      .from('users')
+      .select('id, householdId')
+      .eq('supabaseId', user.id)
+      .maybeSingle();
+
+    if (!profile) return unauthorized('Perfil não encontrado');
+
+    return handler(req, {
+      sub: profile.id,
+      email: user.email!,
+      householdId: profile.householdId ?? undefined,
+      supabaseId: user.id,
+    });
   };
 }
