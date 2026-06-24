@@ -264,6 +264,10 @@ MY-FINANCE/
 - [x] 5.8 — `login/page.tsx` e `register/page.tsx` usam `createClient()` do Supabase diretamente
 - [x] 5.9 — `tsc --noEmit` passa sem erros; `lib/prisma.ts` deletado; `.next` cache limpo
 - [x] 5.10 — Servidor de dev rodando em http://localhost:3001 — pronto para commit e deploy
+- [x] 5.11 — **Fix Edge Runtime:** `export const runtime = 'edge'` adicionado em todos os 40 arquivos de API route (obrigatório para `@cloudflare/next-on-pages`)
+- [x] 5.12 — **Fix Suspense:** `useSearchParams()` em `login/page.tsx` isolado em componente `<SearchParamsHandler>` envolto em `<Suspense fallback={null}>`
+- [x] 5.13 — **Fix `path` module:** `import { extname } from 'path'` removido de `storage.ts`; substituído por função inline (webpack não consegue empacotar módulos Node.js para Edge Runtime)
+- [x] 5.14 — **Varredura proativa concluída:** zero imports de módulos Node.js (`fs`, `crypto`, `stream`, `path`), zero imports Prisma, zero imports JWT/bcrypt restantes no codebase
 
 ### ⏳ PÓS-MIGRAÇÃO — Revisão Geral de Integrações
 
@@ -401,6 +405,36 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ---
 
 ## Log de Alterações
+
+### 2026-06-24 (Tarde) — Correções Edge Runtime + Deploy em Andamento
+
+#### ✅ Fix 1 — `useSearchParams` sem Suspense
+- `@cloudflare/next-on-pages` exige que `useSearchParams()` seja envolvido em `<Suspense>` em páginas estáticas.
+- Extraído `SearchParamsHandler` em componente separado dentro de `login/page.tsx`, envolto em `<Suspense fallback={null}>`.
+- Commit: `f073da6`
+
+#### ✅ Fix 2 — `export const runtime = 'edge'` faltando em 40 arquivos
+- `@cloudflare/next-on-pages` requer a declaração em TODA rota dinâmica de API.
+- PowerShell script adicionou o export como primeira linha nos 40 arquivos de rota.
+- Commit: `06f0aad`
+
+#### ✅ Fix 3 — `import { extname } from 'path'` em `storage.ts`
+- Webpack não consegue empacotar módulos Node.js (`path`, `fs`, etc.) para Edge Runtime.
+- Substituído por função inline de 3 linhas. `Buffer.from()` em outros arquivos é seguro — é global no Edge Runtime.
+- Commit: `1f51513`
+
+#### ✅ Fix 4 — Import não utilizado em `users/me/route.ts`
+- `import { createClient as createServerClient } from '@/lib/supabase/server'` removido.
+- Commit: `e4e484c`
+
+#### 🔍 Varredura proativa pré-deploy
+- Zero imports de módulos Node.js restantes no codebase (`path`, `fs`, `crypto`, `stream`, etc.)
+- Zero imports de `@prisma/client` no runtime
+- Zero imports de `jsonwebtoken`, `bcrypt`, `jose`
+- `next.config.mjs` verificado — configuração limpa, sem problemas
+- **Push realizado em `e4e484c` — aguardando resultado do build no Cloudflare Pages**
+
+---
 
 ### 2026-06-24 — Tentativa de Deploy + Reset + Decisão de Migração
 
