@@ -1,3 +1,4 @@
+﻿export const runtime = 'edge'
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';

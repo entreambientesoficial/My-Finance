@@ -1,3 +1,4 @@
+﻿export const runtime = 'edge'
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { createAdminClient } from '@/lib/supabase/admin';

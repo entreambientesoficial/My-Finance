@@ -1,3 +1,4 @@
+﻿export const runtime = 'edge'
 import { createClient } from '@/lib/supabase/server';
 import { noContent, serverError } from '@/lib/api-response';
 
