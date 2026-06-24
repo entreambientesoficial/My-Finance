@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -21,16 +21,19 @@ const GOOGLE_ERRORS: Record<string, string> = {
   google_no_email: 'A conta Google não possui e-mail verificado.',
 };
 
-export default function LoginPage() {
-  const router = useRouter();
+function SearchParamsHandler() {
   const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-
   useEffect(() => {
     const err = searchParams.get('error');
     if (err && GOOGLE_ERRORS[err]) toast.error(GOOGLE_ERRORS[err]);
   }, [searchParams]);
+  return null;
+}
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -66,6 +69,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#031632] to-[#0a2550] flex items-center justify-center p-4">
+      <Suspense fallback={null}><SearchParamsHandler /></Suspense>
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
