@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,12 +9,8 @@ import { api } from '@/lib/api';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useTheme } from '@/lib/theme';
+import { createClient } from '@/lib/supabase/client';
 
-const getAvatarUrl = (url?: string) => {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return '';
-};
 
 const desktopNavItems = [
   { href: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
@@ -38,6 +34,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const { theme } = useTheme();
 
+  const [authMeta, setAuthMeta] = useState<{ name?: string; avatarUrl?: string } | null>(null);
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const m = data.user.user_metadata ?? {};
+        setAuthMeta({
+          name: m.full_name || m.name || data.user.email?.split('@')[0],
+          avatarUrl: m.avatar_url || m.picture,
+        });
+      }
+    });
+  }, []);
+
   const { data: me } = useQuery({
     queryKey: ['me'],
     queryFn: () => api.get('/api/users/me').then((r) => r.data),
@@ -48,15 +58,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   async function logout() {
     try {
       await api.post('/api/auth/logout');
-    } catch {
-      // ignora erro e redireciona de qualquer forma
-    }
+    } catch {}
     window.location.href = '/login';
   }
 
-  const userDisplayName = me?.name || '';
+  const userDisplayName = me?.name || authMeta?.name || '';
   const userRole = me?.household?.name || '';
-  const userInitials = me?.name?.slice(0, 2).toUpperCase() || '';
+  const userAvatarUrl = me?.avatarUrl || authMeta?.avatarUrl || '';
+  const userInitials = userDisplayName.slice(0, 2).toUpperCase();
 
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -132,15 +141,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Profile Section */}
             <div className="flex items-center gap-md mt-lg px-md pt-lg border-t border-outline-variant">
-              {me?.avatarUrl ? (
+              {userAvatarUrl ? (
                 <img
                   alt="Foto do perfil"
+                  referrerPolicy="no-referrer"
                   className="w-10 h-10 rounded-full object-cover border border-outline-variant"
-                  src={getAvatarUrl(me.avatarUrl)}
+                  src={userAvatarUrl}
                 />
               ) : (
                 <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-sm">
-                  {userInitials}
+                  {userInitials || <span className="material-symbols-outlined text-[18px]">person</span>}
                 </div>
               )}
               <div className="min-w-0 flex-1">
@@ -228,17 +238,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors">
               <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
             </button>
-            {me?.avatarUrl ? (
+            {userAvatarUrl ? (
               <img
                 alt="Foto do perfil"
+                referrerPolicy="no-referrer"
                 className="w-8 h-8 rounded-full object-cover border border-outline-variant"
-                src={getAvatarUrl(me.avatarUrl)}
+                src={userAvatarUrl}
               />
             ) : (
               <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-xs">
-                {userInitials}
+                {userInitials || <span className="material-symbols-outlined text-[16px]">person</span>}
               </div>
             )}
+            <button
+              onClick={logout}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-error-container/20 transition-colors"
+              title="Sair"
+            >
+              <span className="material-symbols-outlined text-on-surface-variant hover:text-error text-[22px]">logout</span>
+            </button>
           </div>
         </header>
 

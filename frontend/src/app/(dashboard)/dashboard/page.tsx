@@ -545,17 +545,17 @@ export default function DashboardPage() {
           </div>
 
           {/* Reserva de Emergência */}
-          <div className="min-w-[280px] snap-center bg-primary-container border border-outline-variant rounded-xl p-lg shadow-sm flex flex-col justify-between h-44 relative overflow-hidden">
+          <div className="min-w-[280px] snap-center glass-card border border-outline-variant rounded-xl p-lg shadow-sm flex flex-col justify-between h-44 relative overflow-hidden">
             <div className="z-10">
-              <p className="font-label-sm text-label-sm text-on-primary-container uppercase tracking-wider">Reserva de Emergência</p>
-              <p className="font-display-lg-mobile text-display-lg-mobile text-white mt-base">{formatCurrency(totalReserva)}</p>
+              <p className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Reserva de Emergência</p>
+              <p className="font-display-lg-mobile text-display-lg-mobile text-primary mt-base">{formatCurrency(totalReserva)}</p>
             </div>
             <div className="z-10 flex items-center gap-xs mt-auto">
-              <span className="material-symbols-outlined text-secondary-fixed-dim text-[18px]">savings</span>
-              <span className="font-numeric text-numeric-data text-secondary-fixed-dim font-bold">Cofrinhos e Poupança</span>
+              <span className="material-symbols-outlined text-secondary text-[18px]">savings</span>
+              <span className="font-numeric text-numeric-data text-secondary font-bold">Cofrinhos e Poupança</span>
             </div>
-            <div className="absolute -right-4 -bottom-4 opacity-15 pointer-events-none">
-              <span className="material-symbols-outlined text-[120px] text-white">savings</span>
+            <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+              <span className="material-symbols-outlined text-[120px]">savings</span>
             </div>
           </div>
 
