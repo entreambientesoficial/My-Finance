@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
           getAll() {
             return req.cookies.getAll();
           },
-          setAll(cookiesToSet) {
+          setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
             cookiesToSet.forEach(({ name, value, options }) => {
               response.cookies.set(name, value, options as any);
             });
@@ -54,16 +54,13 @@ export async function GET(req: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      console.error('[auth/callback] exchangeCodeForSession error:', error.message);
+    const { data: exchangeData, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error || !exchangeData.user) {
+      console.error('[auth/callback] exchangeCodeForSession error:', error?.message);
       return NextResponse.redirect(`${base}/login?error=google_failed`);
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.redirect(`${base}/login?error=google_failed`);
-    }
+    const user = exchangeData.user;
 
     const admin = createAdminClient();
     const { data: profile } = await admin

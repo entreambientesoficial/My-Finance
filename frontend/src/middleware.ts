@@ -34,7 +34,13 @@ export async function middleware(req: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // session verification failed — treat as unauthenticated
+  }
 
   const isProtected = PROTECTED.some(
     (p) => pathname === p || pathname.startsWith(p + '/')
