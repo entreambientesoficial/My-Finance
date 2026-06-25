@@ -59,6 +59,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     try {
       await api.post('/api/auth/logout');
     } catch {}
+    // Also clear client-side session so getSession() returns null on next login
+    try {
+      const { createClient: create } = await import('@/lib/supabase/client');
+      await create().auth.signOut({ scope: 'local' });
+    } catch {}
     window.location.href = '/login';
   }
 
