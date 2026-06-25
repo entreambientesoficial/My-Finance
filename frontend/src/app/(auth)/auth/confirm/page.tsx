@@ -12,22 +12,50 @@ function ConfirmInner() {
     if (ran.current) return;
     ran.current = true;
 
+    const timeout = setTimeout(() => {
+      router.replace('/login?error=google_failed');
+    }, 15000);
+
     async function finish() {
       const supabase = createClient();
 
-      // getSession() awaits createBrowserClient initialization internally.
-      // It reads the session cookies that the server-side callback already set.
-      const { data: { session } } = await supabase.auth.getSession();
+      // The server-side callback passes tokens in the URL hash to avoid
+      // relying on Set-Cookie headers from redirect responses in Cloudflare Pages.
+      const hash = typeof window !== 'undefined' ? window.location.hash.slice(1) : '';
+      const params = new URLSearchParams(hash);
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+
+      let session = null;
+
+      if (access_token && refresh_token) {
+        // Store the session client-side via setSession — bypasses HTTP cookie issues
+        const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (error || !data.session) {
+          clearTimeout(timeout);
+          router.replace('/login?error=google_failed');
+          return;
+        }
+        session = data.session;
+        // Clear tokens from URL without triggering navigation
+        if (typeof window !== 'undefined') {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      } else {
+        // Fallback: try reading from cookies (e.g., direct navigation to this page)
+        const { data } = await supabase.auth.getSession();
+        session = data.session;
+      }
 
       if (!session) {
+        clearTimeout(timeout);
         router.replace('/login?error=google_failed');
         return;
       }
 
-      // Ensure the user profile exists in our database.
-      // The Bearer token is added automatically by the api.ts interceptor.
+      // Ensure the user profile exists before entering the dashboard
       try {
-        const res = await fetch('/api/auth/setup', {
+        await fetch('/api/auth/setup', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -35,23 +63,15 @@ function ConfirmInner() {
           },
           body: JSON.stringify({}),
         });
-        if (!res.ok && res.status !== 200) {
-          // If setup fails, still try to go to dashboard — withAuth will retry
-          console.warn('[auth/confirm] setup returned', res.status);
-        }
-      } catch (e) {
-        console.warn('[auth/confirm] setup error', e);
+      } catch {
+        // withAuth will auto-create profile as fallback
       }
 
+      clearTimeout(timeout);
       router.replace('/dashboard');
     }
 
-    // Timeout safety net — if everything hangs, redirect after 15s
-    const timeout = setTimeout(() => {
-      router.replace('/login?error=google_failed');
-    }, 15000);
-
-    finish().finally(() => clearTimeout(timeout));
+    finish();
   }, [router]);
 
   return (
