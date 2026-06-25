@@ -13,7 +13,7 @@ export default function BudgetsPage() {
   const { month, year } = getCurrentMonthYear();
   const [showForm, setShowForm] = useState(false);
 
-  const { data: budgetsData, isLoading } = useQuery({
+  const { data: budgetsData } = useQuery({
     queryKey: ['budgets-progress', month, year],
     queryFn: () => api.get(`/api/budgets/progress?month=${month}&year=${year}`).then((r) => r.data),
   });
@@ -53,29 +53,11 @@ export default function BudgetsPage() {
   const totalRemaining = totalBudget - totalSpent;
   const overallPercent = totalBudget > 0 ? Math.min(100, Math.round((totalSpent / totalBudget) * 100)) : 0;
 
-  // Fallbacks if no data exists
-  const hasRealBudgets = budgets.length > 0;
-  const displayTotalBudget = hasRealBudgets ? totalBudget : 8500.00;
-  const displayTotalSpent = hasRealBudgets ? totalSpent : 5240.00;
-  const displayTotalRemaining = hasRealBudgets ? totalRemaining : 3260.00;
-
-  const displayBudgets = hasRealBudgets ? budgets : [
-    { id: 'b1', name: 'Moradia', amount: 3000, spent: 2800, remaining: 200, percentage: 93, category: { name: 'Moradia', icon: 'home', color: '#3b82f6' }, description: 'Média de R$ 3.000,00 nos últimos 3 meses.', isAutomatic: true },
-    { id: 'b2', name: 'Alimentação', amount: 1200, spent: 1150, remaining: 50, percentage: 95.8, category: { name: 'Alimentação', icon: 'restaurant', color: '#006c49' }, description: 'Média de R$ 1.200,00 nos últimos 3 meses.', isAutomatic: true },
-    { id: 'b3', name: 'Transporte', amount: 600, spent: 850, remaining: -250, percentage: 141, category: { name: 'Transporte', icon: 'directions_car', color: '#ef4444' }, description: 'Média de R$ 600,00 nos últimos 3 meses.', isAutomatic: true },
-    { id: 'b4', name: 'Lazer', amount: 1500, spent: 440, remaining: 1060, percentage: 29.3, category: { name: 'Lazer', icon: 'theater_comedy', color: '#8b5cf6' }, description: 'Média de R$ 1.500,00 nos últimos 3 meses.', isAutomatic: true }
-  ];
-
-  const chartHistory = apiMonthlyHistory.length > 0
-    ? apiMonthlyHistory
-    : [
-        { label: 'Jan', planned: 8000, actual: 7400 },
-        { label: 'Fev', planned: 8500, actual: 9100 },
-        { label: 'Mar', planned: 8500, actual: 8100 },
-        { label: 'Abr', planned: 8500, actual: 7800 },
-        { label: 'Mai', planned: 8500, actual: 8400 },
-        { label: 'Jun', planned: displayTotalBudget, actual: displayTotalSpent },
-      ];
+  const displayBudgets = budgets;
+  const displayTotalBudget = totalBudget;
+  const displayTotalSpent = totalSpent;
+  const displayTotalRemaining = totalRemaining;
+  const chartHistory = apiMonthlyHistory;
 
   return (
     <>
@@ -361,12 +343,15 @@ export default function BudgetsPage() {
               </div>
               
               <div className="bg-surface-container-low/40 border border-violet-500/10 rounded-xl p-md space-y-sm backdrop-blur-xs">
-                <p className="font-body-md text-on-surface-variant text-sm leading-relaxed">
-                  Identificamos que você excedeu seu limite de <strong className="text-violet-400 font-bold">Transporte</strong> em <strong className="text-error font-bold">41%</strong> este mês. 
-                </p>
-                <p className="text-[12px] text-on-surface-variant/80 leading-relaxed">
-                  💡 Considere readequar as despesas com viagens de aplicativos nos próximos 10 dias para equilibrar suas metas.
-                </p>
+                {budgets.length === 0 ? (
+                  <p className="font-body-md text-on-surface-variant text-sm leading-relaxed">
+                    Crie orçamentos por categoria para receber insights personalizados sobre seus gastos.
+                  </p>
+                ) : (
+                  <p className="font-body-md text-on-surface-variant text-sm leading-relaxed">
+                    💡 Acompanhe seus limites por categoria e ajuste conforme necessário para manter suas finanças equilibradas.
+                  </p>
+                )}
               </div>
             </div>
             
@@ -452,7 +437,9 @@ export default function BudgetsPage() {
             </div>
             <div className="bg-surface-container-low/40 border border-violet-500/10 rounded-xl p-md backdrop-blur-xs mt-xs text-left">
               <p className="font-body-md text-on-surface-variant text-sm leading-relaxed">
-                Identificamos que você excedeu seu limite de <strong className="text-violet-400 font-bold">Transporte</strong> em <strong className="text-error font-bold">41%</strong> este mês. Considere readequar as despesas com viagens de aplicativos nos próximos 10 dias.
+                {budgets.length === 0
+                  ? 'Crie orçamentos por categoria para receber insights personalizados sobre seus gastos.'
+                  : '💡 Acompanhe seus limites e ajuste conforme necessário para manter suas finanças equilibradas.'}
               </p>
             </div>
           </div>
