@@ -47,7 +47,43 @@ export function withAuth(handler: Handler) {
       .eq('supabaseId', user.id)
       .maybeSingle();
 
-    if (!profile) return unauthorized('Perfil não encontrado');
+    if (!profile) {
+      // Profile missing — auto-create (callback profile creation may have failed silently)
+      let created: { id: string; householdId: string | null } | null = null;
+      try {
+        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email!.split('@')[0];
+        const { data: household } = await admin
+          .from('households')
+          .insert({ name: `Casa de ${name.split(' ')[0]}`, currency: 'BRL' })
+          .select('id')
+          .single();
+        if (household) {
+          const { data: inserted } = await admin
+            .from('users')
+            .insert({ supabaseId: user.id, email: user.email!, name, householdId: household.id })
+            .select('id, householdId')
+            .single();
+          created = inserted ?? null;
+        }
+      } catch {
+        // Concurrent request may have created the profile already — re-fetch
+      }
+      if (!created) {
+        const { data: retry } = await admin
+          .from('users')
+          .select('id, householdId')
+          .eq('supabaseId', user.id)
+          .maybeSingle();
+        created = retry ?? null;
+      }
+      if (!created) return unauthorized('Perfil não encontrado');
+      return handler(req, {
+        sub: created.id,
+        email: user.email!,
+        householdId: created.householdId ?? undefined,
+        supabaseId: user.id,
+      });
+    }
 
     return handler(req, {
       sub: profile.id,
