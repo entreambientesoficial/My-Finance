@@ -16,12 +16,18 @@ function ConfirmInner() {
 
     const supabase = createClient();
 
+    const redirected = { current: false };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
+      if (redirected.current) return;
+
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+        redirected.current = true;
         subscription.unsubscribe();
         await api.post('/api/auth/setup', {}).catch(() => {});
         router.replace('/dashboard');
       } else if (event === 'INITIAL_SESSION' && !session) {
+        redirected.current = true;
         subscription.unsubscribe();
         router.replace('/login?error=google_failed');
       }
