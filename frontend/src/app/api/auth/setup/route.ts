@@ -59,13 +59,15 @@ export async function POST(req: NextRequest) {
     if (existing) return ok({ message: 'Perfil já existe' });
 
     const body = await req.json().catch(() => ({}));
-    const name = body.name || user.user_metadata?.full_name || user.email!.split('@')[0];
+    const name = body.name || user.user_metadata?.full_name || user.user_metadata?.name || user.email!.split('@')[0];
     const householdName = body.householdName || `Casa de ${name.split(' ')[0]}`;
+    const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+    const now = new Date().toISOString();
 
     const newHouseholdId = crypto.randomUUID();
     const { data: household, error: householdError } = await admin
       .from('households')
-      .insert({ id: newHouseholdId, name: householdName, currency: 'BRL' })
+      .insert({ id: newHouseholdId, name: householdName, currency: 'BRL', updatedAt: now })
       .select('id')
       .single();
 
@@ -79,7 +81,9 @@ export async function POST(req: NextRequest) {
       supabaseId: user.id,
       email: user.email!,
       name,
+      avatarUrl,
       householdId: household.id,
+      updatedAt: now,
     });
 
     if (userError) {
@@ -92,6 +96,7 @@ export async function POST(req: NextRequest) {
         ...cat,
         householdId: household.id,
         isDefault: true,
+        updatedAt: now,
       }))
     );
 

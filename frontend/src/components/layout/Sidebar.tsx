@@ -114,10 +114,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {me && (
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
-            <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
-              {me.avatarUrl
-                ? <img src={getAvatarUrl(me.avatarUrl)} alt={me.name} className="w-full h-full object-cover" />
-                : me.name?.charAt(0).toUpperCase()}
+            <div className="w-7 h-7 rounded-full bg-[#006c49]/80 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
+              {me.avatarUrl && getAvatarUrl(me.avatarUrl)
+                ? <img src={getAvatarUrl(me.avatarUrl)} alt={me.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                : me.name?.charAt(0).toUpperCase() || <span className="material-symbols-outlined text-[16px]">person</span>}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white text-xs font-medium truncate">{me.name}</p>

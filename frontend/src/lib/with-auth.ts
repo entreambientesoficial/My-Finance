@@ -49,17 +49,19 @@ async function getOrCreateProfile(supabaseId: string, email: string, metadata: R
   // Try creating it now.
   try {
     const name = (metadata?.full_name || metadata?.name || email.split('@')[0]) as string;
+    const avatarUrl = (metadata?.avatar_url || metadata?.picture) as string | undefined;
+    const now = new Date().toISOString();
     const householdId = crypto.randomUUID();
     const { data: household } = await admin
       .from('households')
-      .insert({ id: householdId, name: `Casa de ${name.split(' ')[0]}`, currency: 'BRL' })
+      .insert({ id: householdId, name: `Casa de ${name.split(' ')[0]}`, currency: 'BRL', updatedAt: now })
       .select('id')
       .single();
 
     if (household) {
       const { data: newUser } = await admin
         .from('users')
-        .insert({ id: crypto.randomUUID(), supabaseId, email, name, householdId: household.id })
+        .insert({ id: crypto.randomUUID(), supabaseId, email, name, avatarUrl: avatarUrl ?? null, householdId: household.id, updatedAt: now })
         .select('id, householdId')
         .single();
       if (newUser) return newUser;
