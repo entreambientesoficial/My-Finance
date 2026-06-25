@@ -87,7 +87,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (userError) {
-      console.error('[auth/setup] user insert error:', userError.message);
+      console.error('[auth/setup] user insert error:', userError.message, '| code:', userError.code, '| details:', userError.details);
+      return serverError('Erro ao criar perfil');
     }
 
     await admin.from('categories').insert(

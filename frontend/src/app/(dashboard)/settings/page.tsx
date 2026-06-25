@@ -94,16 +94,19 @@ export default function SettingsPage() {
   const { data: me } = useQuery({
     queryKey: ['me'],
     queryFn: () => api.get('/api/users/me').then((r) => r.data),
+    retry: false,
   });
 
   const { data: household } = useQuery({
     queryKey: ['household'],
     queryFn: () => api.get('/api/households/mine').then((r) => r.data),
+    retry: false,
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ['all-categories'],
     queryFn: () => api.get('/api/categories').then((r) => r.data),
+    retry: false,
   });
 
   const profileForm = useForm<ProfileForm>({ resolver: zodResolver(profileSchema) });
@@ -111,7 +114,24 @@ export default function SettingsPage() {
   const householdForm = useForm<HouseholdForm>({ resolver: zodResolver(householdSchema) });
   const categoryForm = useForm<CategoryForm>({ resolver: zodResolver(categorySchema), defaultValues: { type: 'EXPENSE', color: '#f59e0b', icon: 'more_horiz', parentId: '' } });
 
-  useEffect(() => { if (me) profileForm.reset({ name: me.name, avatarUrl: me.avatarUrl || '' }); }, [me]);
+  useEffect(() => {
+    if (me) {
+      profileForm.reset({ name: me.name, avatarUrl: me.avatarUrl || '' });
+    } else {
+      // Fallback: pre-fill from Supabase auth session (Google metadata)
+      import('@/lib/supabase/client').then(({ createClient }) => {
+        createClient().auth.getUser().then(({ data }) => {
+          if (data.user) {
+            const m = data.user.user_metadata ?? {};
+            profileForm.reset({
+              name: m.full_name || m.name || data.user.email?.split('@')[0] || '',
+              avatarUrl: m.avatar_url || m.picture || '',
+            });
+          }
+        });
+      });
+    }
+  }, [me]);
   useEffect(() => { if (household) householdForm.reset({ name: household.name, currency: household.currency }); }, [household]);
 
   const watchedAvatarUrl = profileForm.watch('avatarUrl');
