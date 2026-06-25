@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,12 +9,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useTheme } from '@/lib/theme';
-
-const getAvatarUrl = (url?: string) => {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  return '';
-};
+import { createClient } from '@/lib/supabase/client';
 
 const navItems = [
   { href: '/dashboard',    icon: 'dashboard',        label: 'Dashboard'        },
@@ -34,10 +29,23 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { theme } = useTheme();
+  const [authMeta, setAuthMeta] = useState<{ name?: string; avatarUrl?: string } | null>(null);
 
   useEffect(() => {
     if (onClose) onClose();
   }, [pathname, onClose]);
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const m = data.user.user_metadata ?? {};
+        setAuthMeta({
+          name: m.full_name || m.name || data.user.email?.split('@')[0],
+          avatarUrl: m.avatar_url || m.picture,
+        });
+      }
+    });
+  }, []);
 
   const { data: me } = useQuery({
     queryKey: ['me'],
@@ -45,6 +53,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     retry: false,
     staleTime: 300_000,
   });
+
+  const displayName = me?.name || authMeta?.name;
+  const displayAvatarUrl = me?.avatarUrl || authMeta?.avatarUrl;
+  const displayHousehold = me?.household?.name;
 
   async function logout() {
     try { await api.post('/api/auth/logout'); } catch {}
@@ -112,16 +124,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <ThemeToggle />
         </div>
 
-        {me && (
+        {(displayName || displayAvatarUrl) && (
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
             <div className="w-7 h-7 rounded-full bg-[#006c49]/80 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 overflow-hidden">
-              {me.avatarUrl && getAvatarUrl(me.avatarUrl)
-                ? <img src={getAvatarUrl(me.avatarUrl)} alt={me.name} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                : me.name?.charAt(0).toUpperCase() || <span className="material-symbols-outlined text-[16px]">person</span>}
+              {displayAvatarUrl
+                ? <img src={displayAvatarUrl} alt={displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                : displayName?.charAt(0).toUpperCase() || <span className="material-symbols-outlined text-[16px]">person</span>}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white text-xs font-medium truncate">{me.name}</p>
-              <p className="text-slate-500 text-xs truncate">{me.household?.name}</p>
+              <p className="text-white text-xs font-medium truncate">{displayName}</p>
+              <p className="text-slate-500 text-xs truncate">{displayHousehold}</p>
             </div>
           </div>
         )}
