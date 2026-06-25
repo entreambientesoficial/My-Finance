@@ -9,6 +9,24 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+// Attach access token as Bearer so API routes don't need to read cookies
+api.interceptors.request.use(async (config) => {
+  if (typeof window !== 'undefined') {
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        config.headers = config.headers ?? {};
+        (config.headers as Record<string, string>)['Authorization'] = `Bearer ${session.access_token}`;
+      }
+    } catch {
+      // proceed without token — server will check cookies
+    }
+  }
+  return config;
+});
+
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
