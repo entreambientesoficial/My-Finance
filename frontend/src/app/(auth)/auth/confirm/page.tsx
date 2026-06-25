@@ -1,48 +1,36 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Suspense } from 'react';
+import { useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { api } from '@/lib/api';
 
 function ConfirmInner() {
   const router = useRouter();
-  const done = useRef(false);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (done.current) return;
-    done.current = true;
+    const code = searchParams.get('code');
 
+    // If there's a code, pass it to the server-side callback
+    if (code) {
+      const params = new URLSearchParams();
+      params.set('code', code);
+      const next = searchParams.get('next');
+      if (next) params.set('next', next);
+      router.replace(`/api/auth/callback?${params.toString()}`);
+      return;
+    }
+
+    // No code — check if already authenticated
     const supabase = createClient();
-
-    const redirected = { current: false };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (redirected.current) return;
-
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
-        redirected.current = true;
-        subscription.unsubscribe();
-        await api.post('/api/auth/setup', {}).catch(() => {});
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         router.replace('/dashboard');
-      } else if (event === 'INITIAL_SESSION' && !session) {
-        redirected.current = true;
-        subscription.unsubscribe();
-        router.replace('/login?error=google_failed');
+      } else {
+        router.replace('/login');
       }
     });
-
-    const timeout = setTimeout(() => {
-      subscription.unsubscribe();
-      router.replace('/login?error=google_failed');
-    }, 10000);
-
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#031632] to-[#0a2550] flex items-center justify-center">
