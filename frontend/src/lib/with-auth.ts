@@ -37,11 +37,13 @@ async function getOrCreateProfile(supabaseId: string, email: string, metadata: R
   const admin = createAdminClient();
 
   // Primary: admin client (bypasses RLS)
-  const { data: existing } = await admin
+  const { data: existing, error: adminError } = await admin
     .from('users')
     .select('id, householdId')
     .eq('supabaseId', supabaseId)
     .maybeSingle();
+
+  console.log('[withAuth] admin SELECT result:', JSON.stringify({ existing, adminError: adminError?.message, adminCode: adminError?.code }));
 
   if (existing) return existing;
 
@@ -71,11 +73,13 @@ async function getOrCreateProfile(supabaseId: string, email: string, metadata: R
   }
 
   // Re-read in case a concurrent request created it
-  const { data: retry } = await admin
+  const { data: retry, error: retryError } = await admin
     .from('users')
     .select('id, householdId')
     .eq('supabaseId', supabaseId)
     .maybeSingle();
+
+  console.log('[withAuth] admin retry SELECT:', JSON.stringify({ retry, retryError: retryError?.message }));
 
   if (retry) return retry;
 
@@ -90,12 +94,15 @@ async function getOrCreateProfile(supabaseId: string, email: string, metadata: R
         auth: { persistSession: false, autoRefreshToken: false },
       }
     );
-    const { data: rls } = await userClient
+    const { data: rls, error: rlsError } = await userClient
       .from('users')
       .select('id, householdId')
       .eq('supabaseId', supabaseId)
       .maybeSingle();
+    console.log('[withAuth] JWT fallback SELECT:', JSON.stringify({ rls, rlsError: rlsError?.message, supabaseId }));
     if (rls) return rls;
+  } else {
+    console.log('[withAuth] no JWT available for fallback');
   }
 
   return null;
