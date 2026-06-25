@@ -74,7 +74,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8">
           <Image
-            src="/logo-light.png"
+            src="/logo-fundo-escuro.png"
             alt="MY-FINANCE"
             width={180}
             height={48}
