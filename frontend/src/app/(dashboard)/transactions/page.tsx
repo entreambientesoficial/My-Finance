@@ -630,6 +630,9 @@ export default function TransactionsPage() {
     queryFn: () => api.get('/api/cards').then((r) => r.data),
   });
 
+  const displayAccountsSelect = accounts;
+  const displayCardsSelect = cards;
+
   const { register, handleSubmit, reset, watch, setValue, control } = useForm<any>({ defaultValues: { type: 'EXPENSE', isPaid: true } });
   const transactionType = watch('type');
 
