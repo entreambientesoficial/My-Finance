@@ -2,3 +2,8 @@ name = "my-finance"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
+
+[vars]
+NEXT_PUBLIC_SUPABASE_URL = "https://szpqjiwwektauiqvbzxe.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6cHFqaXd3ZWt0YXVpcXZienhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwMjk0NTEsImV4cCI6MjA5NTYwNTQ1MX0.w2UOTAaCMsW0uv4mUsMrnLAw8Fh6CxWW-d2EId11H58"
+NEXT_PUBLIC_APP_URL = "https://my-finance-my.pages.dev"
