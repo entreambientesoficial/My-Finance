@@ -1,6 +1,6 @@
-﻿export const runtime = 'edge'
+export const runtime = 'edge'
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClientFromRequest } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ok, unauthorized, serverError } from '@/lib/api-response';
 
@@ -28,7 +28,7 @@ const DEFAULT_CATEGORIES = [
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient();
+    const { supabase } = createClientFromRequest(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return unauthorized();
 

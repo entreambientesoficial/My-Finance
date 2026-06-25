@@ -1,10 +1,11 @@
-﻿export const runtime = 'edge'
-import { createClient } from '@/lib/supabase/server';
+export const runtime = 'edge'
+import { NextRequest } from 'next/server';
+import { createClientFromRequest } from '@/lib/supabase/server';
 import { noContent, serverError } from '@/lib/api-response';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient();
+    const { supabase } = createClientFromRequest(req);
     await supabase.auth.signOut();
     return noContent();
   } catch (err) {

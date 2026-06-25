@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClientFromRequest } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { unauthorized } from './api-response';
 
@@ -16,7 +16,7 @@ type Handler = (req: NextRequest, user: AuthUser) => Promise<NextResponse>;
 
 export function withAuth(handler: Handler) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const supabase = createClient();
+    const { supabase } = createClientFromRequest(req);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return unauthorized();
 
