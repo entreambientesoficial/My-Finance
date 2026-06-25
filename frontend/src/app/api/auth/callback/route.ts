@@ -1,6 +1,6 @@
-﻿export const runtime = 'edge'
+export const runtime = 'edge'
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@supabase/ssr';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const DEFAULT_CATEGORIES = [
@@ -34,61 +34,83 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${base}/login?error=google_cancelled`);
   }
 
-  const supabase = createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  try {
+    const response = NextResponse.redirect(`${base}/dashboard`);
 
-  if (error) {
-    console.error('[auth/callback] exchangeCodeForSession error:', error);
-    return NextResponse.redirect(`${base}/login?error=google_failed`);
-  }
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, options as any);
+            });
+          },
+        },
+      }
+    );
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.redirect(`${base}/login?error=google_failed`);
-  }
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      console.error('[auth/callback] exchangeCodeForSession error:', error.message);
+      return NextResponse.redirect(`${base}/login?error=google_failed`);
+    }
 
-  const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from('users')
-    .select('id')
-    .eq('supabaseId', user.id)
-    .maybeSingle();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.redirect(`${base}/login?error=google_failed`);
+    }
 
-  if (!profile) {
-    const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email!.split('@')[0];
-    const firstName = name.split(' ')[0];
-    const householdName = user.user_metadata?.household_name || `Casa de ${firstName}`;
-
-    const { data: household } = await admin
-      .from('households')
-      .insert({ name: householdName, currency: 'BRL' })
+    const admin = createAdminClient();
+    const { data: profile } = await admin
+      .from('users')
       .select('id')
-      .single();
+      .eq('supabaseId', user.id)
+      .maybeSingle();
 
-    if (household) {
-      const { data: newUser } = await admin
-        .from('users')
-        .insert({
-          supabaseId: user.id,
-          email: user.email!,
-          name,
-          avatarUrl: user.user_metadata?.avatar_url || null,
-          householdId: household.id,
-        })
+    if (!profile) {
+      const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email!.split('@')[0];
+      const firstName = name.split(' ')[0];
+      const householdName = user.user_metadata?.household_name || `Casa de ${firstName}`;
+
+      const { data: household } = await admin
+        .from('households')
+        .insert({ name: householdName, currency: 'BRL' })
         .select('id')
         .single();
 
-      if (newUser) {
-        await admin.from('categories').insert(
-          DEFAULT_CATEGORIES.map((cat) => ({
-            ...cat,
+      if (household) {
+        const { data: newUser } = await admin
+          .from('users')
+          .insert({
+            supabaseId: user.id,
+            email: user.email!,
+            name,
+            avatarUrl: user.user_metadata?.avatar_url || null,
             householdId: household.id,
-            isDefault: true,
-          }))
-        );
+          })
+          .select('id')
+          .single();
+
+        if (newUser) {
+          await admin.from('categories').insert(
+            DEFAULT_CATEGORIES.map((cat) => ({
+              ...cat,
+              householdId: household.id,
+              isDefault: true,
+            }))
+          );
+        }
       }
     }
-  }
 
-  return NextResponse.redirect(`${base}/dashboard`);
+    return response;
+  } catch (err) {
+    console.error('[auth/callback] unexpected error:', err);
+    return NextResponse.redirect(`${base}/login?error=google_failed`);
+  }
 }
