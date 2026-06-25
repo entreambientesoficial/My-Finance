@@ -625,6 +625,31 @@ Migração completa para Supabase Auth + Supabase client (Fase 5 acima). Todas a
 - **OFX import**: parser dual SGML/XML; deduplicação por FITID (`notes: ofx:${fitid}`); endpoint `POST /transactions/import/ofx`; switcher CSV/OFX na UI
 - **Múltiplos usuários**: modelo `Invite` (token 48h, email, expiresAt); `POST /households/invite` envia email com link; página `/accept-invite?token=...`; `POST /auth/accept-invite` cria ou vincula conta existente; UI de convites pendentes na aba Família do Settings
 
+### 2026-06-25 — AUTENTICAÇÃO EM DIAGNÓSTICO (sessão atual)
+
+**Problema em aberto**: Após login (Google OAuth ou email/senha), o dashboard aparece brevemente e redireciona para login.
+
+**Causa raiz identificada**: `withAuth` retornavaa 401 quando não encontrava o perfil na tabela `users`. O `api.ts` redirecionava para `/login` em QUALQUER 401 — mesmo com sessão válida. Isso quebrou email/senha também.
+
+**Correções desta sessão:**
+- OAuth flow: voltou para callback server-side (`/api/auth/callback`) que troca código PKCE com o cookie verifier do `req.cookies`
+- Tokens OAuth passados via URL hash (`#access_token=...`) para contornar problema de `Set-Cookie` em redirects no Cloudflare Pages
+- `withAuth`: admin client + fallback user JWT + auto-criação de perfil
+- `api.ts`: 401 só redireciona para login se sessão realmente não existe
+
+**Diagnóstico pendente (verificar no Supabase):**
+1. Table Editor → tabela `users`: há registros? Se vazia, perfil nunca foi criado — verificar logs do Cloudflare
+2. RLS na tabela `users`: existe política `SELECT WHERE auth.uid() = supabaseId`?
+3. `SUPABASE_SERVICE_KEY` no Cloudflare Pages: confirmar que é a chave da aba "Legacy anon, service_role API keys" (começa com `eyJ...`)
+
+**Variáveis de ambiente (Cloudflare Pages) — estado atual:**
+- `NEXT_PUBLIC_APP_URL` = https://my-finance-my.pages.dev ✅
+- `NEXT_PUBLIC_SUPABASE_URL` = https://szpqjiwwektauiqvbzxe.supabase.co ✅
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` = eyJ... ✅
+- `SUPABASE_SERVICE_KEY` = Secret configurado (valor começa com eyJ conforme usuário) ⚠️
+
+---
+
 ### 2026-05-27 — FASE 1 COMPLETA
 - Projeto iniciado com base no protótipo visual do Stitch AI
 - Criada estrutura completa do backend NestJS com 11 módulos
