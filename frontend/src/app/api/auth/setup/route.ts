@@ -62,23 +62,33 @@ export async function POST(req: NextRequest) {
     const name = body.name || user.user_metadata?.full_name || user.email!.split('@')[0];
     const householdName = body.householdName || `Casa de ${name.split(' ')[0]}`;
 
-    const { data: household } = await admin
+    const newHouseholdId = crypto.randomUUID();
+    const { data: household, error: householdError } = await admin
       .from('households')
-      .insert({ name: householdName, currency: 'BRL' })
+      .insert({ id: newHouseholdId, name: householdName, currency: 'BRL' })
       .select('id')
       .single();
 
-    if (!household) return serverError('Erro ao criar família');
+    if (!household) {
+      console.error('[auth/setup] household insert error:', householdError?.message);
+      return serverError('Erro ao criar família');
+    }
 
-    await admin.from('users').insert({
+    const { error: userError } = await admin.from('users').insert({
+      id: crypto.randomUUID(),
       supabaseId: user.id,
       email: user.email!,
       name,
       householdId: household.id,
     });
 
+    if (userError) {
+      console.error('[auth/setup] user insert error:', userError.message);
+    }
+
     await admin.from('categories').insert(
       DEFAULT_CATEGORIES.map((cat) => ({
+        id: crypto.randomUUID(),
         ...cat,
         householdId: household.id,
         isDefault: true,
