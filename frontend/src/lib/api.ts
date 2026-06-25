@@ -30,8 +30,17 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      // Only redirect to login if the user truly has no session.
+      // A 401 while the session is valid means a server-side issue (profile
+      // missing, etc.) — do not redirect in that case.
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const { data: { session } } = await createClient().auth.getSession();
+        if (!session) {
+          window.location.href = '/login';
+        }
+      } catch {
         window.location.href = '/login';
       }
     }

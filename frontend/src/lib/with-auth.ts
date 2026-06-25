@@ -16,7 +16,6 @@ export type JwtPayload = AuthUser;
 type Handler = (req: NextRequest, user: AuthUser) => Promise<NextResponse>;
 
 async function getSupabaseUser(req: NextRequest) {
-  // Prefer Bearer token (set by browser Axios interceptor) — avoids Edge Runtime cookie issues
   const authHeader = req.headers.get('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const jwt = authHeader.slice(7);
@@ -26,69 +25,92 @@ async function getSupabaseUser(req: NextRequest) {
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
     const { data: { user } } = await client.auth.getUser(jwt);
-    if (user) return user;
+    if (user) return { user, jwt };
   }
 
-  // Fall back to cookie-based session
   const { supabase } = createClientFromRequest(req);
   const { data: { user } } = await supabase.auth.getUser();
-  return user ?? null;
+  return { user: user ?? null, jwt: null };
+}
+
+async function getOrCreateProfile(supabaseId: string, email: string, metadata: Record<string, unknown>, jwt: string | null) {
+  const admin = createAdminClient();
+
+  // Primary: admin client (bypasses RLS)
+  const { data: existing } = await admin
+    .from('users')
+    .select('id, householdId')
+    .eq('supabaseId', supabaseId)
+    .maybeSingle();
+
+  if (existing) return existing;
+
+  // Admin client found nothing — profile may never have been created.
+  // Try creating it now.
+  try {
+    const name = (metadata?.full_name || metadata?.name || email.split('@')[0]) as string;
+    const { data: household } = await admin
+      .from('households')
+      .insert({ name: `Casa de ${name.split(' ')[0]}`, currency: 'BRL' })
+      .select('id')
+      .single();
+
+    if (household) {
+      const { data: newUser } = await admin
+        .from('users')
+        .insert({ supabaseId, email, name, householdId: household.id })
+        .select('id, householdId')
+        .single();
+      if (newUser) return newUser;
+    }
+  } catch {
+    // Race condition or admin client issue — try re-reading below
+  }
+
+  // Re-read in case a concurrent request created it
+  const { data: retry } = await admin
+    .from('users')
+    .select('id, householdId')
+    .eq('supabaseId', supabaseId)
+    .maybeSingle();
+
+  if (retry) return retry;
+
+  // Fallback: try with the user's own JWT (works if users table has RLS
+  // policy allowing SELECT on own row: auth.uid() = "supabaseId")
+  if (jwt) {
+    const userClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: { headers: { Authorization: `Bearer ${jwt}` } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      }
+    );
+    const { data: rls } = await userClient
+      .from('users')
+      .select('id, householdId')
+      .eq('supabaseId', supabaseId)
+      .maybeSingle();
+    if (rls) return rls;
+  }
+
+  return null;
 }
 
 export function withAuth(handler: Handler) {
   return async (req: NextRequest): Promise<NextResponse> => {
-    const user = await getSupabaseUser(req);
+    const { user, jwt } = await getSupabaseUser(req);
     if (!user) return unauthorized();
 
-    const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from('users')
-      .select('id, householdId')
-      .eq('supabaseId', user.id)
-      .maybeSingle();
+    const profile = await getOrCreateProfile(user.id, user.email!, user.user_metadata ?? {}, jwt);
 
-    if (!profile) {
-      // Profile missing — auto-create (callback profile creation may have failed silently)
-      let created: { id: string; householdId: string | null } | null = null;
-      try {
-        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email!.split('@')[0];
-        const { data: household } = await admin
-          .from('households')
-          .insert({ name: `Casa de ${name.split(' ')[0]}`, currency: 'BRL' })
-          .select('id')
-          .single();
-        if (household) {
-          const { data: inserted } = await admin
-            .from('users')
-            .insert({ supabaseId: user.id, email: user.email!, name, householdId: household.id })
-            .select('id, householdId')
-            .single();
-          created = inserted ?? null;
-        }
-      } catch {
-        // Concurrent request may have created the profile already — re-fetch
-      }
-      if (!created) {
-        const { data: retry } = await admin
-          .from('users')
-          .select('id, householdId')
-          .eq('supabaseId', user.id)
-          .maybeSingle();
-        created = retry ?? null;
-      }
-      if (!created) return unauthorized('Perfil não encontrado');
-      return handler(req, {
-        sub: created.id,
-        email: user.email!,
-        householdId: created.householdId ?? undefined,
-        supabaseId: user.id,
-      });
-    }
+    if (!profile) return unauthorized('Perfil não encontrado');
 
     return handler(req, {
       sub: profile.id,
       email: user.email!,
-      householdId: profile.householdId ?? undefined,
+      householdId: (profile as { householdId?: string | null }).householdId ?? undefined,
       supabaseId: user.id,
     });
   };
