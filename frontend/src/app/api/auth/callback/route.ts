@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const response = NextResponse.redirect(`${base}/dashboard`);
+    const response = NextResponse.redirect(`${base}/auth/confirm`);
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

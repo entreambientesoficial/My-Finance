@@ -1,42 +1,63 @@
 'use client';
 
-import { useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { api } from '@/lib/api';
 
 function ConfirmInner() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const done = useRef(false);
 
   useEffect(() => {
-    const code = searchParams.get('code');
+    if (done.current) return;
+    done.current = true;
 
-    // If there's a code, pass it to the server-side callback
-    if (code) {
-      const params = new URLSearchParams();
-      params.set('code', code);
-      const next = searchParams.get('next');
-      if (next) params.set('next', next);
-      router.replace(`/api/auth/callback?${params.toString()}`);
-      return;
-    }
-
-    // No code — check if already authenticated
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    let redirected = false;
+
+    // The server-side callback already exchanged the OAuth code and set session
+    // cookies. createBrowserClient reads those cookies and fires INITIAL_SESSION.
+    // No PKCE exchange happens here — we just wait for the session to be ready
+    // and then ensure the user profile exists before entering the dashboard.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (redirected) return;
+
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session) {
+        redirected = true;
+        subscription.unsubscribe();
+        // Ensure profile exists — Bearer token is sent automatically by api.ts
+        await api.post('/api/auth/setup', {}).catch(() => {});
         router.replace('/dashboard');
-      } else {
-        router.replace('/login');
+        return;
+      }
+
+      if (event === 'INITIAL_SESSION' && !session) {
+        redirected = true;
+        subscription.unsubscribe();
+        router.replace('/login?error=google_failed');
       }
     });
-  }, [router, searchParams]);
+
+    const timeout = setTimeout(() => {
+      if (!redirected) {
+        redirected = true;
+        subscription.unsubscribe();
+        router.replace('/login?error=google_failed');
+      }
+    }, 12000);
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#031632] to-[#0a2550] flex items-center justify-center">
       <div className="text-white text-center">
         <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm text-slate-300">Entrando...</p>
+        <p className="text-sm text-slate-300">Finalizando login...</p>
       </div>
     </div>
   );
