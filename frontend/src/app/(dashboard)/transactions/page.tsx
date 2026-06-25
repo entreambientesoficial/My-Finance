@@ -11,63 +11,6 @@ import { CurrencyInput } from '@/components/ui/CurrencyInput';
 const TYPE_COLORS: Record<string, string> = { INCOME: 'text-secondary', EXPENSE: 'text-error', TRANSFER: 'text-blue-500' };
 const TYPE_LABELS: Record<string, string> = { INCOME: 'Receita', EXPENSE: 'Despesa', TRANSFER: 'Transferência' };
 
-const PLACEHOLDER_TRANSACTIONS = [
-  {
-    id: 'demo-1',
-    date: '2026-06-02T12:00:00.000Z',
-    description: 'Amazon Web Services',
-    notes: 'Pagamento Cloud Jun/26',
-    amount: 1250.00,
-    type: 'EXPENSE',
-    isPaid: true,
-    category: { id: 'c-cloud', name: 'Tecnologia', color: '#031632', icon: 'cloud' },
-    account: { id: 'acc-main', name: 'Conta Principal' }
-  },
-  {
-    id: 'demo-2',
-    date: '2026-06-01T15:30:00.000Z',
-    description: 'Transferência Recebida - PIX',
-    notes: 'João Silva Mello',
-    amount: 4800.00,
-    type: 'INCOME',
-    isPaid: false,
-    category: { id: 'c-income', name: 'Salário', color: '#006c49', icon: 'payments' },
-    account: { id: 'acc-main', name: 'Conta Principal' }
-  },
-  {
-    id: 'demo-3',
-    date: '2026-05-30T10:00:00.000Z',
-    description: 'Starbucks Coffee #342',
-    notes: 'Despesa corporativa',
-    amount: 42.50,
-    type: 'EXPENSE',
-    isPaid: false,
-    category: { id: 'c-food', name: 'Alimentação', color: '#ba1a1a', icon: 'restaurant' },
-    card: { id: 'card-corp', name: 'Visa Corporate' }
-  },
-  {
-    id: 'demo-4',
-    date: '2026-05-28T09:00:00.000Z',
-    description: 'Condomínio Ed. Alpha',
-    notes: 'Boleto Itaú',
-    amount: 850.00,
-    type: 'EXPENSE',
-    isPaid: true,
-    category: { id: 'c-housing', name: 'Moradia', color: '#3b82f6', icon: 'home' },
-    account: { id: 'acc-main', name: 'Conta Principal' }
-  },
-  {
-    id: 'demo-5',
-    date: '2026-05-25T14:20:00.000Z',
-    description: 'Supermercado Pão de Açúcar',
-    notes: 'Compras Mensais',
-    amount: 624.90,
-    type: 'EXPENSE',
-    isPaid: true,
-    category: { id: 'c-food', name: 'Alimentação', color: '#ba1a1a', icon: 'shopping_cart' },
-    account: { id: 'acc-main', name: 'Conta Principal' }
-  }
-];
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -144,14 +87,8 @@ function EditTransactionModal({
     setValue('categoryId', subId || selectedParentId); // if sub is empty, use parent
   };
 
-  const displayAccountsSelect = accounts.length > 0 ? accounts : [
-    { id: 'checking', name: 'Chase Platinum' },
-    { id: 'savings', name: 'Goldman Sachs' }
-  ];
-
-  const displayCardsSelect = cards.length > 0 ? cards : [
-    { id: 'c1', name: 'Capital Reserve Visa' }
-  ];
+  const displayAccountsSelect = accounts;
+  const displayCardsSelect = cards;
 
   return (
     <Modal title="Editar Lançamento" onClose={onClose}>
@@ -849,18 +786,14 @@ export default function TransactionsPage() {
 
   const rawList = data?.data || [];
   const isRealData = rawList.length > 0;
-  
-  // Choose source data and perform client side fallback filtering if no transactions exist in the database
-  const displayList = isRealData 
-    ? rawList 
-    : PLACEHOLDER_TRANSACTIONS.filter((t: any) => {
-        if (selectedType && t.type !== selectedType) return false;
-        if (filters.startDate && new Date(t.date) < new Date(filters.startDate)) return false;
-        if (filters.endDate && new Date(t.date) > new Date(filters.endDate + 'T23:59:59')) return false;
-        return true;
-      });
 
-  // Client side search query filtering (always active)
+  const displayList = rawList.filter((t: any) => {
+    if (selectedType && t.type !== selectedType) return false;
+    if (filters.startDate && new Date(t.date) < new Date(filters.startDate)) return false;
+    if (filters.endDate && new Date(t.date) > new Date(filters.endDate + 'T23:59:59')) return false;
+    return true;
+  });
+
   const filteredList = displayList.filter((t: any) => {
     if (searchQuery) {
       const desc = (t.description || '').toLowerCase();
@@ -870,15 +803,6 @@ export default function TransactionsPage() {
     }
     return true;
   });
-
-  const displayAccountsSelect = accounts.length > 0 ? accounts : [
-    { id: 'checking', name: 'Chase Platinum' },
-    { id: 'savings', name: 'Goldman Sachs' }
-  ];
-
-  const displayCardsSelect = cards.length > 0 ? cards : [
-    { id: 'c1', name: 'Capital Reserve Visa' }
-  ];
 
   function renderAmount(t: any) {
     const isIncome = t.type === 'INCOME';
@@ -1037,7 +961,7 @@ export default function TransactionsPage() {
                         </td>
                       </tr>
                     ) : filteredList.map((t: any) => {
-                      const isReal = isRealData;
+                      const isReal = true;
                       return (
                         <tr key={t.id} className="hover:bg-surface-container-low/20 transition-colors group">
                           <td className="px-md lg:px-sm py-md font-numeric text-xs whitespace-nowrap">{formatDateLong(t.date)}</td>
