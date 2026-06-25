@@ -1,44 +1,42 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { api } from '@/lib/api';
 
 function ConfirmInner() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const done = useRef(false);
 
   useEffect(() => {
     if (done.current) return;
     done.current = true;
 
-    const code = searchParams.get('code');
-    if (!code) {
-      router.replace('/login?error=google_cancelled');
-      return;
-    }
+    const supabase = createClient();
 
-    (async () => {
-      try {
-        const supabase = createClient();
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-
-        if (error || !data.session) {
-          router.replace('/login?error=google_failed');
-          return;
-        }
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        subscription.unsubscribe();
         await api.post('/api/auth/setup', {}).catch(() => {});
-
         router.replace('/dashboard');
-      } catch {
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        subscription.unsubscribe();
         router.replace('/login?error=google_failed');
       }
-    })();
-  }, [searchParams, router]);
+    });
+
+    const timeout = setTimeout(() => {
+      subscription.unsubscribe();
+      router.replace('/login?error=google_failed');
+    }, 10000);
+
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#031632] to-[#0a2550] flex items-center justify-center">
