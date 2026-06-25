@@ -3,54 +3,55 @@
 import { useEffect, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { api } from '@/lib/api';
 
 function ConfirmInner() {
   const router = useRouter();
-  const done = useRef(false);
+  const ran = useRef(false);
 
   useEffect(() => {
-    if (done.current) return;
-    done.current = true;
+    if (ran.current) return;
+    ran.current = true;
 
-    const supabase = createClient();
-    let redirected = false;
+    async function finish() {
+      const supabase = createClient();
 
-    // The server-side callback already exchanged the OAuth code and set session
-    // cookies. createBrowserClient reads those cookies and fires INITIAL_SESSION.
-    // No PKCE exchange happens here — we just wait for the session to be ready
-    // and then ensure the user profile exists before entering the dashboard.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (redirected) return;
+      // getSession() awaits createBrowserClient initialization internally.
+      // It reads the session cookies that the server-side callback already set.
+      const { data: { session } } = await supabase.auth.getSession();
 
-      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session) {
-        redirected = true;
-        subscription.unsubscribe();
-        // Ensure profile exists — Bearer token is sent automatically by api.ts
-        await api.post('/api/auth/setup', {}).catch(() => {});
-        router.replace('/dashboard');
+      if (!session) {
+        router.replace('/login?error=google_failed');
         return;
       }
 
-      if (event === 'INITIAL_SESSION' && !session) {
-        redirected = true;
-        subscription.unsubscribe();
-        router.replace('/login?error=google_failed');
+      // Ensure the user profile exists in our database.
+      // The Bearer token is added automatically by the api.ts interceptor.
+      try {
+        const res = await fetch('/api/auth/setup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({}),
+        });
+        if (!res.ok && res.status !== 200) {
+          // If setup fails, still try to go to dashboard — withAuth will retry
+          console.warn('[auth/confirm] setup returned', res.status);
+        }
+      } catch (e) {
+        console.warn('[auth/confirm] setup error', e);
       }
-    });
 
+      router.replace('/dashboard');
+    }
+
+    // Timeout safety net — if everything hangs, redirect after 15s
     const timeout = setTimeout(() => {
-      if (!redirected) {
-        redirected = true;
-        subscription.unsubscribe();
-        router.replace('/login?error=google_failed');
-      }
-    }, 12000);
+      router.replace('/login?error=google_failed');
+    }, 15000);
 
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+    finish().finally(() => clearTimeout(timeout));
   }, [router]);
 
   return (
