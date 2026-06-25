@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -72,17 +73,20 @@ export default function LoginPage() {
       <Suspense fallback={null}><SearchParamsHandler /></Suspense>
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <span className="material-symbols-outlined text-[#006c49] text-4xl">account_balance_wallet</span>
-            <span className="text-white text-2xl font-bold tracking-tight">MY-FINANCE</span>
-          </div>
-          <p className="text-slate-400 text-sm">Gestão financeira familiar inteligente</p>
+        <div className="flex justify-center mb-8">
+          <Image
+            src="/logo-light.png"
+            alt="MY-FINANCE"
+            width={180}
+            height={48}
+            className="object-contain h-12 w-auto"
+            priority
+          />
         </div>
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h1 className="text-xl font-semibold text-[#031632] mb-6">Entrar na sua conta</h1>
+          <h1 className="text-xl font-semibold text-[#031632] mb-6 text-center">Entrar na sua conta</h1>
 
           {/* Google */}
           <button
