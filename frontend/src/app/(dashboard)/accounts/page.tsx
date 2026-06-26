@@ -81,6 +81,8 @@ export default function AccountsPage() {
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [paymentCategory, setPaymentCategory] = useState<string>('');
 
+  const [editingAccount, setEditingAccount] = useState<any | null>(null);
+
   // Modal and form states for Exploring Cofres
   const [showCofresModal, setShowCofresModal] = useState(false);
   const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
@@ -131,6 +133,20 @@ export default function AccountsPage() {
       setShowAccountModal(false);
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao criar conta'),
+  });
+
+  const updateAccount = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<AccountForm> }) =>
+      api.patch(`/api/accounts/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['household-summary'] });
+      toast.success('Conta atualizada!');
+      accountForm.reset();
+      setEditingAccount(null);
+      setShowAccountModal(false);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao atualizar conta'),
   });
 
   const createCard = useMutation({
@@ -281,15 +297,35 @@ export default function AccountsPage() {
                         </div>
                       </div>
                       
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('Remover esta conta?')) deleteAccount.mutate(account.id);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 text-placeholder hover:text-error transition-all"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                      </button>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingAccount(account);
+                            accountForm.reset({
+                              name: account.name,
+                              type: account.type,
+                              bank: account.bank || '',
+                              balance: Number(account.balance),
+                              color: account.color || '#FF6B00',
+                              currency: account.currency || 'BRL',
+                            });
+                            setShowAccountModal(true);
+                          }}
+                          className="text-placeholder hover:text-primary transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Remover esta conta?')) deleteAccount.mutate(account.id);
+                          }}
+                          className="text-placeholder hover:text-error transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
                     </div>
                     
                     <div className="space-y-base relative z-10 mt-auto">
@@ -749,8 +785,8 @@ export default function AccountsPage() {
 
       {/* ─── MODAL ADD ACCOUNT ─── */}
       {showAccountModal && (
-        <Modal title="Conectar Nova Conta" onClose={() => setShowAccountModal(false)}>
-          <form onSubmit={accountForm.handleSubmit((d) => createAccount.mutate(d))} className="space-y-4 text-left">
+        <Modal title={editingAccount ? 'Editar Conta' : 'Conectar Nova Conta'} onClose={() => { setShowAccountModal(false); setEditingAccount(null); accountForm.reset(); }}>
+          <form onSubmit={accountForm.handleSubmit((d) => editingAccount ? updateAccount.mutate({ id: editingAccount.id, data: d }) : createAccount.mutate(d))} className="space-y-4 text-left">
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-on-surface-variant block mb-1">Nome da Conta *</label>
@@ -843,12 +879,14 @@ export default function AccountsPage() {
               >
                 Cancelar
               </button>
-              <button 
-                type="submit" 
-                disabled={createAccount.isPending} 
+              <button
+                type="submit"
+                disabled={createAccount.isPending || updateAccount.isPending}
                 className="px-4 py-2 text-sm bg-primary text-on-primary rounded-lg hover:opacity-90 disabled:opacity-60 font-bold"
               >
-                {createAccount.isPending ? 'Conectando...' : 'Conectar Conta'}
+                {editingAccount
+                  ? (updateAccount.isPending ? 'Salvando...' : 'Salvar Alterações')
+                  : (createAccount.isPending ? 'Conectando...' : 'Conectar Conta')}
               </button>
             </div>
           </form>
