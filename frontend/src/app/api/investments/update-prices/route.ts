@@ -1,4 +1,4 @@
-﻿export const runtime = 'edge'
+export const runtime = 'edge'
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
@@ -37,6 +37,24 @@ async function fetchCryptoPrices(coins: string[]): Promise<Record<string, number
   } catch { return {}; }
 }
 
+async function fetchUSStockPrices(tickers: string[]): Promise<Record<string, number>> {
+  if (!tickers.length) return {};
+  const results: Record<string, number> = {};
+  await Promise.all(tickers.map(async (ticker) => {
+    try {
+      const res = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`,
+        { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MyFinance/1.0)' }, next: { revalidate: 0 } }
+      );
+      if (!res.ok) return;
+      const json = await res.json();
+      const price = json.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (price != null) results[ticker.toUpperCase()] = Number(price);
+    } catch {}
+  }));
+  return results;
+}
+
 export const POST = withAuth(async (_req: NextRequest, user) => {
   try {
     if (!user.householdId) return notFound();
@@ -51,18 +69,22 @@ export const POST = withAuth(async (_req: NextRequest, user) => {
 
     const stockTickers: string[] = [];
     const cryptoCoins: string[] = [];
+    const usStockTickers: string[] = [];
+
     for (const inv of investments) {
       if (!inv.ticker) continue;
       if (inv.type === 'CRYPTO') cryptoCoins.push(inv.ticker.toUpperCase());
+      else if (inv.type === 'STOCK_US') usStockTickers.push(inv.ticker.toUpperCase());
       else stockTickers.push(inv.ticker.toUpperCase());
     }
 
-    const [stockPrices, cryptoPrices] = await Promise.all([
+    const [stockPrices, cryptoPrices, usPrices] = await Promise.all([
       fetchStockPrices(Array.from(new Set(stockTickers))),
       fetchCryptoPrices(Array.from(new Set(cryptoCoins))),
+      fetchUSStockPrices(Array.from(new Set(usStockTickers))),
     ]);
 
-    const allPrices = { ...stockPrices, ...cryptoPrices };
+    const allPrices = { ...stockPrices, ...cryptoPrices, ...usPrices };
     let updated = 0;
 
     for (const inv of investments) {

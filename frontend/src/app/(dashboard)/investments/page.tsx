@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { formatCurrency, formatPercent, cn } from '@/lib/utils';
@@ -10,7 +10,8 @@ import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const TYPE_LABELS: Record<string, string> = {
-  STOCK: 'Ações',
+  STOCK: 'Ações BR',
+  STOCK_US: 'Ações EUA',
   FUND: 'FIIs',
   BOND: 'Renda Fixa',
   CRYPTO: 'Crypto',
@@ -21,6 +22,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_ICONS: Record<string, string> = {
   STOCK: 'equalizer',
+  STOCK_US: 'attach_money',
   FUND: 'apartment',
   BOND: 'description',
   CRYPTO: 'currency_bitcoin',
@@ -31,6 +33,7 @@ const TYPE_ICONS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   STOCK: '#031632',
+  STOCK_US: '#0052cc',
   FUND: '#006c49',
   BOND: '#1a2b48',
   CRYPTO: '#FF6B00',
@@ -96,6 +99,8 @@ export default function InvestmentsPage() {
   const { register, handleSubmit, reset, control } = useForm<any>({
     defaultValues: { type: 'STOCK' }
   });
+  const watchedType = useWatch({ control, name: 'type' });
+  const formIsUSD = watchedType === 'STOCK_US';
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post('/api/investments', {
@@ -279,7 +284,9 @@ export default function InvestmentsPage() {
               <input type="number" step="0.000001" {...register('quantity')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
             </div>
             <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">Preço Médio de Compra (R$) *</label>
+              <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                Preço Médio de Compra ({formIsUSD ? 'US$' : 'R$'}) *
+              </label>
               <Controller
                 control={control}
                 name="purchasePrice"
@@ -294,7 +301,9 @@ export default function InvestmentsPage() {
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">Preço de Cotação Atual (R$)</label>
+              <label className="text-xs font-semibold text-on-surface-variant block mb-1">
+                Preço de Cotação Atual ({formIsUSD ? 'US$' : 'R$'})
+              </label>
               <Controller
                 control={control}
                 name="currentPrice"
@@ -560,23 +569,27 @@ export default function InvestmentsPage() {
                             <th className="px-lg py-sm font-bold text-right">Qtd</th>
                             <th className="px-lg py-sm font-bold text-right">Pço Médio</th>
                             <th className="px-lg py-sm font-bold text-right">Preço Atual</th>
-                            <th className="px-lg py-sm font-bold text-right">Saldo Atual</th>
+                            <th className="px-lg py-sm font-bold text-right">Saldo (R$)</th>
                             <th className="px-lg py-sm font-bold text-right">Resultado</th>
                             <th className="px-lg py-sm"></th>
                           </tr>
                         </thead>
                         <tbody className="font-numeric text-numeric-data text-on-surface-variant">
                           {list.map((inv: any) => {
-                            const cost = Number(inv.quantity) * Number(inv.purchasePrice);
-                            const currentVal = Number(inv.current || (inv.quantity * inv.currentPrice));
-                            const gain = currentVal - cost;
-                            const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+                            const isUSD = inv.type === 'STOCK_US' || inv.currency === 'USD';
+                            const fmtPrice = (v: number) => formatCurrency(v, isUSD ? 'USD' : 'BRL');
+                            const currentVal = Number(inv.current || 0);
+                            const gain = Number(inv.gain || 0);
+                            const gainPct = Number(inv.gainPct || 0);
                             return (
                               <tr key={inv.id} className="border-b border-outline-variant/40 hover:bg-surface-container-high/30 transition-colors">
-                                <td className="px-lg py-md text-primary font-bold">{inv.ticker || inv.name}</td>
-                                <td className="px-lg py-md text-right">{Number(inv.quantity).toLocaleString('pt-BR')}</td>
-                                <td className="px-lg py-md text-right">{formatCurrency(Number(inv.purchasePrice))}</td>
-                                <td className="px-lg py-md text-right">{formatCurrency(Number(inv.currentPrice || inv.purchasePrice))}</td>
+                                <td className="px-lg py-md">
+                                  <span className="text-primary font-bold">{inv.ticker || inv.name}</span>
+                                  {isUSD && <span className="ml-1 text-[9px] bg-[#0052cc]/20 text-[#0052cc] font-bold px-1 py-0.5 rounded uppercase">USD</span>}
+                                </td>
+                                <td className="px-lg py-md text-right">{Number(inv.quantity).toLocaleString('pt-BR', { maximumFractionDigits: 6 })}</td>
+                                <td className="px-lg py-md text-right">{fmtPrice(Number(inv.purchasePrice))}</td>
+                                <td className="px-lg py-md text-right">{fmtPrice(Number(inv.currentPrice || inv.purchasePrice))}</td>
                                 <td className="px-lg py-md text-right text-primary font-semibold">{formatCurrency(currentVal)}</td>
                                 <td className={cn(
                                   "px-lg py-md text-right font-bold",
@@ -585,7 +598,7 @@ export default function InvestmentsPage() {
                                   {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
                                 </td>
                                 <td className="px-lg py-md text-right">
-                                  <button 
+                                  <button
                                     onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }}
                                     className="text-placeholder hover:text-error transition-colors"
                                   >
@@ -756,18 +769,20 @@ export default function InvestmentsPage() {
                   {isExpanded && (
                     <div className="border-t border-outline-variant/60 bg-surface-container-low/20 divide-y divide-outline-variant/30 px-md py-sm space-y-sm">
                       {list.map((inv: any) => {
-                        const cost = Number(inv.quantity) * Number(inv.purchasePrice);
-                        const currentVal = Number(inv.current || (inv.quantity * inv.currentPrice));
-                        const gain = currentVal - cost;
-                        const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
+                        const isUSD = inv.type === 'STOCK_US' || inv.currency === 'USD';
+                        const fmtPrice = (v: number) => formatCurrency(v, isUSD ? 'USD' : 'BRL');
+                        const currentVal = Number(inv.current || 0);
+                        const gain = Number(inv.gain || 0);
+                        const gainPct = Number(inv.gainPct || 0);
                         return (
                           <div key={inv.id} className="pt-sm first:pt-0 flex flex-col gap-xs text-xs">
                             <div className="flex justify-between items-center">
-                              <div>
+                              <div className="flex items-center gap-1">
                                 <span className="font-bold text-primary">{inv.ticker || inv.name}</span>
-                                {inv.broker && <span className="text-[10px] text-on-surface-variant ml-2">({inv.broker})</span>}
+                                {isUSD && <span className="text-[9px] bg-[#0052cc]/20 text-[#0052cc] font-bold px-1 py-0.5 rounded uppercase">USD</span>}
+                                {inv.broker && <span className="text-[10px] text-on-surface-variant ml-1">({inv.broker})</span>}
                               </div>
-                              <button 
+                              <button
                                 onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }}
                                 className="text-placeholder hover:text-error transition-colors p-1"
                               >
@@ -777,14 +792,14 @@ export default function InvestmentsPage() {
                             <div className="grid grid-cols-2 gap-2 text-[11px] text-on-surface-variant">
                               <div>
                                 <span className="block text-[9px] uppercase font-bold text-outline">Qtd / Pço Médio</span>
-                                <span className="font-medium">{Number(inv.quantity).toLocaleString('pt-BR')} x {formatCurrency(Number(inv.purchasePrice))}</span>
+                                <span className="font-medium">{Number(inv.quantity).toLocaleString('pt-BR', { maximumFractionDigits: 6 })} x {fmtPrice(Number(inv.purchasePrice))}</span>
                               </div>
                               <div className="text-right">
                                 <span className="block text-[9px] uppercase font-bold text-outline">Preço Atual</span>
-                                <span className="font-medium">{formatCurrency(Number(inv.currentPrice || inv.purchasePrice))}</span>
+                                <span className="font-medium">{fmtPrice(Number(inv.currentPrice || inv.purchasePrice))}</span>
                               </div>
                               <div>
-                                <span className="block text-[9px] uppercase font-bold text-outline">Saldo Atual</span>
+                                <span className="block text-[9px] uppercase font-bold text-outline">Saldo Atual (R$)</span>
                                 <span className="font-semibold text-primary">{formatCurrency(currentVal)}</span>
                               </div>
                               <div className="text-right">
