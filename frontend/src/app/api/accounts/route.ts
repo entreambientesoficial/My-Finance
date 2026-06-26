@@ -28,7 +28,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const supabase = createAdminClient();
     const { data: account } = await supabase
       .from('accounts')
-      .insert({ ...body, householdId: user.householdId })
+      .insert({ ...body, householdId: user.householdId, isActive: true, updatedAt: new Date().toISOString() })
       .select()
       .single();
     return created(account);
