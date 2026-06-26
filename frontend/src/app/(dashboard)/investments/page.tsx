@@ -294,6 +294,7 @@ export default function InvestmentsPage() {
                   <CurrencyInput
                     value={field.value}
                     onChange={field.onChange}
+                    currency={formIsUSD ? 'USD' : 'BRL'}
                     className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface"
                     required
                   />
@@ -311,6 +312,7 @@ export default function InvestmentsPage() {
                   <CurrencyInput
                     value={field.value}
                     onChange={field.onChange}
+                    currency={formIsUSD ? 'USD' : 'BRL'}
                     className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface"
                   />
                 )}
