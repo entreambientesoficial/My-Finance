@@ -52,6 +52,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const supabase = createAdminClient();
 
     const txData: any = {
+      id: crypto.randomUUID(),
       ...body,
       householdId: user.householdId,
       date: new Date(body.date).toISOString(),
@@ -59,13 +60,15 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       accountId: body.accountId || null,
       toAccountId: body.toAccountId || null,
       cardId: body.cardId || null,
+      updatedAt: new Date().toISOString(),
     };
 
-    const { data: tx } = await supabase
+    const { data: tx, error: txError } = await supabase
       .from('transactions')
       .insert(txData)
       .select(TX_SELECT)
       .single();
+    if (txError) { console.error('[transactions POST insert]', txError); return serverError(txError.message); }
 
     if (body.isPaid !== false) {
       const amount = parseFloat(body.amount);

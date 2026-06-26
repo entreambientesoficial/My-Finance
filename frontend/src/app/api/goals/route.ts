@@ -25,15 +25,18 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     if (!user.householdId) return notFound();
     const body = await req.json();
     const supabase = createAdminClient();
-    const { data: goal } = await supabase
+    const { data: goal, error } = await supabase
       .from('goals')
       .insert({
+        id: crypto.randomUUID(),
         ...body,
         householdId: user.householdId,
+        updatedAt: new Date().toISOString(),
         ...(body.targetDate && { targetDate: new Date(body.targetDate).toISOString() }),
       })
       .select()
       .single();
+    if (error) { console.error('[goals POST insert]', error); return serverError(error.message); }
     return created(goal);
   } catch (err) {
     console.error('[goals POST]', err);

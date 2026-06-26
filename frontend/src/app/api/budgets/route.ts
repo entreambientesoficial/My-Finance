@@ -32,11 +32,12 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     if (!user.householdId) return notFound();
     const body = await req.json();
     const supabase = createAdminClient();
-    const { data: budget } = await supabase
+    const { data: budget, error } = await supabase
       .from('budgets')
-      .insert({ ...body, householdId: user.householdId, categoryId: body.categoryId || null })
+      .insert({ id: crypto.randomUUID(), ...body, householdId: user.householdId, categoryId: body.categoryId || null, isActive: true, updatedAt: new Date().toISOString() })
       .select()
       .single();
+    if (error) { console.error('[budgets POST insert]', error); return serverError(error.message); }
     return created(budget);
   } catch (err) {
     console.error('[budgets POST]', err);

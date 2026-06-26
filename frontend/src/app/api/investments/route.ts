@@ -39,6 +39,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       if (cost > 0) {
         await supabase.from('accounts').update({ balance: parseFloat(account.balance) - cost }).eq('id', accountId);
         await supabase.from('transactions').insert({
+          id: crypto.randomUUID(),
           householdId: user.householdId,
           accountId,
           amount: cost,
@@ -46,19 +47,23 @@ export const POST = withAuth(async (req: NextRequest, user) => {
           type: 'EXPENSE',
           isPaid: true,
           date: body.purchaseDate ? new Date(body.purchaseDate).toISOString() : new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       }
     }
 
-    const { data: investment } = await supabase
+    const { data: investment, error: invError } = await supabase
       .from('investments')
       .insert({
+        id: crypto.randomUUID(),
         ...investmentData,
         householdId: user.householdId,
+        updatedAt: new Date().toISOString(),
         ...(body.purchaseDate && { purchaseDate: new Date(body.purchaseDate).toISOString() }),
       })
       .select()
       .single();
+    if (invError) { console.error('[investments POST insert]', invError); return serverError(invError.message); }
     return created(investment);
   } catch (err) {
     console.error('[investments POST]', err);

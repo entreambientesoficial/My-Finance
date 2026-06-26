@@ -28,11 +28,12 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     if (body.accountId === '') body.accountId = null;
     if (body.lastFourDigits === '') body.lastFourDigits = null;
     const supabase = createAdminClient();
-    const { data: card } = await supabase
+    const { data: card, error } = await supabase
       .from('cards')
-      .insert({ ...body, householdId: user.householdId })
+      .insert({ id: crypto.randomUUID(), ...body, householdId: user.householdId, isActive: true, updatedAt: new Date().toISOString() })
       .select()
       .single();
+    if (error) { console.error('[cards POST insert]', error); return serverError(error.message); }
     return created(card);
   } catch (err) {
     console.error('[cards POST]', err);
