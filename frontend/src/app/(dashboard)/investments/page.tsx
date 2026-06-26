@@ -45,6 +45,7 @@ const TYPE_COLORS: Record<string, string> = {
 export default function InvestmentsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [editingInvestment, setEditingInvestment] = useState<any | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({
     STOCK: true,
@@ -124,27 +125,73 @@ export default function InvestmentsPage() {
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao criar investimento'),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.patch(`/api/investments/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portfolio'] });
+      qc.invalidateQueries({ queryKey: ['household-summary'] });
+      toast.success('Investimento atualizado!');
+      reset();
+      setEditingInvestment(null);
+      setShowForm(false);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao atualizar investimento'),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/api/investments/${id}`),
-    onSuccess: () => { 
-      qc.invalidateQueries({ queryKey: ['portfolio'] }); 
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portfolio'] });
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['recent-transactions-activity'] });
       qc.invalidateQueries({ queryKey: ['household-summary'] });
-      toast.success('Ativo removido!'); 
+      toast.success('Ativo removido!');
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao remover ativo'),
   });
 
+  const handleEditInvestment = (inv: any) => {
+    setEditingInvestment(inv);
+    if (inv.type === 'BOND') {
+      const bondInfo = inv.notes ? (() => { try { return JSON.parse(inv.notes); } catch { return {}; } })() : {};
+      reset({
+        name: inv.name,
+        type: 'BOND',
+        broker: inv.broker || '',
+        tipoTitulo: bondInfo.tipoTitulo || 'CDB',
+        indexador: bondInfo.indexador || 'CDI',
+        taxa: bondInfo.taxa ?? '',
+        forma: bondInfo.forma || 'Pós-fixado',
+        valorInvestido: Number(inv.purchasePrice) || 0,
+        liquidezDiaria: bondInfo.liquidezDiaria || false,
+        purchaseDate: inv.purchaseDate ? inv.purchaseDate.slice(0, 10) : '',
+        dataVencimento: bondInfo.dataVencimento ? bondInfo.dataVencimento.slice(0, 10) : '',
+      });
+    } else {
+      reset({
+        name: inv.name,
+        type: inv.type,
+        ticker: inv.ticker || '',
+        quantity: inv.quantity ? Number(inv.quantity) : '',
+        purchasePrice: Number(inv.purchasePrice) || 0,
+        currentPrice: Number(inv.currentPrice) || 0,
+        broker: inv.broker || '',
+        purchaseDate: inv.purchaseDate ? inv.purchaseDate.slice(0, 10) : '',
+      });
+    }
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const onSubmit = (d: any) => {
     if (d.type === 'BOND') {
-      createMutation.mutate({
+      const payload = {
         name: d.name,
         type: 'BOND',
         ticker: d.indexador ? `${d.indexador}${d.taxa ? ` ${d.taxa}%` : ''}` : undefined,
         quantity: 1,
         purchasePrice: Number(d.valorInvestido) || 0,
-        currentPrice: Number(d.valorInvestido) || 0,
+        currentPrice: editingInvestment ? undefined : (Number(d.valorInvestido) || 0),
         broker: d.broker || undefined,
         purchaseDate: d.purchaseDate || undefined,
         notes: JSON.stringify({
@@ -155,9 +202,14 @@ export default function InvestmentsPage() {
           liquidezDiaria: !!d.liquidezDiaria,
           dataVencimento: d.dataVencimento || null,
         }),
-      });
+      };
+      if (editingInvestment) {
+        updateMutation.mutate({ id: editingInvestment.id, data: payload });
+      } else {
+        createMutation.mutate(payload);
+      }
     } else {
-      createMutation.mutate({
+      const payload = {
         name: d.name,
         type: d.type,
         ticker: d.ticker,
@@ -167,7 +219,12 @@ export default function InvestmentsPage() {
         broker: d.broker || undefined,
         accountId: d.accountId || undefined,
         purchaseDate: d.purchaseDate || undefined,
-      });
+      };
+      if (editingInvestment) {
+        updateMutation.mutate({ id: editingInvestment.id, data: payload });
+      } else {
+        createMutation.mutate(payload);
+      }
     }
   };
 
@@ -298,7 +355,9 @@ export default function InvestmentsPage() {
       {/* Shared Create Form */}
       {showForm && (
         <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-outline-variant text-left mb-gutter">
-          <h2 className="font-headline text-headline-md text-primary font-bold mb-2">Adicionar Ativo à Carteira</h2>
+          <h2 className="font-headline text-headline-md text-primary font-bold mb-2">
+            {editingInvestment ? 'Editar Investimento' : 'Adicionar Ativo à Carteira'}
+          </h2>
           <p className="text-on-surface-variant text-xs mb-4 font-semibold">
             {formIsBond
               ? 'Registre uma aplicação em renda fixa com os detalhes do título.'
@@ -438,9 +497,11 @@ export default function InvestmentsPage() {
             )}
 
             <div className="col-span-1 md:col-span-3 flex gap-2 justify-end pt-2 border-t border-border-base mt-2">
-              <button type="button" onClick={() => { setShowForm(false); reset(); }} className="px-4 py-2 text-sm border border-outline rounded-lg text-on-surface-variant hover:bg-surface-container transition-all">Cancelar</button>
-              <button type="submit" disabled={createMutation.isPending} className="px-4 py-2 text-sm bg-primary text-on-primary rounded-lg hover:opacity-90 disabled:opacity-60 font-bold">
-                {createMutation.isPending ? 'Adicionando...' : 'Adicionar Ativo'}
+              <button type="button" onClick={() => { setShowForm(false); setEditingInvestment(null); reset(); }} className="px-4 py-2 text-sm border border-outline rounded-lg text-on-surface-variant hover:bg-surface-container transition-all">Cancelar</button>
+              <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="px-4 py-2 text-sm bg-primary text-on-primary rounded-lg hover:opacity-90 disabled:opacity-60 font-bold">
+                {(createMutation.isPending || updateMutation.isPending)
+                  ? 'Salvando...'
+                  : editingInvestment ? 'Salvar Alterações' : 'Adicionar Ativo'}
               </button>
             </div>
           </form>
@@ -708,9 +769,14 @@ export default function InvestmentsPage() {
                                       {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
                                     </td>
                                     <td className="px-lg py-md text-right">
-                                      <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors">
-                                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                                      </button>
+                                      <div className="flex items-center justify-end gap-2">
+                                        <button onClick={() => handleEditInvestment(inv)} className="text-placeholder hover:text-primary transition-colors" title="Editar">
+                                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        </button>
+                                        <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors" title="Excluir">
+                                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -751,9 +817,14 @@ export default function InvestmentsPage() {
                                       {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
                                     </td>
                                     <td className="px-lg py-md text-right">
-                                      <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors">
-                                        <span className="material-symbols-outlined text-[18px]">delete</span>
-                                      </button>
+                                      <div className="flex items-center justify-end gap-2">
+                                        <button onClick={() => handleEditInvestment(inv)} className="text-placeholder hover:text-primary transition-colors" title="Editar">
+                                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        </button>
+                                        <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors" title="Excluir">
+                                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -936,9 +1007,14 @@ export default function InvestmentsPage() {
                                 {isUSD && <span className="text-[9px] bg-[#0052cc]/20 text-[#0052cc] font-bold px-1 py-0.5 rounded uppercase">USD</span>}
                                 {!isBond && inv.broker && <span className="text-[10px] text-on-surface-variant">({inv.broker})</span>}
                               </div>
-                              <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors p-1">
-                                <span className="material-symbols-outlined text-[16px]">delete</span>
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => handleEditInvestment(inv)} className="text-placeholder hover:text-primary transition-colors p-1" title="Editar">
+                                  <span className="material-symbols-outlined text-[16px]">edit</span>
+                                </button>
+                                <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors p-1" title="Excluir">
+                                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                                </button>
+                              </div>
                             </div>
                             {isBond ? (
                               <div className="grid grid-cols-2 gap-2 text-[11px] text-on-surface-variant">
