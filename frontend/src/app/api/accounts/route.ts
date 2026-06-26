@@ -26,11 +26,21 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     if (!user.householdId) return notFound();
     const body = await req.json();
     const supabase = createAdminClient();
-    const { data: account } = await supabase
+    const { data: account, error } = await supabase
       .from('accounts')
-      .insert({ ...body, householdId: user.householdId, isActive: true, updatedAt: new Date().toISOString() })
+      .insert({
+        id: crypto.randomUUID(),
+        ...body,
+        householdId: user.householdId,
+        isActive: true,
+        updatedAt: new Date().toISOString(),
+      })
       .select()
       .single();
+    if (error) {
+      console.error('[accounts POST insert]', error);
+      return serverError(error.message);
+    }
     return created(account);
   } catch (err) {
     console.error('[accounts POST]', err);
