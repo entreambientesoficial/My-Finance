@@ -101,6 +101,7 @@ export default function InvestmentsPage() {
   });
   const watchedType = useWatch({ control, name: 'type' });
   const formIsUSD = watchedType === 'STOCK_US';
+  const formIsBond = watchedType === 'BOND';
 
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post('/api/investments', {
@@ -134,6 +135,41 @@ export default function InvestmentsPage() {
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao remover ativo'),
   });
+
+  const onSubmit = (d: any) => {
+    if (d.type === 'BOND') {
+      createMutation.mutate({
+        name: d.name,
+        type: 'BOND',
+        ticker: d.indexador ? `${d.indexador}${d.taxa ? ` ${d.taxa}%` : ''}` : undefined,
+        quantity: 1,
+        purchasePrice: Number(d.valorInvestido) || 0,
+        currentPrice: Number(d.valorInvestido) || 0,
+        broker: d.broker || undefined,
+        purchaseDate: d.purchaseDate || undefined,
+        notes: JSON.stringify({
+          tipoTitulo: d.tipoTitulo || 'CDB',
+          indexador: d.indexador || 'CDI',
+          taxa: d.taxa ? Number(d.taxa) : null,
+          forma: d.forma || 'Pós-fixado',
+          liquidezDiaria: !!d.liquidezDiaria,
+          dataVencimento: d.dataVencimento || null,
+        }),
+      });
+    } else {
+      createMutation.mutate({
+        name: d.name,
+        type: d.type,
+        ticker: d.ticker,
+        quantity: d.quantity ? Number(d.quantity) : undefined,
+        purchasePrice: d.purchasePrice ? Number(d.purchasePrice) : undefined,
+        currentPrice: d.currentPrice ? Number(d.currentPrice) : undefined,
+        broker: d.broker || undefined,
+        accountId: d.accountId || undefined,
+        purchaseDate: d.purchaseDate || undefined,
+      });
+    }
+  };
 
   const toggleCategory = (type: string) => {
     setExpandedCats(prev => ({ ...prev, [type]: !prev[type] }));
@@ -263,11 +299,17 @@ export default function InvestmentsPage() {
       {showForm && (
         <div className="bg-surface-container-lowest rounded-xl p-5 shadow-sm border border-outline-variant text-left mb-gutter">
           <h2 className="font-headline text-headline-md text-primary font-bold mb-2">Adicionar Ativo à Carteira</h2>
-          <p className="text-on-surface-variant text-xs mb-4 font-semibold">Cadastre a compra de um ativo. Você pode associá-lo a uma conta bancária para debitar o valor de aquisição automaticamente.</p>
-          <form onSubmit={handleSubmit((d) => createMutation.mutate(d))} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <p className="text-on-surface-variant text-xs mb-4 font-semibold">
+            {formIsBond
+              ? 'Registre uma aplicação em renda fixa com os detalhes do título.'
+              : 'Cadastre a compra de um ativo. Você pode associá-lo a uma conta bancária para deduzir o valor da conta de origem.'}
+          </p>
+          <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            {/* ── Campo Nome + Tipo (sempre visíveis) ── */}
             <div>
               <label className="text-xs font-semibold text-on-surface-variant block mb-1">Nome do Ativo *</label>
-              <input {...register('name')} placeholder="Ex: Itaúsa" className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
+              <input {...register('name')} placeholder={formIsBond ? 'Ex: CDB Itaú 100% CDI' : 'Ex: Itaúsa'} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
             </div>
             <div>
               <label className="text-xs font-semibold text-on-surface-variant block mb-1">Tipo de Investimento</label>
@@ -275,70 +317,128 @@ export default function InvestmentsPage() {
                 {Object.entries(TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
-            <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">Ticker/Símbolo *</label>
-              <input {...register('ticker')} placeholder="Ex: ITSA4" className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">Quantidade *</label>
-              <input type="number" step="0.000001" {...register('quantity')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">
-                Preço Médio de Compra ({formIsUSD ? 'US$' : 'R$'}) *
-              </label>
-              <Controller
-                control={control}
-                name="purchasePrice"
-                render={({ field }) => (
-                  <CurrencyInput
-                    value={field.value}
-                    onChange={field.onChange}
-                    currency={formIsUSD ? 'USD' : 'BRL'}
-                    className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface"
-                    required
+
+            {/* ── Campos específicos de RENDA FIXA ── */}
+            {formIsBond ? (
+              <>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Emissor / Banco *</label>
+                  <input {...register('broker')} placeholder="Ex: Itaú, Nubank, XP" className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Tipo de Título</label>
+                  <select {...register('tipoTitulo')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface cursor-pointer">
+                    <option value="CDB">CDB</option>
+                    <option value="RDB">RDB</option>
+                    <option value="LCI">LCI</option>
+                    <option value="LCA">LCA</option>
+                    <option value="LC">LC</option>
+                    <option value="LIG">LIG</option>
+                    <option value="LF">LF</option>
+                    <option value="Debenture">Debênture</option>
+                    <option value="CRI">CRI</option>
+                    <option value="CRA">CRA</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Indexador</label>
+                  <select {...register('indexador')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface cursor-pointer">
+                    <option value="CDI">CDI</option>
+                    <option value="IPCA">IPCA</option>
+                    <option value="SELIC">SELIC</option>
+                    <option value="Prefixado">Prefixado</option>
+                    <option value="IGPM">IGP-M</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Taxa (%)</label>
+                  <input type="number" step="0.01" {...register('taxa')} placeholder="Ex: 100 (= 100% CDI)" className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Forma</label>
+                  <select {...register('forma')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface cursor-pointer">
+                    <option value="Pós-fixado">Pós-fixado</option>
+                    <option value="Pré-fixado">Pré-fixado</option>
+                    <option value="Híbrido">Híbrido (ex: IPCA+)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Valor Investido (R$) *</label>
+                  <Controller
+                    control={control}
+                    name="valorInvestido"
+                    render={({ field }) => (
+                      <CurrencyInput value={field.value} onChange={field.onChange} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
+                    )}
                   />
-                )}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">
-                Preço de Cotação Atual ({formIsUSD ? 'US$' : 'R$'})
-              </label>
-              <Controller
-                control={control}
-                name="currentPrice"
-                render={({ field }) => (
-                  <CurrencyInput
-                    value={field.value}
-                    onChange={field.onChange}
-                    currency={formIsUSD ? 'USD' : 'BRL'}
-                    className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface"
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Data de Aplicação</label>
+                  <input type="date" {...register('purchaseDate')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Data de Vencimento (Opcional)</label>
+                  <input type="date" {...register('dataVencimento')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
+                </div>
+                <div className="flex items-center gap-3 pt-4">
+                  <input type="checkbox" id="liquidezDiaria" {...register('liquidezDiaria')} className="w-4 h-4 accent-primary rounded cursor-pointer" />
+                  <label htmlFor="liquidezDiaria" className="text-sm font-semibold text-on-surface cursor-pointer">Liquidez diária</label>
+                </div>
+              </>
+            ) : (
+              /* ── Campos de AÇÕES / FIIs / CRYPTO / etc ── */
+              <>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Ticker/Símbolo *</label>
+                  <input {...register('ticker')} placeholder={formIsUSD ? 'Ex: MRVL' : 'Ex: ITSA4'} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Quantidade *</label>
+                  <input type="number" step="0.000001" {...register('quantity')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Preço Médio de Compra ({formIsUSD ? 'US$' : 'R$'}) *</label>
+                  <Controller
+                    control={control}
+                    name="purchasePrice"
+                    render={({ field }) => (
+                      <CurrencyInput value={field.value} onChange={field.onChange} currency={formIsUSD ? 'USD' : 'BRL'} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
+                    )}
                   />
-                )}
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">Corretora</label>
-              <input {...register('broker')} placeholder="Ex: XP Investimentos" className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">Conta de Origem (Opcional)</label>
-              <select {...register('accountId')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface cursor-pointer">
-                <option value="">Apenas registrar ativo (sem deduzir saldo)</option>
-                {accounts.map((acc: any) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.name} (Saldo: {formatCurrency(Number(acc.balance), acc.currency)})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-on-surface-variant block mb-1">Data de Aquisição</label>
-              <input type="date" {...register('purchaseDate')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
-            </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Preço de Cotação Atual ({formIsUSD ? 'US$' : 'R$'})</label>
+                  <Controller
+                    control={control}
+                    name="currentPrice"
+                    render={({ field }) => (
+                      <CurrencyInput value={field.value} onChange={field.onChange} currency={formIsUSD ? 'USD' : 'BRL'} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
+                    )}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Corretora</label>
+                  <input {...register('broker')} placeholder="Ex: XP Investimentos" className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Conta de Origem (Opcional)</label>
+                  <select {...register('accountId')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface cursor-pointer">
+                    <option value="">Apenas registrar ativo (sem deduzir saldo)</option>
+                    {accounts.map((acc: any) => (
+                      <option key={acc.id} value={acc.id}>{acc.name} (Saldo: {formatCurrency(Number(acc.balance), acc.currency)})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Data de Aquisição</label>
+                  <input type="date" {...register('purchaseDate')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
+                </div>
+              </>
+            )}
+
             <div className="col-span-1 md:col-span-3 flex gap-2 justify-end pt-2 border-t border-border-base mt-2">
-              <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2 text-sm border border-outline rounded-lg text-on-surface-variant hover:bg-surface-container transition-all">Cancelar</button>
+              <button type="button" onClick={() => { setShowForm(false); reset(); }} className="px-4 py-2 text-sm border border-outline rounded-lg text-on-surface-variant hover:bg-surface-container transition-all">Cancelar</button>
               <button type="submit" disabled={createMutation.isPending} className="px-4 py-2 text-sm bg-primary text-on-primary rounded-lg hover:opacity-90 disabled:opacity-60 font-bold">
                 {createMutation.isPending ? 'Adicionando...' : 'Adicionar Ativo'}
               </button>
@@ -565,52 +665,102 @@ export default function InvestmentsPage() {
                   {isExpanded && (
                     <div className="border-t border-outline-variant bg-surface-container-low/20">
                       <table className="w-full text-left border-collapse">
-                        <thead className="bg-surface-container-low font-label-sm text-label-sm uppercase font-bold">
-                          <tr className="border-b border-outline-variant/60">
-                            <th className="px-lg py-sm font-bold">Ativo</th>
-                            <th className="px-lg py-sm font-bold text-right">Qtd</th>
-                            <th className="px-lg py-sm font-bold text-right">Pço Médio</th>
-                            <th className="px-lg py-sm font-bold text-right">Preço Atual</th>
-                            <th className="px-lg py-sm font-bold text-right">Saldo (R$)</th>
-                            <th className="px-lg py-sm font-bold text-right">Resultado</th>
-                            <th className="px-lg py-sm"></th>
-                          </tr>
-                        </thead>
-                        <tbody className="font-numeric text-numeric-data text-on-surface-variant">
-                          {list.map((inv: any) => {
-                            const isUSD = inv.type === 'STOCK_US' || inv.currency === 'USD';
-                            const fmtPrice = (v: number) => formatCurrency(v, isUSD ? 'USD' : 'BRL');
-                            const currentVal = Number(inv.current || 0);
-                            const gain = Number(inv.gain || 0);
-                            const gainPct = Number(inv.gainPct || 0);
-                            return (
-                              <tr key={inv.id} className="border-b border-outline-variant/40 hover:bg-surface-container-high/30 transition-colors">
-                                <td className="px-lg py-md">
-                                  <span className="text-primary font-bold">{inv.ticker || inv.name}</span>
-                                  {isUSD && <span className="ml-1 text-[9px] bg-[#0052cc]/20 text-[#0052cc] font-bold px-1 py-0.5 rounded uppercase">USD</span>}
-                                </td>
-                                <td className="px-lg py-md text-right">{Number(inv.quantity).toLocaleString('pt-BR', { maximumFractionDigits: 6 })}</td>
-                                <td className="px-lg py-md text-right">{fmtPrice(Number(inv.purchasePrice))}</td>
-                                <td className="px-lg py-md text-right">{fmtPrice(Number(inv.currentPrice || inv.purchasePrice))}</td>
-                                <td className="px-lg py-md text-right text-primary font-semibold">{formatCurrency(currentVal)}</td>
-                                <td className={cn(
-                                  "px-lg py-md text-right font-bold",
-                                  gain >= 0 ? "text-secondary" : "text-error"
-                                )}>
-                                  {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
-                                </td>
-                                <td className="px-lg py-md text-right">
-                                  <button
-                                    onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }}
-                                    className="text-placeholder hover:text-error transition-colors"
-                                  >
-                                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                                  </button>
-                                </td>
+                        {typeKey === 'BOND' ? (
+                          <>
+                            <thead className="bg-surface-container-low font-label-sm text-label-sm uppercase font-bold">
+                              <tr className="border-b border-outline-variant/60">
+                                <th className="px-lg py-sm font-bold">Título</th>
+                                <th className="px-lg py-sm font-bold">Emissor</th>
+                                <th className="px-lg py-sm font-bold">Indexador / Taxa</th>
+                                <th className="px-lg py-sm font-bold text-center">Liquidez</th>
+                                <th className="px-lg py-sm font-bold text-right">Vencimento</th>
+                                <th className="px-lg py-sm font-bold text-right">Valor Aplicado</th>
+                                <th className="px-lg py-sm font-bold text-right">Valor Atual</th>
+                                <th className="px-lg py-sm font-bold text-right">Resultado</th>
+                                <th className="px-lg py-sm"></th>
                               </tr>
-                            );
-                          })}
-                        </tbody>
+                            </thead>
+                            <tbody className="font-numeric text-numeric-data text-on-surface-variant">
+                              {list.map((inv: any) => {
+                                const bondInfo = inv.notes ? (() => { try { return JSON.parse(inv.notes); } catch { return null; } })() : null;
+                                const currentVal = Number(inv.current || 0);
+                                const gain = Number(inv.gain || 0);
+                                const gainPct = Number(inv.gainPct || 0);
+                                const taxaLabel = bondInfo
+                                  ? `${bondInfo.tipoTitulo} ${bondInfo.indexador}${bondInfo.taxa ? ` ${bondInfo.taxa}%` : ''}`
+                                  : (inv.ticker || '—');
+                                return (
+                                  <tr key={inv.id} className="border-b border-outline-variant/40 hover:bg-surface-container-high/30 transition-colors">
+                                    <td className="px-lg py-md text-primary font-bold">{inv.name}</td>
+                                    <td className="px-lg py-md">{inv.broker || '—'}</td>
+                                    <td className="px-lg py-md">{taxaLabel}</td>
+                                    <td className="px-lg py-md text-center">
+                                      {bondInfo?.liquidezDiaria
+                                        ? <span className="text-secondary text-[11px] font-bold">Diária</span>
+                                        : <span className="text-placeholder text-[11px]">No venc.</span>}
+                                    </td>
+                                    <td className="px-lg py-md text-right text-on-surface-variant">
+                                      {bondInfo?.dataVencimento ? new Date(bondInfo.dataVencimento).toLocaleDateString('pt-BR') : '—'}
+                                    </td>
+                                    <td className="px-lg py-md text-right">{formatCurrency(Number(inv.purchasePrice))}</td>
+                                    <td className="px-lg py-md text-right text-primary font-semibold">{formatCurrency(currentVal)}</td>
+                                    <td className={cn("px-lg py-md text-right font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
+                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                    </td>
+                                    <td className="px-lg py-md text-right">
+                                      <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors">
+                                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </>
+                        ) : (
+                          <>
+                            <thead className="bg-surface-container-low font-label-sm text-label-sm uppercase font-bold">
+                              <tr className="border-b border-outline-variant/60">
+                                <th className="px-lg py-sm font-bold">Ativo</th>
+                                <th className="px-lg py-sm font-bold text-right">Qtd</th>
+                                <th className="px-lg py-sm font-bold text-right">Pço Médio</th>
+                                <th className="px-lg py-sm font-bold text-right">Preço Atual</th>
+                                <th className="px-lg py-sm font-bold text-right">Saldo (R$)</th>
+                                <th className="px-lg py-sm font-bold text-right">Resultado</th>
+                                <th className="px-lg py-sm"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="font-numeric text-numeric-data text-on-surface-variant">
+                              {list.map((inv: any) => {
+                                const isUSD = inv.type === 'STOCK_US' || inv.currency === 'USD';
+                                const fmtPrice = (v: number) => formatCurrency(v, isUSD ? 'USD' : 'BRL');
+                                const currentVal = Number(inv.current || 0);
+                                const gain = Number(inv.gain || 0);
+                                const gainPct = Number(inv.gainPct || 0);
+                                return (
+                                  <tr key={inv.id} className="border-b border-outline-variant/40 hover:bg-surface-container-high/30 transition-colors">
+                                    <td className="px-lg py-md">
+                                      <span className="text-primary font-bold">{inv.ticker || inv.name}</span>
+                                      {isUSD && <span className="ml-1 text-[9px] bg-[#0052cc]/20 text-[#0052cc] font-bold px-1 py-0.5 rounded uppercase">USD</span>}
+                                    </td>
+                                    <td className="px-lg py-md text-right">{Number(inv.quantity).toLocaleString('pt-BR', { maximumFractionDigits: 6 })}</td>
+                                    <td className="px-lg py-md text-right">{fmtPrice(Number(inv.purchasePrice))}</td>
+                                    <td className="px-lg py-md text-right">{fmtPrice(Number(inv.currentPrice || inv.purchasePrice))}</td>
+                                    <td className="px-lg py-md text-right text-primary font-semibold">{formatCurrency(currentVal)}</td>
+                                    <td className={cn("px-lg py-md text-right font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
+                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                    </td>
+                                    <td className="px-lg py-md text-right">
+                                      <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors">
+                                        <span className="material-symbols-outlined text-[18px]">delete</span>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </>
+                        )}
                       </table>
                     </div>
                   )}
@@ -771,46 +921,68 @@ export default function InvestmentsPage() {
                   {isExpanded && (
                     <div className="border-t border-outline-variant/60 bg-surface-container-low/20 divide-y divide-outline-variant/30 px-md py-sm space-y-sm">
                       {list.map((inv: any) => {
+                        const isBond = inv.type === 'BOND';
                         const isUSD = inv.type === 'STOCK_US' || inv.currency === 'USD';
                         const fmtPrice = (v: number) => formatCurrency(v, isUSD ? 'USD' : 'BRL');
                         const currentVal = Number(inv.current || 0);
                         const gain = Number(inv.gain || 0);
                         const gainPct = Number(inv.gainPct || 0);
+                        const bondInfo = isBond && inv.notes ? (() => { try { return JSON.parse(inv.notes); } catch { return null; } })() : null;
                         return (
                           <div key={inv.id} className="pt-sm first:pt-0 flex flex-col gap-xs text-xs">
                             <div className="flex justify-between items-center">
-                              <div className="flex items-center gap-1">
-                                <span className="font-bold text-primary">{inv.ticker || inv.name}</span>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="font-bold text-primary">{isBond ? inv.name : (inv.ticker || inv.name)}</span>
                                 {isUSD && <span className="text-[9px] bg-[#0052cc]/20 text-[#0052cc] font-bold px-1 py-0.5 rounded uppercase">USD</span>}
-                                {inv.broker && <span className="text-[10px] text-on-surface-variant ml-1">({inv.broker})</span>}
+                                {!isBond && inv.broker && <span className="text-[10px] text-on-surface-variant">({inv.broker})</span>}
                               </div>
-                              <button
-                                onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }}
-                                className="text-placeholder hover:text-error transition-colors p-1"
-                              >
+                              <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors p-1">
                                 <span className="material-symbols-outlined text-[16px]">delete</span>
                               </button>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-[11px] text-on-surface-variant">
-                              <div>
-                                <span className="block text-[9px] uppercase font-bold text-outline">Qtd / Pço Médio</span>
-                                <span className="font-medium">{Number(inv.quantity).toLocaleString('pt-BR', { maximumFractionDigits: 6 })} x {fmtPrice(Number(inv.purchasePrice))}</span>
+                            {isBond ? (
+                              <div className="grid grid-cols-2 gap-2 text-[11px] text-on-surface-variant">
+                                <div>
+                                  <span className="block text-[9px] uppercase font-bold text-outline">Emissor / Título</span>
+                                  <span className="font-medium">{inv.broker || '—'} {bondInfo?.tipoTitulo ? `— ${bondInfo.tipoTitulo}` : ''}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="block text-[9px] uppercase font-bold text-outline">Indexador / Taxa</span>
+                                  <span className="font-medium">{bondInfo ? `${bondInfo.indexador}${bondInfo.taxa ? ` ${bondInfo.taxa}%` : ''}` : '—'}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[9px] uppercase font-bold text-outline">Valor Aplicado</span>
+                                  <span className="font-semibold text-primary">{formatCurrency(Number(inv.purchasePrice))}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="block text-[9px] uppercase font-bold text-outline">Resultado</span>
+                                  <span className={cn("font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
+                                    {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                  </span>
+                                </div>
                               </div>
-                              <div className="text-right">
-                                <span className="block text-[9px] uppercase font-bold text-outline">Preço Atual</span>
-                                <span className="font-medium">{fmtPrice(Number(inv.currentPrice || inv.purchasePrice))}</span>
+                            ) : (
+                              <div className="grid grid-cols-2 gap-2 text-[11px] text-on-surface-variant">
+                                <div>
+                                  <span className="block text-[9px] uppercase font-bold text-outline">Qtd / Pço Médio</span>
+                                  <span className="font-medium">{Number(inv.quantity).toLocaleString('pt-BR', { maximumFractionDigits: 6 })} x {fmtPrice(Number(inv.purchasePrice))}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="block text-[9px] uppercase font-bold text-outline">Preço Atual</span>
+                                  <span className="font-medium">{fmtPrice(Number(inv.currentPrice || inv.purchasePrice))}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[9px] uppercase font-bold text-outline">Saldo Atual (R$)</span>
+                                  <span className="font-semibold text-primary">{formatCurrency(currentVal)}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="block text-[9px] uppercase font-bold text-outline">Resultado</span>
+                                  <span className={cn("font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
+                                    {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                  </span>
+                                </div>
                               </div>
-                              <div>
-                                <span className="block text-[9px] uppercase font-bold text-outline">Saldo Atual (R$)</span>
-                                <span className="font-semibold text-primary">{formatCurrency(currentVal)}</span>
-                              </div>
-                              <div className="text-right">
-                                <span className="block text-[9px] uppercase font-bold text-outline">Resultado</span>
-                                <span className={cn("font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
-                                  {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
-                                </span>
-                              </div>
-                            </div>
+                            )}
                           </div>
                         );
                       })}
