@@ -12,10 +12,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Temporary response object so createServerClient can read the PKCE verifier
-    // from req.cookies. We don't use the Set-Cookie output — tokens are passed
-    // via URL hash instead, which is reliable across all Cloudflare Pages setups.
-    const dummy = NextResponse.next();
+    // Create the redirect response first so we can attach cookies to it
+    const redirectTo = NextResponse.redirect(`${base}/dashboard`);
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,32 +22,25 @@ export async function GET(req: NextRequest) {
         cookies: {
           getAll() { return req.cookies.getAll(); },
           setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+            // Write session cookies directly into the redirect response
             cookiesToSet.forEach(({ name, value, options }) => {
-              dummy.cookies.set(name, value, options as any);
+              redirectTo.cookies.set(name, value, options as any);
             });
           },
         },
       }
     );
 
-    const { data: exchangeData, error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error || !exchangeData.session) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (error || !data.session) {
       console.error('[auth/callback] exchange error:', error?.message);
       return NextResponse.redirect(`${base}/login?error=google_failed`);
     }
 
-    const { access_token, refresh_token, expires_in } = exchangeData.session;
-
-    // Pass tokens via URL hash — browser does not send hash to server (no logs),
-    // and it bypasses the Set-Cookie-on-redirect reliability issue in Cloudflare Pages.
-    const hash = new URLSearchParams({
-      access_token,
-      refresh_token: refresh_token ?? '',
-      expires_in: String(expires_in ?? 3600),
-      token_type: 'bearer',
-    }).toString();
-
-    return NextResponse.redirect(`${base}/auth/confirm#${hash}`);
+    // Session cookies are now embedded in the 302 redirect to /dashboard.
+    // The browser will store them and send them on every subsequent request.
+    return redirectTo;
   } catch (err) {
     console.error('[auth/callback] unexpected error:', err);
     return NextResponse.redirect(`${base}/login?error=google_failed`);
