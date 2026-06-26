@@ -4,6 +4,28 @@ import { createClientFromRequest } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { unauthorized } from './api-response';
 
+const DEFAULT_CATEGORIES = [
+  { name: 'Alimentação',         type: 'EXPENSE', icon: 'restaurant',        color: '#f59e0b' },
+  { name: 'Moradia',             type: 'EXPENSE', icon: 'home',              color: '#3b82f6' },
+  { name: 'Transporte',          type: 'EXPENSE', icon: 'directions_car',    color: '#8b5cf6' },
+  { name: 'Saúde',               type: 'EXPENSE', icon: 'health_and_safety', color: '#ef4444' },
+  { name: 'Educação',            type: 'EXPENSE', icon: 'school',            color: '#06b6d4' },
+  { name: 'Lazer',               type: 'EXPENSE', icon: 'sports_esports',    color: '#ec4899' },
+  { name: 'Vestuário',           type: 'EXPENSE', icon: 'checkroom',         color: '#f97316' },
+  { name: 'Contas e Serviços',   type: 'EXPENSE', icon: 'receipt',           color: '#64748b' },
+  { name: 'Assinaturas',         type: 'EXPENSE', icon: 'subscriptions',     color: '#7c3aed' },
+  { name: 'Pets',                type: 'EXPENSE', icon: 'pets',              color: '#a16207' },
+  { name: 'Beleza',              type: 'EXPENSE', icon: 'spa',               color: '#db2777' },
+  { name: 'Presentes',           type: 'EXPENSE', icon: 'card_giftcard',     color: '#dc2626' },
+  { name: 'Impostos',            type: 'EXPENSE', icon: 'account_balance',   color: '#374151' },
+  { name: 'Outros Gastos',       type: 'EXPENSE', icon: 'more_horiz',        color: '#6b7280' },
+  { name: 'Salário',             type: 'INCOME',  icon: 'payments',          color: '#10b981' },
+  { name: 'Freelance',           type: 'INCOME',  icon: 'work',              color: '#059669' },
+  { name: 'Investimentos',       type: 'INCOME',  icon: 'trending_up',       color: '#0d9488' },
+  { name: 'Aluguel Recebido',    type: 'INCOME',  icon: 'apartment',         color: '#2563eb' },
+  { name: 'Outros Recebimentos', type: 'INCOME',  icon: 'attach_money',      color: '#16a34a' },
+] as const;
+
 export interface AuthUser {
   sub: string;
   email: string;
@@ -64,7 +86,19 @@ async function getOrCreateProfile(supabaseId: string, email: string, metadata: R
         .insert({ id: crypto.randomUUID(), supabaseId, email, name, avatarUrl: avatarUrl ?? null, householdId: household.id, updatedAt: now })
         .select('id, householdId')
         .single();
-      if (newUser) return newUser;
+      if (newUser) {
+        // Create default categories for the new household
+        await admin.from('categories').insert(
+          DEFAULT_CATEGORIES.map((cat) => ({
+            id: crypto.randomUUID(),
+            ...cat,
+            householdId: household.id,
+            isDefault: true,
+            updatedAt: now,
+          }))
+        );
+        return newUser;
+      }
     }
   } catch {
     // Race condition or admin client issue — try re-reading below
