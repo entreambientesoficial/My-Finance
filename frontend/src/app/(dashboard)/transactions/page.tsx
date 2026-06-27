@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -633,8 +633,14 @@ export default function TransactionsPage() {
   const displayAccountsSelect = accounts;
   const displayCardsSelect = cards;
 
-  const { register, handleSubmit, reset, watch, setValue, control } = useForm<any>({ defaultValues: { type: 'EXPENSE', isPaid: true } });
+  const { register, handleSubmit, reset, watch, setValue, control } = useForm<any>({ defaultValues: { type: 'EXPENSE', isPaid: true, recurrenceType: 'ONCE', totalInstallments: 2, recurrenceFrequency: 'MONTHLY' } });
   const transactionType = watch('type');
+  const watchCardId = watch('cardId');
+  const watchRecurrenceType = watch('recurrenceType');
+
+  useEffect(() => {
+    if (watchCardId) setValue('isPaid', 'false');
+  }, [watchCardId, setValue]);
 
   const [newSelectedParentId, setNewSelectedParentId] = useState('');
   const [newSelectedSubId, setNewSelectedSubId] = useState('');
@@ -653,14 +659,21 @@ export default function TransactionsPage() {
   };
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => api.post('/api/transactions', { ...data, amount: Number(data.amount), isPaid: data.isPaid === 'true' || data.isPaid === true }),
+    mutationFn: (data: any) => api.post('/api/transactions', {
+      ...data,
+      amount: Number(data.amount),
+      isPaid: data.isPaid === 'true' || data.isPaid === true,
+      recurrenceType: data.recurrenceType || 'ONCE',
+      totalInstallments: data.totalInstallments ? parseInt(data.totalInstallments) : undefined,
+      recurrenceFrequency: data.recurrenceFrequency || 'MONTHLY',
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['monthly-summary'] });
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['household-summary'] });
       toast.success('Lançamento criado!');
-      reset({ type: 'EXPENSE', isPaid: true });
+      reset({ type: 'EXPENSE', isPaid: true, recurrenceType: 'ONCE', totalInstallments: 2, recurrenceFrequency: 'MONTHLY' });
       setNewSelectedParentId('');
       setNewSelectedSubId('');
       setShowForm(false);
@@ -970,7 +983,12 @@ export default function TransactionsPage() {
                           <td className="px-md lg:px-sm py-md font-numeric text-xs whitespace-nowrap">{formatDateLong(t.date)}</td>
                           <td className="px-md lg:px-sm py-md">
                             <div className="flex flex-col max-w-[200px] lg:max-w-[260px]">
-                              <span className="font-bold text-primary truncate text-sm">{t.description || 'Sem descrição'}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-primary truncate text-sm">{t.description || 'Sem descrição'}</span>
+                                {t.installmentNumber && t.totalInstallments && (
+                                  <span className="shrink-0 text-[9px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5 whitespace-nowrap">{t.installmentNumber}/{t.totalInstallments}</span>
+                                )}
+                              </div>
                               {t.notes && !t.notes.startsWith('ofx:') && <span className="text-xs text-on-surface-variant truncate mt-0.5">{t.notes}</span>}
                               <div className="mt-1">
                                 <CategoryBadge category={t.category} type={t.type} />
@@ -1182,7 +1200,12 @@ export default function TransactionsPage() {
 
                 {/* Description & Account */}
                 <div>
-                  <p className="font-bold text-primary text-sm">{t.description || 'Sem descrição'}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-bold text-primary text-sm">{t.description || 'Sem descrição'}</p>
+                    {t.installmentNumber && t.totalInstallments && (
+                      <span className="shrink-0 text-[9px] font-bold bg-primary/10 text-primary rounded-full px-1.5 py-0.5 whitespace-nowrap">{t.installmentNumber}/{t.totalInstallments}</span>
+                    )}
+                  </div>
                   {t.notes && !t.notes.startsWith('ofx:') && <p className="text-xs text-on-surface-variant mt-0.5">{t.notes}</p>}
                   <div className="flex items-center justify-between mt-2 text-xs text-on-surface-variant">
                     <span>{formatDateLong(t.date)}</span>
@@ -1457,8 +1480,8 @@ export default function TransactionsPage() {
                 <div className="flex flex-col gap-xs md:col-span-2">
                   <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CARTÃO DE CRÉDITO</label>
                   <div className="relative">
-                    <select 
-                      {...register('cardId')} 
+                    <select
+                      {...register('cardId')}
                       className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
                     >
                       <option value="">Nenhum (Debitado da conta)</option>
@@ -1468,35 +1491,114 @@ export default function TransactionsPage() {
                     </select>
                     <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">credit_card</span>
                   </div>
+                  {watchCardId && (
+                    <p className="flex items-center gap-1.5 text-[11px] text-primary/80 bg-primary/5 border border-primary/20 rounded-lg px-3 py-1.5 mt-0.5">
+                      <span className="material-symbols-outlined text-[14px]">info</span>
+                      Lançado na fatura do cartão. O saldo da conta só será afetado ao pagar a fatura.
+                    </p>
+                  )}
                 </div>
               )}
 
               {/* Status Radio options */}
               <div className="md:col-span-2 flex flex-col gap-xs pt-2">
                 <label className="font-label-sm text-[10px] text-outline uppercase font-bold">STATUS</label>
-                <div className="flex items-center gap-md h-10">
-                  <label className="flex items-center gap-xs cursor-pointer group text-sm">
-                    <input 
-                      type="radio" 
-                      value="true"
-                      defaultChecked={true}
-                      {...register('isPaid')} 
-                      className="w-4 h-4 text-secondary focus:ring-secondary border-outline-variant bg-surface-container-lowest" 
-                    />
-                    <span className="text-on-surface-variant group-hover:text-secondary transition-colors font-medium">
-                      {transactionType === 'INCOME' ? 'Recebido' : 'Pago / Efetivado'}
+                {watchCardId ? (
+                  <div className="flex items-center gap-2 h-10">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-full px-3 py-1">
+                      <span className="material-symbols-outlined text-[14px]">schedule</span>
+                      Pendente (fatura do cartão)
                     </span>
-                  </label>
-                  <label className="flex items-center gap-xs cursor-pointer group text-sm">
-                    <input 
-                      type="radio" 
-                      value="false"
-                      {...register('isPaid')} 
-                      className="w-4 h-4 text-primary focus:ring-primary border-outline-variant bg-surface-container-lowest" 
-                    />
-                    <span className="text-on-surface-variant group-hover:text-primary transition-colors font-medium">Pendente</span>
-                  </label>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-md h-10">
+                    <label className="flex items-center gap-xs cursor-pointer group text-sm">
+                      <input
+                        type="radio"
+                        value="true"
+                        defaultChecked={true}
+                        {...register('isPaid')}
+                        className="w-4 h-4 text-secondary focus:ring-secondary border-outline-variant bg-surface-container-lowest"
+                      />
+                      <span className="text-on-surface-variant group-hover:text-secondary transition-colors font-medium">
+                        {transactionType === 'INCOME' ? 'Recebido' : 'Pago / Efetivado'}
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-xs cursor-pointer group text-sm">
+                      <input
+                        type="radio"
+                        value="false"
+                        {...register('isPaid')}
+                        className="w-4 h-4 text-primary focus:ring-primary border-outline-variant bg-surface-container-lowest"
+                      />
+                      <span className="text-on-surface-variant group-hover:text-primary transition-colors font-medium">Pendente</span>
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* REPETIÇÃO */}
+              <div className="md:col-span-2 flex flex-col gap-xs pt-2">
+                <label className="font-label-sm text-[10px] text-outline uppercase font-bold">REPETIÇÃO</label>
+                <div className="inline-flex p-1 bg-surface-container-low rounded-lg w-full">
+                  {([['ONCE', 'Único'], ['INSTALLMENT', 'Parcelado'], ['RECURRING', 'Recorrente']] as const).map(([val, label]) => (
+                    <label
+                      key={val}
+                      className={cn(
+                        "flex-1 flex items-center justify-center py-2 rounded-lg cursor-pointer transition-all text-xs font-bold select-none",
+                        watchRecurrenceType === val ? 'bg-primary text-white shadow-sm' : 'text-on-surface-variant hover:bg-surface-container-high'
+                      )}
+                    >
+                      <input type="radio" {...register('recurrenceType')} value={val} className="sr-only" />
+                      {label}
+                    </label>
+                  ))}
                 </div>
+
+                {watchRecurrenceType === 'INSTALLMENT' && (
+                  <div className="flex items-center gap-3 mt-2 bg-surface-container-low rounded-lg px-3 py-2">
+                    <span className="material-symbols-outlined text-[16px] text-primary">credit_card</span>
+                    <span className="text-xs text-on-surface-variant">Número de parcelas:</span>
+                    <input
+                      type="number"
+                      min="2"
+                      max="120"
+                      {...register('totalInstallments')}
+                      defaultValue={2}
+                      className="w-20 px-2 py-1 rounded border border-outline-variant bg-surface-container-lowest text-sm font-numeric text-center focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                    />
+                    <span className="text-xs text-on-surface-variant">vezes</span>
+                  </div>
+                )}
+
+                {watchRecurrenceType === 'RECURRING' && (
+                  <div className="flex flex-wrap items-center gap-3 mt-2 bg-surface-container-low rounded-lg px-3 py-2">
+                    <span className="material-symbols-outlined text-[16px] text-primary">repeat</span>
+                    <span className="text-xs text-on-surface-variant">Frequência:</span>
+                    <div className="relative">
+                      <select
+                        {...register('recurrenceFrequency')}
+                        className="appearance-none px-3 py-1 pr-7 rounded border border-outline-variant bg-surface-container-lowest text-sm cursor-pointer focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                      >
+                        <option value="MONTHLY">Mensal</option>
+                        <option value="WEEKLY">Semanal</option>
+                        <option value="YEARLY">Anual</option>
+                        <option value="DAILY">Diário</option>
+                      </select>
+                      <span className="material-symbols-outlined absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[14px]">expand_more</span>
+                    </div>
+                    <span className="text-xs text-on-surface-variant">Repetir</span>
+                    <input
+                      type="number"
+                      min="2"
+                      max="120"
+                      {...register('totalInstallments')}
+                      defaultValue={2}
+                      className="w-16 px-2 py-1 rounded border border-outline-variant bg-surface-container-lowest text-sm font-numeric text-center focus:border-primary focus:ring-1 focus:ring-primary/20 outline-none"
+                    />
+                    <span className="text-xs text-on-surface-variant">vezes</span>
+                  </div>
+                )}
               </div>
             </div>
 

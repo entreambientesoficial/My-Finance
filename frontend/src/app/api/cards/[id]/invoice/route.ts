@@ -2,7 +2,7 @@ export const runtime = 'edge'
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
-import { ok, notFound, badRequest, serverError } from '@/lib/api-response';
+import { ok, created, notFound, badRequest, serverError } from '@/lib/api-response';
 
 type Ctx = { params: { id: string } };
 
@@ -40,6 +40,68 @@ export function GET(req: NextRequest, { params }: Ctx) {
       return ok({ total, transactions: transactions ?? [] });
     } catch (err) {
       console.error('[cards/:id/invoice GET]', err);
+      return serverError();
+    }
+  })(req);
+}
+
+// POST /api/cards/[id]/invoice — paga a fatura: debita conta e quita transações do cartão
+export function POST(req: NextRequest, { params }: Ctx) {
+  return withAuth(async (r, user) => {
+    try {
+      if (!user.householdId) return notFound();
+      const body = await r.json();
+      const { accountId, amount, date, description, categoryId } = body;
+      if (!accountId || !amount || amount <= 0) return badRequest('accountId e amount são obrigatórios');
+
+      const supabase = createAdminClient();
+
+      // Verify card belongs to household
+      const { data: card } = await supabase
+        .from('cards')
+        .select('id')
+        .eq('id', params.id)
+        .eq('householdId', user.householdId)
+        .maybeSingle();
+      if (!card) return notFound('Cartão não encontrado');
+
+      // 1. Create expense transaction on bank account to record the payment
+      const { data: tx, error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          id: crypto.randomUUID(),
+          householdId: user.householdId,
+          type: 'EXPENSE',
+          amount,
+          description: description || `Pagamento Fatura - Cartão`,
+          date: new Date(date || new Date()).toISOString(),
+          accountId,
+          cardId: null,
+          categoryId: categoryId || null,
+          isPaid: true,
+          recurrenceType: 'ONCE',
+          updatedAt: new Date().toISOString(),
+        })
+        .select('*')
+        .single();
+      if (txError) { console.error('[cards/:id/invoice POST tx]', txError); return serverError(txError.message); }
+
+      // 2. Deduct from bank account balance
+      const { data: acc } = await supabase.from('accounts').select('balance').eq('id', accountId).single();
+      await supabase.from('accounts').update({ balance: parseFloat(acc?.balance ?? '0') - parseFloat(amount) }).eq('id', accountId);
+
+      // 3. Mark all unpaid card transactions as paid (settling the bill)
+      const { data: settled } = await supabase
+        .from('transactions')
+        .update({ isPaid: true, updatedAt: new Date().toISOString() })
+        .eq('cardId', params.id)
+        .eq('householdId', user.householdId)
+        .eq('isPaid', false)
+        .select('id');
+
+      return created({ transaction: tx, settledCount: settled?.length ?? 0 });
+    } catch (err) {
+      console.error('[cards/:id/invoice POST]', err);
       return serverError();
     }
   })(req);

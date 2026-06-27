@@ -202,8 +202,8 @@ export default function AccountsPage() {
   });
 
   const payInvoiceMutation = useMutation({
-    mutationFn: (data: { accountId: string; amount: number; date: string; description: string; categoryId?: string }) =>
-      api.post('/api/transactions', { ...data, type: 'EXPENSE', isPaid: true }),
+    mutationFn: (data: { cardId: string; accountId: string; amount: number; date: string; description: string; categoryId?: string }) =>
+      api.post(`/api/cards/${data.cardId}/invoice`, { accountId: data.accountId, amount: data.amount, date: data.date, description: data.description, categoryId: data.categoryId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['cards'] });
@@ -465,7 +465,7 @@ export default function AccountsPage() {
                   if (!card || !isCardSelected) return null;
                   const limit = Number(card.creditLimit);
                   const currentInvoice = transactions
-                    .filter((t: any) => t.cardId === card.id && t.type === 'EXPENSE' && t.isPaid)
+                    .filter((t: any) => t.cardId === card.id && t.type === 'EXPENSE' && !t.isPaid)
                     .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
                   const percentUsed = Math.min(100, Math.round((currentInvoice / limit) * 100));
                   return (
@@ -637,7 +637,7 @@ export default function AccountsPage() {
             if (!card) return null;
             const limit = Number(card.creditLimit);
             const currentInvoice = transactions
-              .filter((t: any) => t.cardId === card.id && t.type === 'EXPENSE' && t.isPaid)
+              .filter((t: any) => t.cardId === card.id && t.type === 'EXPENSE' && !t.isPaid)
               .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
             const percentUsed = Math.min(100, Math.round((currentInvoice / limit) * 100));
             return (
@@ -1086,6 +1086,7 @@ export default function AccountsPage() {
                 disabled={payInvoiceMutation.isPending || !paymentAccount || paymentAmount <= 0}
                 onClick={() => {
                   payInvoiceMutation.mutate({
+                    cardId: paymentCard.id,
                     accountId: paymentAccount,
                     amount: paymentAmount,
                     date: paymentDate,

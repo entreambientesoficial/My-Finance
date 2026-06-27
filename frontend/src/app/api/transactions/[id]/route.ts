@@ -58,7 +58,8 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
         .select()
         .single();
 
-      if (body.isPaid !== undefined && oldTx.isPaid !== (body.isPaid === true)) {
+      // Card transactions never adjust account balance directly (settled via "Pagar Fatura")
+      if (body.isPaid !== undefined && oldTx.isPaid !== (body.isPaid === true) && !oldTx.cardId) {
         const isMarkedPaid = body.isPaid === true;
         const amount = parseFloat(oldTx.amount);
         const accId = oldTx.accountId;
