@@ -16,20 +16,20 @@ async function getUsdBrlRate(): Promise<number> {
   } catch { return 5.75; }
 }
 
-async function getCDIDiario(): Promise<number> {
+async function getCDIAnual(): Promise<number> {
   try {
     const res = await fetch(
       'https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/1?formato=json',
       { next: { revalidate: 86400 } }
     );
-    if (!res.ok) return 0.000524;
+    if (!res.ok) return 13.25;
     const data = await res.json();
-    // BACEN retorna taxa em % (ex: 0.0524 = 0.0524%), converter para decimal
-    return Number(data[0]?.valor ?? 0.0524) / 100;
-  } catch { return 0.000524; }
+    // BACEN retorna a taxa CDI anual em % (ex: "13.25")
+    return Number(String(data[0]?.valor ?? '13.25').replace(',', '.'));
+  } catch { return 13.25; }
 }
 
-function calcBondCurrentValue(inv: any, cdiDiario: number): number {
+function calcBondCurrentValue(inv: any, cdiAnual: number): number {
   const principal = Number(inv.purchasePrice || 0);
   if (!inv.purchaseDate || principal <= 0) return principal;
 
@@ -42,17 +42,17 @@ function calcBondCurrentValue(inv: any, cdiDiario: number): number {
   const calendarDays = Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
   const businessDays = Math.round(calendarDays * 252 / 365);
 
-  let dailyRate: number;
+  let annualRate: number;
   if (indexador === 'CDI' || indexador === 'SELIC') {
-    dailyRate = cdiDiario * (taxa / 100);
+    annualRate = cdiAnual * (taxa / 100); // ex: 100% × 13.25% = 13.25% a.a.
   } else if (indexador === 'Prefixado') {
-    dailyRate = Math.pow(1 + taxa / 100, 1 / 252) - 1;
+    annualRate = taxa; // taxa já é % ao ano
   } else {
-    // IPCA e outros: usa CDI como proxy até implementarmos IPCA
-    dailyRate = cdiDiario * (taxa / 100);
+    annualRate = cdiAnual * (taxa / 100);
   }
 
-  return Math.round(principal * Math.pow(1 + dailyRate, businessDays) * 100) / 100;
+  // Capitalização composta: (1 + r_anual)^(dias_úteis/252)
+  return Math.round(principal * Math.pow(1 + annualRate / 100, businessDays / 252) * 100) / 100;
 }
 
 export const GET = withAuth(async (_req: NextRequest, user) => {
@@ -68,9 +68,9 @@ export const GET = withAuth(async (_req: NextRequest, user) => {
     const hasUSStocks = (investments ?? []).some((inv: any) => inv.type === 'STOCK_US');
     const hasBonds = (investments ?? []).some((inv: any) => inv.type === 'BOND');
 
-    const [usdBrlRate, cdiDiario] = await Promise.all([
+    const [usdBrlRate, cdiAnual] = await Promise.all([
       hasUSStocks ? getUsdBrlRate() : Promise.resolve(1),
-      hasBonds ? getCDIDiario() : Promise.resolve(0.000524),
+      hasBonds ? getCDIAnual() : Promise.resolve(13.25),
     ]);
 
     const summary = (investments ?? []).map((inv) => {
@@ -83,7 +83,7 @@ export const GET = withAuth(async (_req: NextRequest, user) => {
         : Number(inv.quantity || 0) * Number(inv.purchasePrice || 0) * toRate;
 
       const currentPriceBRL = isBond
-        ? calcBondCurrentValue(inv, cdiDiario)
+        ? calcBondCurrentValue(inv, cdiAnual)
         : Number(inv.quantity || 0) * Number(inv.currentPrice || inv.purchasePrice || 0) * toRate;
 
       const gain = currentPriceBRL - cost;
@@ -111,7 +111,7 @@ export const GET = withAuth(async (_req: NextRequest, user) => {
       totalGain,
       totalGainPct: Math.round(totalGainPct * 100) / 100,
       usdBrlRate,
-      cdiDiario,
+      cdiAnual,
     });
   } catch (err) {
     console.error('[investments/portfolio GET]', err);

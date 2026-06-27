@@ -678,7 +678,7 @@ export default function InvestmentsPage() {
 
               const categoryTotal = list.reduce((sum: number, item: any) => sum + Number(item.current || (item.quantity * item.currentPrice)), 0);
               const categoryPercent = displayTotalCurrent > 0 ? Math.round((categoryTotal / displayTotalCurrent) * 100) : 0;
-              const categoryCost = list.reduce((sum: number, item: any) => sum + Number((item.quantity * item.purchasePrice) || 0), 0);
+              const categoryCost = list.reduce((sum: number, item: any) => sum + Number(item.cost || 0), 0);
               const categoryGain = categoryTotal - categoryCost;
               const categoryGainPct = categoryCost > 0 ? (categoryGain / categoryCost) * 100 : 0;
 
