@@ -82,6 +82,7 @@ export default function AccountsPage() {
   const [paymentCategory, setPaymentCategory] = useState<string>('');
 
   const [editingAccount, setEditingAccount] = useState<any | null>(null);
+  const [editingCard, setEditingCard] = useState<any | null>(null);
 
   // Modal and form states for Exploring Cofres
   const [showCofresModal, setShowCofresModal] = useState(false);
@@ -158,6 +159,19 @@ export default function AccountsPage() {
       setShowCardModal(false);
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao criar cartão'),
+  });
+
+  const updateCard = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<CardForm> }) =>
+      api.patch(`/api/cards/${id}`, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cards'] });
+      toast.success('Cartão atualizado!');
+      cardForm.reset();
+      setEditingCard(null);
+      setShowCardModal(false);
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao atualizar cartão'),
   });
 
   const freezeMutation = useMutation({
@@ -544,15 +558,35 @@ export default function AccountsPage() {
                           </button>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => freezeMutation.mutate(card.id)}
+                              onClick={() => {
+                                cardForm.reset({
+                                  name: card.name,
+                                  brand: card.brand,
+                                  lastFourDigits: card.lastFourDigits || '',
+                                  creditLimit: card.creditLimit,
+                                  billingDay: card.billingDay,
+                                  dueDay: card.dueDay,
+                                  accountId: card.accountId || '',
+                                  color: card.color || '#8b5cf6',
+                                });
+                                setEditingCard(card);
+                                setShowCardModal(true);
+                              }}
                               className="flex-1 border border-outline text-on-surface-variant py-md rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-colors flex items-center justify-center gap-xs font-bold"
                             >
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                              Editar Cartão
+                            </button>
+                            <button
+                              onClick={() => freezeMutation.mutate(card.id)}
+                              className="border border-outline text-on-surface-variant px-3 rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-center"
+                              title={card.isFrozen ? 'Desbloquear' : 'Bloquear'}
+                            >
                               <span className="material-symbols-outlined text-[18px]">{card.isFrozen ? 'lock_open' : 'lock'}</span>
-                              {card.isFrozen ? 'Desbloquear' : 'Bloquear Cartão'}
                             </button>
                             <button
                               onClick={() => { if (confirm('Excluir este cartão?')) deleteCard.mutate(card.id); }}
-                              className="border border-error/30 text-error px-4 rounded-lg hover:bg-error-container/20 transition-colors flex items-center justify-center"
+                              className="border border-error/30 text-error px-3 rounded-lg hover:bg-error-container/20 transition-colors flex items-center justify-center"
                             >
                               <span className="material-symbols-outlined text-[18px]">delete</span>
                             </button>
@@ -674,16 +708,36 @@ export default function AccountsPage() {
                     Pagar Fatura Atual
                   </button>
                   <div className="flex gap-2">
-                    <button 
-                      onClick={() => freezeMutation.mutate(card.id)}
+                    <button
+                      onClick={() => {
+                        cardForm.reset({
+                          name: card.name,
+                          brand: card.brand,
+                          lastFourDigits: card.lastFourDigits || '',
+                          creditLimit: card.creditLimit,
+                          billingDay: card.billingDay,
+                          dueDay: card.dueDay,
+                          accountId: card.accountId || '',
+                          color: card.color || '#8b5cf6',
+                        });
+                        setEditingCard(card);
+                        setShowCardModal(true);
+                      }}
                       className="flex-1 border border-outline text-on-surface-variant py-2 rounded-lg text-sm hover:bg-surface-container-low flex items-center justify-center gap-xs font-bold"
                     >
-                      <span className="material-symbols-outlined text-[16px]">{card.isFrozen ? 'lock_open' : 'lock'}</span>
-                      {card.isFrozen ? 'Desbloquear' : 'Bloquear'}
+                      <span className="material-symbols-outlined text-[16px]">edit</span>
+                      Editar
                     </button>
-                    <button 
+                    <button
+                      onClick={() => freezeMutation.mutate(card.id)}
+                      className="border border-outline text-on-surface-variant px-3 rounded-lg hover:bg-surface-container-low flex items-center justify-center"
+                      title={card.isFrozen ? 'Desbloquear' : 'Bloquear'}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">{card.isFrozen ? 'lock_open' : 'lock'}</span>
+                    </button>
+                    <button
                       onClick={() => { if (confirm('Excluir este cartão?')) deleteCard.mutate(card.id); }}
-                      className="border border-error/30 text-error px-4 rounded-lg hover:bg-error-container/20 flex items-center justify-center"
+                      className="border border-error/30 text-error px-3 rounded-lg hover:bg-error-container/20 flex items-center justify-center"
                     >
                       <span className="material-symbols-outlined text-[18px]">delete</span>
                     </button>
@@ -879,10 +933,10 @@ export default function AccountsPage() {
         </Modal>
       )}
 
-      {/* ─── MODAL ADD CARD ─── */}
+      {/* ─── MODAL ADD / EDIT CARD ─── */}
       {showCardModal && (
-        <Modal title="Adicionar Novo Cartão" onClose={() => setShowCardModal(false)}>
-          <form onSubmit={cardForm.handleSubmit((d) => createCard.mutate(d))} className="space-y-4 text-left">
+        <Modal title={editingCard ? 'Editar Cartão' : 'Adicionar Novo Cartão'} onClose={() => { setShowCardModal(false); setEditingCard(null); cardForm.reset(); }}>
+          <form onSubmit={cardForm.handleSubmit((d) => editingCard ? updateCard.mutate({ id: editingCard.id, data: d }) : createCard.mutate(d))} className="space-y-4 text-left">
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-semibold text-on-surface-variant block mb-1">Nome do Cartão *</label>
@@ -993,19 +1047,19 @@ export default function AccountsPage() {
             </div>
 
             <div className="flex gap-3 justify-end pt-4 border-t border-border-base mt-6">
-              <button 
-                type="button" 
-                onClick={() => setShowCardModal(false)} 
+              <button
+                type="button"
+                onClick={() => { setShowCardModal(false); setEditingCard(null); cardForm.reset(); }}
                 className="px-4 py-2 text-sm border border-outline rounded-lg text-on-surface-variant hover:bg-surface-container transition-all"
               >
                 Cancelar
               </button>
-              <button 
-                type="submit" 
-                disabled={createCard.isPending} 
+              <button
+                type="submit"
+                disabled={createCard.isPending || updateCard.isPending}
                 className="px-4 py-2 text-sm bg-primary text-on-primary rounded-lg hover:opacity-90 disabled:opacity-60 font-bold"
               >
-                {createCard.isPending ? 'Salvando...' : 'Adicionar Cartão'}
+                {(createCard.isPending || updateCard.isPending) ? 'Salvando...' : editingCard ? 'Salvar Alterações' : 'Adicionar Cartão'}
               </button>
             </div>
           </form>
