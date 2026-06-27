@@ -316,7 +316,7 @@ export default function InvestmentsPage() {
   // Dynamic yield vs CDI benchmark
   const cdiBenchmark = 5.2; // 6-month CDI approximation
   const yieldVsCdi = displayTotalCost > 0 ? (displayTotalGainPct / cdiBenchmark) * 100 : 0;
-  const displayYieldVsCdi = yieldVsCdi > 0 ? `${yieldVsCdi.toFixed(1)}%` : '0.0%';
+  const displayYieldVsCdi = yieldVsCdi > 0 ? `${yieldVsCdi.toFixed(2)}%` : '0.0%';
   const displayCDIProgress = Math.min(100, Math.round(yieldVsCdi));
 
   return (
@@ -545,7 +545,7 @@ export default function InvestmentsPage() {
             >
               {formatCurrency(displayTotalGain)}
             </h2>
-            <p className="text-on-surface-variant font-numeric text-numeric-data mt-xs font-semibold">Rentabilidade: {displayTotalGainPct.toFixed(1)}%</p>
+            <p className="text-on-surface-variant font-numeric text-numeric-data mt-xs font-semibold">Rentabilidade: {displayTotalGainPct.toFixed(2)}%</p>
           </div>
 
           {/* Proventos Recebidos */}
@@ -704,12 +704,12 @@ export default function InvestmentsPage() {
                     <div className="flex items-center gap-xl text-right">
                       <div className="hidden md:block">
                         <p className="text-on-surface-variant font-label-sm text-[10px] uppercase font-bold tracking-wider">Total Aplicado</p>
-                        <p className="font-numeric text-numeric-data text-primary font-bold">{formatCurrency(categoryTotal)}</p>
+                        <p className="font-numeric text-numeric-data text-primary font-bold">{formatCurrency(categoryCost)}</p>
                       </div>
                       <div className="hidden md:block">
                         <p className="text-on-surface-variant font-label-sm text-[10px] uppercase font-bold tracking-wider">Resultado</p>
                         <p className={cn("font-numeric text-numeric-data font-bold", categoryGain >= 0 ? "text-secondary" : "text-error")}>
-                          {categoryGainPct >= 0 ? '+' : ''}{categoryGainPct.toFixed(1)}%
+                          {categoryGainPct >= 0 ? '+' : ''}{categoryGainPct.toFixed(2)}%
                         </p>
                       </div>
                       <div className="hidden md:block">
@@ -765,7 +765,7 @@ export default function InvestmentsPage() {
                                     <td className="px-lg py-md text-right">{formatCurrency(Number(inv.purchasePrice))}</td>
                                     <td className="px-lg py-md text-right text-primary font-semibold">{formatCurrency(currentVal)}</td>
                                     <td className={cn("px-lg py-md text-right font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
-                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
                                     </td>
                                     <td className="px-lg py-md text-right">
                                       <div className="flex items-center justify-end gap-2">
@@ -813,7 +813,7 @@ export default function InvestmentsPage() {
                                     <td className="px-lg py-md text-right">{fmtPrice(Number(inv.currentPrice || inv.purchasePrice))}</td>
                                     <td className="px-lg py-md text-right text-primary font-semibold">{formatCurrency(currentVal)}</td>
                                     <td className={cn("px-lg py-md text-right font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
-                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
                                     </td>
                                     <td className="px-lg py-md text-right">
                                       <div className="flex items-center justify-end gap-2">
@@ -949,7 +949,7 @@ export default function InvestmentsPage() {
           <p className="font-display-lg-mobile text-display-lg-mobile text-primary font-bold">{formatCurrency(displayTotalCurrent)}</p>
           <div className="flex gap-2 items-center mt-2 pt-2 border-t border-outline-variant/30 text-xs">
             <span className={cn("font-bold", displayTotalGain >= 0 ? "text-secondary" : "text-error")}>
-              Resultado: {formatCurrency(displayTotalGain)} ({displayTotalGainPct.toFixed(1)}%)
+              Resultado: {formatCurrency(displayTotalGain)} ({displayTotalGainPct.toFixed(2)}%)
             </span>
           </div>
         </section>
@@ -1032,7 +1032,7 @@ export default function InvestmentsPage() {
                                 <div className="text-right">
                                   <span className="block text-[9px] uppercase font-bold text-outline">Resultado</span>
                                   <span className={cn("font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
-                                    {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                    {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
                                   </span>
                                 </div>
                               </div>
@@ -1053,7 +1053,7 @@ export default function InvestmentsPage() {
                                 <div className="text-right">
                                   <span className="block text-[9px] uppercase font-bold text-outline">Resultado</span>
                                   <span className={cn("font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
-                                    {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(1)}%
+                                    {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
                                   </span>
                                 </div>
                               </div>

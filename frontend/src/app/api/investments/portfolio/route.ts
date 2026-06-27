@@ -8,12 +8,25 @@ const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 
 async function getUsdBrlRate(): Promise<number> {
   try {
-    const url = `https://brapi.dev/api/v2/currency?currency=USD-BRL${BRAPI_TOKEN ? `&token=${BRAPI_TOKEN}` : ''}`;
-    const res = await fetch(url, { next: { revalidate: 3600 } });
-    if (!res.ok) return 5.75;
+    const res = await fetch(
+      'https://economia.awesomeapi.com.br/json/last/USD-BRL',
+      { next: { revalidate: 3600 } }
+    );
+    if (!res.ok) throw new Error('awesomeapi failed');
     const json = await res.json();
-    return Number(json.currency?.[0]?.bid ?? 5.75);
-  } catch { return 5.75; }
+    const rate = Number(json.USDBRL?.bid);
+    if (rate > 0) return rate;
+    throw new Error('invalid rate');
+  } catch {
+    // fallback: brapi.dev
+    try {
+      const url = `https://brapi.dev/api/v2/currency?currency=USD-BRL${BRAPI_TOKEN ? `&token=${BRAPI_TOKEN}` : ''}`;
+      const res = await fetch(url, { next: { revalidate: 3600 } });
+      if (!res.ok) return 5.75;
+      const json = await res.json();
+      return Number(json.currency?.[0]?.bid ?? 5.75);
+    } catch { return 5.75; }
+  }
 }
 
 async function getCDIAnual(): Promise<number> {
