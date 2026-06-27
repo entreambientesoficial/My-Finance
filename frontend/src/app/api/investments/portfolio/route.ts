@@ -10,7 +10,7 @@ async function getUsdBrlRate(): Promise<number> {
   try {
     const res = await fetch(
       'https://economia.awesomeapi.com.br/json/last/USD-BRL',
-      { next: { revalidate: 3600 } }
+      { next: { revalidate: 300 } }
     );
     if (!res.ok) throw new Error('awesomeapi failed');
     const json = await res.json();
@@ -21,7 +21,7 @@ async function getUsdBrlRate(): Promise<number> {
     // fallback: brapi.dev
     try {
       const url = `https://brapi.dev/api/v2/currency?currency=USD-BRL${BRAPI_TOKEN ? `&token=${BRAPI_TOKEN}` : ''}`;
-      const res = await fetch(url, { next: { revalidate: 3600 } });
+      const res = await fetch(url, { next: { revalidate: 300 } });
       if (!res.ok) return 5.75;
       const json = await res.json();
       return Number(json.currency?.[0]?.bid ?? 5.75);
