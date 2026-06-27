@@ -74,14 +74,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const { data: upcomingBills = [] } = useQuery({
-    queryKey: ['upcoming-bills-layout'],
-    queryFn: () => api.get('/api/reports/upcoming-bills?daysAhead=15').then((r) => r.data || []),
+  const today = new Date().toISOString().slice(0, 10);
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+
+  const { data: todayBillsData } = useQuery({
+    queryKey: ['today-bills-layout', today],
+    queryFn: () => api.get(`/api/transactions?type=EXPENSE&isPaid=false&startDate=${today}&endDate=${today}&limit=20`).then((r) => r.data?.data || []),
     retry: false,
     staleTime: 60_000,
   });
 
-  const pendingBills = upcomingBills.filter((b: any) => b.status === 'Pending' || !b.isPaid);
+  const { data: overdueBillsData } = useQuery({
+    queryKey: ['overdue-bills-layout', today],
+    queryFn: () => api.get(`/api/transactions?type=EXPENSE&isPaid=false&startDate=${sixtyDaysAgo}&endDate=${yesterday}&limit=20`).then((r) => r.data?.data || []),
+    retry: false,
+    staleTime: 60_000,
+  });
+
+  const todayBills: any[] = todayBillsData || [];
+  const overdueBills: any[] = overdueBillsData || [];
+  const pendingBills = [...todayBills, ...overdueBills];
 
   return (
     <div className="min-h-screen bg-background text-on-background font-body-md transition-colors overflow-x-hidden">
@@ -201,19 +214,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <button onClick={() => setShowNotifications(false)} className="text-xs text-outline hover:text-primary">Fechar</button>
                 </div>
                 {pendingBills.length === 0 ? (
-                  <p className="text-on-surface-variant text-center py-md text-xs">Nenhuma conta pendente para os próximos 15 dias!</p>
+                  <p className="text-on-surface-variant text-center py-md text-xs">Sem notificações pendentes hoje.</p>
                 ) : (
                   <div className="space-y-sm">
-                    <p className="text-[11px] text-on-surface-variant font-semibold">Contas vencendo em breve:</p>
-                    {pendingBills.map((bill: any) => (
-                      <div key={bill.id} className="p-xs bg-surface-container-low rounded-lg border border-outline-variant flex justify-between items-center">
-                        <div className="min-w-0 flex-1 pr-sm">
-                          <p className="font-semibold text-xs text-primary truncate">{bill.description}</p>
-                          <p className="text-[10px] text-outline">Vence em {new Date(bill.date).toLocaleDateString('pt-BR')}</p>
-                        </div>
-                        <p className="font-numeric font-bold text-xs text-error shrink-0">{formatCurrency(Number(bill.amount))}</p>
-                      </div>
-                    ))}
+                    {todayBills.length > 0 && (
+                      <>
+                        <p className="text-[11px] text-on-surface-variant font-semibold uppercase tracking-wider">Vence hoje:</p>
+                        {todayBills.map((bill: any) => (
+                          <div key={bill.id} className="p-xs bg-primary/5 border border-primary/20 rounded-lg flex justify-between items-center">
+                            <div className="min-w-0 flex-1 pr-sm">
+                              <p className="font-semibold text-xs text-primary truncate">{bill.description}</p>
+                              <p className="text-[10px] text-outline">{new Date(bill.date).toLocaleDateString('pt-BR')}</p>
+                            </div>
+                            <p className="font-numeric font-bold text-xs text-primary shrink-0">{formatCurrency(Number(bill.amount))}</p>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {overdueBills.length > 0 && (
+                      <>
+                        <p className="text-[11px] text-error font-semibold uppercase tracking-wider mt-sm">Em atraso:</p>
+                        {overdueBills.map((bill: any) => (
+                          <div key={bill.id} className="p-xs bg-error/5 border border-error/20 rounded-lg flex justify-between items-center">
+                            <div className="min-w-0 flex-1 pr-sm">
+                              <p className="font-semibold text-xs text-error truncate">{bill.description}</p>
+                              <p className="text-[10px] text-outline">Venceu em {new Date(bill.date).toLocaleDateString('pt-BR')}</p>
+                            </div>
+                            <p className="font-numeric font-bold text-xs text-error shrink-0">{formatCurrency(Number(bill.amount))}</p>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
