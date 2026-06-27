@@ -313,12 +313,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   "flex flex-col items-center gap-[2px] transition-colors",
                   isActive
                     ? "text-primary"
-                    : "text-on-surface-variant"
+                    : "text-slate-400 dark:text-slate-400"
                 )}
               >
                 <div className={cn(
                   "px-5 py-1 rounded-full transition-colors",
-                  isActive ? "bg-surface-container-high" : "bg-transparent"
+                  isActive ? "bg-primary/15" : "bg-transparent"
                 )}>
                   <span
                     className="material-symbols-outlined"
