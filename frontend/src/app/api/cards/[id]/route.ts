@@ -31,9 +31,10 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
   return withAuth(async (r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const body = await r.json();
-      if (body.accountId === '') body.accountId = null;
-      if (body.lastFourDigits === '') body.lastFourDigits = null;
+      const raw = await r.json();
+      if (raw.accountId === '') raw.accountId = null;
+      if (raw.lastFourDigits === '') raw.lastFourDigits = null;
+      const { id: _id, householdId: _hid, createdAt: _ca, ...body } = raw;
       const supabase = createAdminClient();
       const { data } = await supabase
         .from('cards')

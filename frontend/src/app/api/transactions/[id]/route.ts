@@ -41,7 +41,8 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
         .maybeSingle();
       if (!oldTx) return notFound('Transação não encontrada');
 
-      const body = await r.json();
+      const raw = await r.json();
+      const { id: _id, householdId: _hid, createdAt: _ca, recurrenceGroupId: _rgi, ...body } = raw;
       const updateData: any = {
         ...body,
         ...(body.date && { date: new Date(body.date).toISOString() }),
@@ -66,8 +67,9 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
         const toAccId = oldTx.toAccountId;
 
         const adjustBalance = async (id: string, delta: number) => {
-          const { data: acc } = await supabase.from('accounts').select('balance').eq('id', id).single();
-          await supabase.from('accounts').update({ balance: parseFloat(acc?.balance ?? '0') + delta }).eq('id', id);
+          const { data: acc } = await supabase.from('accounts').select('balance').eq('id', id).eq('householdId', user.householdId).maybeSingle();
+          if (!acc) return;
+          await supabase.from('accounts').update({ balance: parseFloat(acc.balance ?? '0') + delta }).eq('id', id).eq('householdId', user.householdId);
         };
 
         if (isMarkedPaid) {

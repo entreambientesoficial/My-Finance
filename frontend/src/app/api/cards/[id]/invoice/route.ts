@@ -86,9 +86,10 @@ export function POST(req: NextRequest, { params }: Ctx) {
         .single();
       if (txError) { console.error('[cards/:id/invoice POST tx]', txError); return serverError(txError.message); }
 
-      // 2. Deduct from bank account balance
-      const { data: acc } = await supabase.from('accounts').select('balance').eq('id', accountId).single();
-      await supabase.from('accounts').update({ balance: parseFloat(acc?.balance ?? '0') - parseFloat(amount) }).eq('id', accountId);
+      // 2. Deduct from bank account balance (verify account belongs to household)
+      const { data: acc } = await supabase.from('accounts').select('balance').eq('id', accountId).eq('householdId', user.householdId).maybeSingle();
+      if (!acc) return notFound('Conta bancária não encontrada');
+      await supabase.from('accounts').update({ balance: parseFloat(acc.balance ?? '0') - parseFloat(amount) }).eq('id', accountId).eq('householdId', user.householdId);
 
       // 3. Mark all unpaid card transactions as paid (settling the bill)
       const { data: settled } = await supabase

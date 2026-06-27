@@ -10,7 +10,8 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
   return withAuth(async (r, user) => {
     try {
       if (!user.householdId) return notFound();
-      const body = await r.json();
+      const raw = await r.json();
+      const { id: _id, householdId: _hid, createdAt: _ca, ...body } = raw;
       const supabase = createAdminClient();
       const { data } = await supabase
         .from('budgets')
