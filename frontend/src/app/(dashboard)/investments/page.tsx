@@ -35,7 +35,7 @@ const TYPE_COLORS: Record<string, string> = {
   STOCK: '#f97316',
   STOCK_US: '#0052cc',
   FUND: '#006c49',
-  BOND: '#1a2b48',
+  BOND: '#eab308',
   CRYPTO: '#FF6B00',
   REAL_ESTATE: '#8b5cf6',
   SAVINGS: '#0078A8',
@@ -435,8 +435,8 @@ export default function InvestmentsPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Data de Aplicação</label>
-                  <input type="date" {...register('purchaseDate')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Data de Aplicação <span className="text-error">*</span></label>
+                  <input type="date" {...register('purchaseDate', { required: true })} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" required />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-on-surface-variant block mb-1">Data de Vencimento (Opcional)</label>
@@ -763,9 +763,16 @@ export default function InvestmentsPage() {
                                       {bondInfo?.dataVencimento ? new Date(bondInfo.dataVencimento).toLocaleDateString('pt-BR') : '—'}
                                     </td>
                                     <td className="px-lg py-md text-right">{formatCurrency(Number(inv.purchasePrice))}</td>
-                                    <td className="px-lg py-md text-right text-primary font-semibold">{formatCurrency(currentVal)}</td>
+                                    <td className="px-lg py-md text-right text-primary font-semibold">
+                                      {formatCurrency(currentVal)}
+                                      {!inv.purchaseDate && (
+                                        <span className="ml-1 text-[10px] text-yellow-500" title="Data de aplicação não informada — rendimento CDI não calculado. Edite o ativo para corrigir.">⚠️</span>
+                                      )}
+                                    </td>
                                     <td className={cn("px-lg py-md text-right font-bold", gain >= 0 ? "text-secondary" : "text-error")}>
-                                      {gainPct >= 0 ? '+' : ''}{gainPct.toFixed(2)}%
+                                      {inv.purchaseDate
+                                        ? `${gainPct >= 0 ? '+' : ''}${gainPct.toFixed(2)}%`
+                                        : <span className="text-yellow-500 text-xs font-normal">Sem data</span>}
                                     </td>
                                     <td className="px-lg py-md text-right">
                                       <div className="flex items-center justify-end gap-2">
