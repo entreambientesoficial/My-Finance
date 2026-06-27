@@ -622,7 +622,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-sm">
             {displayBills.length === 0 ? (
               <p className="py-md text-center text-on-surface-variant font-body-md text-sm">
-                Nenhuma conta pendente nos próximos 15 dias.
+                Nenhuma conta vencida ou com vencimento hoje.
               </p>
             ) : (
               displayBills.map((bill: any) => {
