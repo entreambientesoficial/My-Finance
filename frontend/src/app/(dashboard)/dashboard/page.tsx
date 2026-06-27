@@ -61,8 +61,14 @@ export default function DashboardPage() {
   const accounts = summary?.accounts || [];
   const investments = portfolio?.investments || [];
 
-  // Helper to identify cofrinho/reserva (case-insensitive)
-  const isEmergency = (item: { name: string }) => {
+  // Helper to identify cofrinho/reserva — usa flag notes.isEmergencyFund; fallback por nome para compatibilidade
+  const isEmergency = (item: { name: string; notes?: string }) => {
+    if (item.notes) {
+      try {
+        const parsed = JSON.parse(item.notes);
+        if (parsed.isEmergencyFund === true) return true;
+      } catch {}
+    }
     const name = (item.name || '').toLowerCase();
     return name.includes('cofrinho') || name.includes('reserva');
   };
@@ -79,9 +85,7 @@ export default function DashboardPage() {
   
   const totalEmergencyAccounts = savingsAccounts.reduce((sum: number, a: any) => sum + Number(a.balance || 0), 0);
   const totalEmergencyInvestments = emergencyInvestments.reduce((sum: number, i: any) => {
-    const quantity = Number(i.quantity || 0);
-    const price = Number(i.currentPrice || i.purchasePrice || 0);
-    return sum + (quantity * price);
+    return sum + Number(i.current || 0);
   }, 0);
   const totalReserva = totalEmergencyAccounts + totalEmergencyInvestments;
 
@@ -91,9 +95,7 @@ export default function DashboardPage() {
 
   const totalInvAccounts = investmentAccounts.reduce((sum: number, a: any) => sum + Number(a.balance || 0), 0);
   const totalInvPortfolio = otherInvestments.reduce((sum: number, i: any) => {
-    const quantity = Number(i.quantity || 0);
-    const price = Number(i.currentPrice || i.purchasePrice || 0);
-    return sum + (quantity * price);
+    return sum + Number(i.current || 0);
   }, 0);
   const totalInvestimentos = totalInvAccounts + totalInvPortfolio;
 

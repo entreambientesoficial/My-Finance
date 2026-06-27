@@ -166,8 +166,10 @@ export default function InvestmentsPage() {
         liquidezDiaria: bondInfo.liquidezDiaria || false,
         purchaseDate: inv.purchaseDate ? inv.purchaseDate.slice(0, 10) : '',
         dataVencimento: bondInfo.dataVencimento ? bondInfo.dataVencimento.slice(0, 10) : '',
+        isEmergencyFund: bondInfo.isEmergencyFund || false,
       });
     } else {
+      const otherNotes = inv.notes ? (() => { try { return JSON.parse(inv.notes); } catch { return {}; } })() : {};
       reset({
         name: inv.name,
         type: inv.type,
@@ -177,6 +179,7 @@ export default function InvestmentsPage() {
         currentPrice: Number(inv.currentPrice) || 0,
         broker: inv.broker || '',
         purchaseDate: inv.purchaseDate ? inv.purchaseDate.slice(0, 10) : '',
+        isEmergencyFund: otherNotes.isEmergencyFund || false,
       });
     }
     setShowForm(true);
@@ -201,6 +204,7 @@ export default function InvestmentsPage() {
           forma: d.forma || 'Pós-fixado',
           liquidezDiaria: !!d.liquidezDiaria,
           dataVencimento: d.dataVencimento || null,
+          isEmergencyFund: !!d.isEmergencyFund,
         }),
       };
       if (editingInvestment) {
@@ -219,6 +223,7 @@ export default function InvestmentsPage() {
         broker: d.broker || undefined,
         accountId: d.accountId || undefined,
         purchaseDate: d.purchaseDate || undefined,
+        notes: JSON.stringify({ isEmergencyFund: !!d.isEmergencyFund }),
       };
       if (editingInvestment) {
         updateMutation.mutate({ id: editingInvestment.id, data: payload });
@@ -496,7 +501,14 @@ export default function InvestmentsPage() {
               </>
             )}
 
-            <div className="col-span-1 md:col-span-3 flex gap-2 justify-end pt-2 border-t border-border-base mt-2">
+                    <div className="col-span-1 md:col-span-3 flex items-center gap-3 pt-2">
+              <input type="checkbox" id="isEmergencyFund" {...register('isEmergencyFund')} className="w-4 h-4 accent-primary rounded cursor-pointer" />
+              <label htmlFor="isEmergencyFund" className="text-sm font-semibold text-on-surface cursor-pointer">
+                É Reserva de Emergência (Cofrinho)
+              </label>
+            </div>
+
+    <div className="col-span-1 md:col-span-3 flex gap-2 justify-end pt-2 border-t border-border-base mt-2">
               <button type="button" onClick={() => { setShowForm(false); setEditingInvestment(null); reset(); }} className="px-4 py-2 text-sm border border-outline rounded-lg text-on-surface-variant hover:bg-surface-container transition-all">Cancelar</button>
               <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="px-4 py-2 text-sm bg-primary text-on-primary rounded-lg hover:opacity-90 disabled:opacity-60 font-bold">
                 {(createMutation.isPending || updateMutation.isPending)
