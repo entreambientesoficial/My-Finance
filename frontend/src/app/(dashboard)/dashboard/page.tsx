@@ -186,11 +186,6 @@ export default function DashboardPage() {
               Olá, {userName}. {subtitleMessage}
             </p>
           </div>
-          <div className="flex gap-md">
-            <button className="px-lg py-md bg-surface-container-lowest border border-outline-variant rounded-lg font-label-sm text-label-sm text-primary hover:bg-surface-container-low transition-all">
-              Baixar Relatórios
-            </button>
-          </div>
         </div>
 
         {/* Bento Grid Section */}
