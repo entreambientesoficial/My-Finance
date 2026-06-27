@@ -7,19 +7,23 @@ import { ok, notFound, serverError } from '@/lib/api-response';
 const BRAPI_TOKEN = process.env.BRAPI_TOKEN || '';
 const BRAPI_BASE = 'https://brapi.dev/api';
 
-async function fetchStockPrices(tickers: string[]): Promise<Record<string, number>> {
+async function fetchYahooPrices(tickers: string[], suffix = ''): Promise<Record<string, number>> {
   if (!tickers.length) return {};
-  const url = `${BRAPI_BASE}/quote/${tickers.join(',')}${BRAPI_TOKEN ? `?token=${BRAPI_TOKEN}` : ''}`;
-  try {
-    const res = await fetch(url, { next: { revalidate: 0 } });
-    if (!res.ok) return {};
-    const json = await res.json();
-    const map: Record<string, number> = {};
-    for (const item of json.results || []) {
-      if (item.symbol && item.regularMarketPrice != null) map[item.symbol.toUpperCase()] = Number(item.regularMarketPrice);
-    }
-    return map;
-  } catch { return {}; }
+  const results: Record<string, number> = {};
+  await Promise.all(tickers.map(async (ticker) => {
+    try {
+      const symbol = `${ticker}${suffix}`;
+      const res = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
+        { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MyFinance/1.0)' }, next: { revalidate: 0 } }
+      );
+      if (!res.ok) return;
+      const json = await res.json();
+      const price = json.chart?.result?.[0]?.meta?.regularMarketPrice;
+      if (price != null) results[ticker.toUpperCase()] = Number(price);
+    } catch {}
+  }));
+  return results;
 }
 
 async function fetchCryptoPrices(coins: string[]): Promise<Record<string, number>> {
@@ -37,24 +41,6 @@ async function fetchCryptoPrices(coins: string[]): Promise<Record<string, number
   } catch { return {}; }
 }
 
-async function fetchUSStockPrices(tickers: string[]): Promise<Record<string, number>> {
-  if (!tickers.length) return {};
-  const results: Record<string, number> = {};
-  await Promise.all(tickers.map(async (ticker) => {
-    try {
-      const res = await fetch(
-        `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`,
-        { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; MyFinance/1.0)' }, next: { revalidate: 0 } }
-      );
-      if (!res.ok) return;
-      const json = await res.json();
-      const price = json.chart?.result?.[0]?.meta?.regularMarketPrice;
-      if (price != null) results[ticker.toUpperCase()] = Number(price);
-    } catch {}
-  }));
-  return results;
-}
-
 export const POST = withAuth(async (_req: NextRequest, user) => {
   try {
     if (!user.householdId) return notFound();
@@ -67,24 +53,24 @@ export const POST = withAuth(async (_req: NextRequest, user) => {
 
     if (!investments?.length) return ok({ updated: 0, prices: {} });
 
-    const stockTickers: string[] = [];
+    const brTickers: string[] = [];
     const cryptoCoins: string[] = [];
-    const usStockTickers: string[] = [];
+    const usTickers: string[] = [];
 
     for (const inv of investments) {
       if (!inv.ticker) continue;
       if (inv.type === 'CRYPTO') cryptoCoins.push(inv.ticker.toUpperCase());
-      else if (inv.type === 'STOCK_US') usStockTickers.push(inv.ticker.toUpperCase());
-      else if (inv.type === 'STOCK' || inv.type === 'FUND') stockTickers.push(inv.ticker.toUpperCase());
+      else if (inv.type === 'STOCK_US') usTickers.push(inv.ticker.toUpperCase());
+      else if (inv.type === 'STOCK' || inv.type === 'FUND') brTickers.push(inv.ticker.toUpperCase());
     }
 
-    const [stockPrices, cryptoPrices, usPrices] = await Promise.all([
-      fetchStockPrices(Array.from(new Set(stockTickers))),
+    const [brPrices, cryptoPrices, usPrices] = await Promise.all([
+      fetchYahooPrices(Array.from(new Set(brTickers)), '.SA'),
       fetchCryptoPrices(Array.from(new Set(cryptoCoins))),
-      fetchUSStockPrices(Array.from(new Set(usStockTickers))),
+      fetchYahooPrices(Array.from(new Set(usTickers))),
     ]);
 
-    const allPrices = { ...stockPrices, ...cryptoPrices, ...usPrices };
+    const allPrices = { ...brPrices, ...cryptoPrices, ...usPrices };
     let updated = 0;
 
     for (const inv of investments) {
@@ -96,7 +82,7 @@ export const POST = withAuth(async (_req: NextRequest, user) => {
       }
     }
 
-    return ok({ updated, prices: allPrices, notFound: investments.length - updated });
+    return ok({ updated, prices: allPrices });
   } catch (err) {
     console.error('[investments/update-prices POST]', err);
     return serverError();

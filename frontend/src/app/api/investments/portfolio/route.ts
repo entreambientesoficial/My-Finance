@@ -16,6 +16,45 @@ async function getUsdBrlRate(): Promise<number> {
   } catch { return 5.75; }
 }
 
+async function getCDIDiario(): Promise<number> {
+  try {
+    const res = await fetch(
+      'https://api.bcb.gov.br/dados/serie/bcdata.sgs.4389/dados/ultimos/1?formato=json',
+      { next: { revalidate: 86400 } }
+    );
+    if (!res.ok) return 0.000524;
+    const data = await res.json();
+    // BACEN retorna taxa em % (ex: 0.0524 = 0.0524%), converter para decimal
+    return Number(data[0]?.valor ?? 0.0524) / 100;
+  } catch { return 0.000524; }
+}
+
+function calcBondCurrentValue(inv: any, cdiDiario: number): number {
+  const principal = Number(inv.purchasePrice || 0);
+  if (!inv.purchaseDate || principal <= 0) return principal;
+
+  const notes = inv.notes ? (() => { try { return JSON.parse(inv.notes); } catch { return {}; } })() : {};
+  const indexador: string = notes.indexador || 'CDI';
+  const taxa = Number(notes.taxa ?? 100);
+
+  const start = new Date(inv.purchaseDate);
+  const now = new Date();
+  const calendarDays = Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+  const businessDays = Math.round(calendarDays * 252 / 365);
+
+  let dailyRate: number;
+  if (indexador === 'CDI' || indexador === 'SELIC') {
+    dailyRate = cdiDiario * (taxa / 100);
+  } else if (indexador === 'Prefixado') {
+    dailyRate = Math.pow(1 + taxa / 100, 1 / 252) - 1;
+  } else {
+    // IPCA e outros: usa CDI como proxy até implementarmos IPCA
+    dailyRate = cdiDiario * (taxa / 100);
+  }
+
+  return Math.round(principal * Math.pow(1 + dailyRate, businessDays) * 100) / 100;
+}
+
 export const GET = withAuth(async (_req: NextRequest, user) => {
   try {
     if (!user.householdId) return notFound();
@@ -27,16 +66,37 @@ export const GET = withAuth(async (_req: NextRequest, user) => {
       .order('name', { ascending: true });
 
     const hasUSStocks = (investments ?? []).some((inv: any) => inv.type === 'STOCK_US');
-    const usdBrlRate = hasUSStocks ? await getUsdBrlRate() : 1;
+    const hasBonds = (investments ?? []).some((inv: any) => inv.type === 'BOND');
+
+    const [usdBrlRate, cdiDiario] = await Promise.all([
+      hasUSStocks ? getUsdBrlRate() : Promise.resolve(1),
+      hasBonds ? getCDIDiario() : Promise.resolve(0.000524),
+    ]);
 
     const summary = (investments ?? []).map((inv) => {
       const isUSD = inv.type === 'STOCK_US';
+      const isBond = inv.type === 'BOND';
       const toRate = isUSD ? usdBrlRate : 1;
-      const cost = Number(inv.quantity || 0) * Number(inv.purchasePrice || 0) * toRate;
-      const current = Number(inv.quantity || 0) * Number(inv.currentPrice || inv.purchasePrice || 0) * toRate;
-      const gain = current - cost;
+
+      const cost = isBond
+        ? Number(inv.purchasePrice || 0)
+        : Number(inv.quantity || 0) * Number(inv.purchasePrice || 0) * toRate;
+
+      const currentPriceBRL = isBond
+        ? calcBondCurrentValue(inv, cdiDiario)
+        : Number(inv.quantity || 0) * Number(inv.currentPrice || inv.purchasePrice || 0) * toRate;
+
+      const gain = currentPriceBRL - cost;
       const gainPct = cost > 0 ? (gain / cost) * 100 : 0;
-      return { ...inv, cost, current, gain, gainPct: Math.round(gainPct * 100) / 100, currency: isUSD ? 'USD' : 'BRL' };
+
+      return {
+        ...inv,
+        cost,
+        current: currentPriceBRL,
+        gain,
+        gainPct: Math.round(gainPct * 100) / 100,
+        currency: isUSD ? 'USD' : 'BRL',
+      };
     });
 
     const totalCost = summary.reduce((s, i) => s + i.cost, 0);
@@ -44,7 +104,15 @@ export const GET = withAuth(async (_req: NextRequest, user) => {
     const totalGain = totalCurrent - totalCost;
     const totalGainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
 
-    return ok({ investments: summary, totalCost, totalCurrent, totalGain, totalGainPct: Math.round(totalGainPct * 100) / 100, usdBrlRate });
+    return ok({
+      investments: summary,
+      totalCost,
+      totalCurrent,
+      totalGain,
+      totalGainPct: Math.round(totalGainPct * 100) / 100,
+      usdBrlRate,
+      cdiDiario,
+    });
   } catch (err) {
     console.error('[investments/portfolio GET]', err);
     return serverError();
