@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, created, notFound, serverError } from '@/lib/api-response';
 
-const TX_SELECT = '*, category:categories(id, name, color, icon), account:accounts(id, name), toAccount:accounts!toAccountId(id, name), card:cards(id, name)';
+const TX_SELECT = '*, category:categories(id, name, color, icon), account:accounts!accountId(id, name), toAccount:accounts!toAccountId(id, name), card:cards(id, name)';
 
 export const GET = withAuth(async (req: NextRequest, user) => {
   try {

@@ -6,7 +6,7 @@ import { ok, notFound, serverError } from '@/lib/api-response';
 
 type Ctx = { params: { id: string } };
 
-const TX_SELECT = '*, category:categories(*), account:accounts(*), toAccount:accounts!toAccountId(*), card:cards(*)';
+const TX_SELECT = '*, category:categories(*), account:accounts!accountId(*), toAccount:accounts!toAccountId(*), card:cards(*)';
 
 export function GET(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
