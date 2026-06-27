@@ -47,11 +47,7 @@ export default function InvestmentsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<any | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({
-    STOCK: true,
-    FUND: true,
-    BOND: true,
-  });
+  const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
 
   const { data: portfolio, isLoading } = useQuery({
     queryKey: ['portfolio'],
