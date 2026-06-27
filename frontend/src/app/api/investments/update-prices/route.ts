@@ -75,7 +75,7 @@ export const POST = withAuth(async (_req: NextRequest, user) => {
       if (!inv.ticker) continue;
       if (inv.type === 'CRYPTO') cryptoCoins.push(inv.ticker.toUpperCase());
       else if (inv.type === 'STOCK_US') usStockTickers.push(inv.ticker.toUpperCase());
-      else stockTickers.push(inv.ticker.toUpperCase());
+      else if (inv.type === 'STOCK' || inv.type === 'FUND') stockTickers.push(inv.ticker.toUpperCase());
     }
 
     const [stockPrices, cryptoPrices, usPrices] = await Promise.all([
