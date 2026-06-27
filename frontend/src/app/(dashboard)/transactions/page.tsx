@@ -597,7 +597,7 @@ export default function TransactionsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [filters, setFilters] = useState<any>({ page: 1, limit: 25 });
+  const [filters, setFilters] = useState<any>({ page: 1, limit: 25, sortBy: 'date', sortDir: 'desc' });
   const [selectedType, setSelectedType] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -952,9 +952,24 @@ export default function TransactionsPage() {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-surface-container-low text-on-surface-variant font-label-sm text-xs font-bold uppercase tracking-wider">
                     <tr>
-                      <th className="px-md lg:px-sm py-md">Data</th>
-                      <th className="px-md lg:px-sm py-md">Descrição</th>
-                      <th className="px-md lg:px-sm py-md text-right">Valor</th>
+                      {[
+                        { key: 'date', label: 'Data', align: '' },
+                        { key: 'description', label: 'Descrição', align: '' },
+                        { key: 'amount', label: 'Valor', align: 'text-right' },
+                      ].map(({ key, label, align }) => (
+                        <th
+                          key={key}
+                          className={cn("px-md lg:px-sm py-md cursor-pointer select-none hover:text-primary transition-colors group", align)}
+                          onClick={() => setFilters((f: any) => ({ ...f, page: 1, sortBy: key, sortDir: f.sortBy === key && f.sortDir === 'asc' ? 'desc' : 'asc' }))}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {label}
+                            <span className={cn("material-symbols-outlined text-[13px] transition-opacity", filters.sortBy === key ? 'opacity-100 text-primary' : 'opacity-20 group-hover:opacity-60')}>
+                              {filters.sortBy === key && filters.sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                            </span>
+                          </span>
+                        </th>
+                      ))}
                       <th className="px-md lg:px-sm py-md">Conta / Cartão</th>
                       <th className="px-md lg:px-sm py-md">Status</th>
                       <th className="px-md lg:px-sm py-md text-right">Ações</th>

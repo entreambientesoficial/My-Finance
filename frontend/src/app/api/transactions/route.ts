@@ -19,13 +19,17 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     const isPaidStr = sp.get('isPaid');
     const page = Math.max(1, parseInt(sp.get('page') ?? '1'));
     const limit = Math.min(100, parseInt(sp.get('limit') ?? '20'));
+    const sortByRaw = sp.get('sortBy') ?? 'date';
+    const sortDir = sp.get('sortDir') === 'asc';
+    const allowedSort = ['date', 'amount', 'description'];
+    const sortBy = allowedSort.includes(sortByRaw) ? sortByRaw : 'date';
 
     const supabase = createAdminClient();
     let query = supabase
       .from('transactions')
       .select(TX_SELECT, { count: 'exact' })
       .eq('householdId', user.householdId)
-      .order('date', { ascending: false })
+      .order(sortBy, { ascending: sortDir })
       .range((page - 1) * limit, page * limit - 1);
 
     if (type) query = query.eq('type', type);

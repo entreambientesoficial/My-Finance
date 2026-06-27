@@ -14,7 +14,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     const { data: bills } = await supabase
       .from('transactions')
-      .select('*, category:categories(name, color), account:accounts(name)')
+      .select('*, category:categories(name, color), account:accounts!accountId(name)')
       .eq('householdId', user.householdId)
       .eq('type', 'EXPENSE')
       .eq('isPaid', false)
