@@ -84,8 +84,8 @@ export default function ReportsPage() {
   });
 
   const transactionsData = transactionsRes?.data || [];
-  const totalTxsCount = transactionsRes?.meta?.total || transactionsData.length;
-  const totalPages = transactionsRes?.meta?.pages || 1;
+  const totalTxsCount = transactionsRes?.total || transactionsData.length;
+  const totalPages = transactionsRes?.pages || 1;
 
   function handleFilter() {
     setPage(1);

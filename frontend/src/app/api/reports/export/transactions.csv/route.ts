@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
       const supabase = createAdminClient();
       let q = supabase
         .from('transactions')
-        .select('*, category:categories(name), account:accounts(name), card:cards(name)')
+        .select('*, category:categories(name), account:accounts!accountId(name), card:cards(name)')
         .eq('householdId', user.householdId)
         .order('date', { ascending: false });
 

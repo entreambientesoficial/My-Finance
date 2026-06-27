@@ -45,10 +45,9 @@ export async function GET(req: NextRequest) {
       const now = new Date();
       const supabase = createAdminClient();
 
-      const [{ data: household }, { data: accounts }, { data: investments }, cashFlow, { data: upcomingBills }] = await Promise.all([
+      const [{ data: household }, { data: accounts }, cashFlow, { data: upcomingBills }] = await Promise.all([
         supabase.from('households').select('*').eq('id', householdId).maybeSingle(),
         supabase.from('accounts').select('name, type, balance').eq('householdId', householdId).eq('isActive', true),
-        supabase.from('investments').select('name, type, quantity, currentPrice, purchasePrice').eq('householdId', householdId),
         getCashFlow(householdId, 3),
         supabase
           .from('transactions')
@@ -62,9 +61,29 @@ export async function GET(req: NextRequest) {
           .limit(8),
       ]);
 
-      const bankBalance     = (accounts ?? []).reduce((s, a) => s + Number(a.balance), 0);
-      const investmentValue = (investments ?? []).reduce((s, i) => s + Number(i.quantity || 0) * Number(i.currentPrice || i.purchasePrice || 0), 0);
-      const netWorth        = bankBalance + investmentValue;
+      const bankBalance = (accounts ?? []).reduce((s, a) => s + Number(a.balance), 0);
+
+      // Fetch accurate investment value via portfolio API (applies CDI, USD→BRL conversion, live prices)
+      let investmentValue = 0;
+      try {
+        const origin = new URL(req.url).origin;
+        const portfolioRes = await fetch(`${origin}/api/investments/portfolio`, {
+          headers: { cookie: req.headers.get('cookie') || '' },
+        });
+        if (portfolioRes.ok) {
+          const portfolioData = await portfolioRes.json();
+          investmentValue = Number(portfolioData.totalCurrent ?? 0);
+        }
+      } catch {
+        // fallback: basic price × quantity
+        const { data: investments } = await supabase
+          .from('investments')
+          .select('quantity, currentPrice, purchasePrice')
+          .eq('householdId', householdId);
+        investmentValue = (investments ?? []).reduce((s, i) => s + Number(i.quantity || 0) * Number(i.currentPrice || i.purchasePrice || 0), 0);
+      }
+
+      const netWorth = bankBalance + investmentValue;
 
       const pdfDoc  = await PDFDocument.create();
       const page    = pdfDoc.addPage([595, 842]);
