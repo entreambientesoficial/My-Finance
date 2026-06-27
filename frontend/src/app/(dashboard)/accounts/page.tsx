@@ -428,159 +428,145 @@ export default function AccountsPage() {
                 <p className="font-body-md text-on-surface-variant text-sm mt-1">Adicione um novo cartão de crédito para gerenciar seu limite e faturas.</p>
               </div>
             ) : (
-              cards.map((card: any) => {
-                const limit = Number(card.creditLimit);
-                // Calculate invoice from transactions using this card
-                const currentInvoice = transactions
-                  .filter((t: any) => t.cardId === card.id && t.type === 'EXPENSE' && t.isPaid)
-                  .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-
-                const percentUsed = Math.min(100, Math.round((currentInvoice / limit) * 100));
-
-                return (
-                  <div key={card.id} className="space-y-gutter">
-                    {/* Premium Visual Card */}
-                    <div 
+              <div className="space-y-gutter">
+                {/* Mini Card Grid — 2 colunas, escala bem com muitos cartões */}
+                <div className="grid grid-cols-2 gap-sm">
+                  {cards.map((card: any) => (
+                    <div
+                      key={card.id}
                       onClick={() => setSelectedEntityId(card.id)}
                       className={cn(
-                        "relative h-56 w-full rounded-2xl overflow-hidden shadow-xl p-xl flex flex-col justify-between text-white group transition-all cursor-pointer",
-                        activeEntityId === card.id ? "ring-4 ring-primary/40 scale-[0.99]" : ""
+                        "relative h-[100px] rounded-xl overflow-hidden cursor-pointer transition-all duration-200 p-md flex flex-col justify-between text-white shadow-md",
+                        activeEntityId === card.id
+                          ? "ring-2 ring-white/60 scale-[0.97] shadow-lg"
+                          : "hover:scale-[0.98] hover:shadow-lg"
                       )}
-                      style={{ background: `linear-gradient(135deg, ${card.color || '#031632'}, ${card.color || '#031632'}cc)` }}
+                      style={{ background: `linear-gradient(135deg, ${card.color || '#031632'}, ${card.color || '#031632'}99)` }}
                     >
-                      <div className="absolute inset-0 opacity-20 pointer-events-none">
-                        <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent"></div>
-                        <div className="absolute -bottom-10 -left-10 w-40 h-40 border-[20px] border-white/10 rounded-full"></div>
-                      </div>
+                      <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(circle_at_top_right,_white,_transparent)]" />
                       <div className="flex justify-between items-start relative z-10">
-                        <div>
-                          <p className="font-label-sm text-label-sm opacity-70 tracking-widest uppercase">{CARD_BRAND_LABELS[card.brand]} INFINITE</p>
-                          <p className="font-headline text-headline-md font-bold">{card.name}</p>
-                        </div>
-                        <span className="material-symbols-outlined text-[32px] opacity-90">contactless</span>
+                        <p className="text-[10px] font-bold uppercase opacity-80 tracking-wide truncate pr-1 leading-tight">{card.name}</p>
+                        {card.isFrozen
+                          ? <span className="material-symbols-outlined text-[14px] shrink-0">ac_unit</span>
+                          : <span className="material-symbols-outlined text-[16px] shrink-0 opacity-60">contactless</span>
+                        }
                       </div>
-                      <div className="space-y-xs relative z-10 mt-auto">
-                        <p className="font-numeric text-lg tracking-[0.2em]">•••• •••• •••• {card.lastFourDigits || '0000'}</p>
-                        <div className="flex gap-xl text-left">
-                          <div>
-                            <p className="text-[10px] uppercase opacity-60">Vencimento</p>
-                            <p className="font-label-sm text-label-sm">Dia {card.dueDay}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] uppercase opacity-60">Fatura</p>
-                            <p className="font-label-sm text-label-sm">Fechamento Dia {card.billingDay}</p>
-                          </div>
-                        </div>
+                      <div className="relative z-10">
+                        <p className="font-numeric text-[11px] tracking-widest">•••• {card.lastFourDigits || '0000'}</p>
+                        <p className="text-[9px] uppercase opacity-60 mt-0.5">{CARD_BRAND_LABELS[card.brand]} · Dia {card.dueDay}</p>
                       </div>
-                      {card.isFrozen && (
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-20">
-                          <div className="text-center text-white">
-                            <span className="material-symbols-outlined text-4xl animate-pulse">ac_unit</span>
-                            <p className="text-sm font-bold mt-2 uppercase tracking-widest">Congelado</p>
-                          </div>
-                        </div>
-                      )}
                     </div>
+                  ))}
+                </div>
 
-                    {/* Card Details controls */}
-                    <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant space-y-lg shadow-sm">
-                      <div>
-                        <div className="flex justify-between mb-xs">
-                          <p className="font-label-sm text-label-sm text-on-surface-variant">Limite Utilizado</p>
-                          <p className="font-label-sm text-label-sm font-bold text-primary">{formatCurrency(currentInvoice)} / {formatCurrency(limit)}</p>
+                {/* Detalhe do cartão selecionado */}
+                {(() => {
+                  const card = cards.find((c: any) => c.id === activeEntityId);
+                  if (!card || !isCardSelected) return null;
+                  const limit = Number(card.creditLimit);
+                  const currentInvoice = transactions
+                    .filter((t: any) => t.cardId === card.id && t.type === 'EXPENSE' && t.isPaid)
+                    .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+                  const percentUsed = Math.min(100, Math.round((currentInvoice / limit) * 100));
+                  return (
+                    <div className="space-y-gutter">
+                      {/* Premium Visual Card */}
+                      <div
+                        className="relative h-48 w-full rounded-2xl overflow-hidden shadow-xl p-xl flex flex-col justify-between text-white"
+                        style={{ background: `linear-gradient(135deg, ${card.color || '#031632'}, ${card.color || '#031632'}cc)` }}
+                      >
+                        <div className="absolute inset-0 opacity-20 pointer-events-none">
+                          <div className="absolute top-0 right-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent"></div>
+                          <div className="absolute -bottom-10 -left-10 w-40 h-40 border-[20px] border-white/10 rounded-full"></div>
                         </div>
-                        <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-primary rounded-full transition-all duration-1000" 
-                            style={{ width: `${percentUsed}%` }}
-                          ></div>
+                        <div className="flex justify-between items-start relative z-10">
+                          <div>
+                            <p className="font-label-sm text-label-sm opacity-70 tracking-widest uppercase">{CARD_BRAND_LABELS[card.brand]} INFINITE</p>
+                            <p className="font-headline text-headline-md font-bold">{card.name}</p>
+                          </div>
+                          <span className="material-symbols-outlined text-[32px] opacity-90">contactless</span>
                         </div>
+                        <div className="space-y-xs relative z-10 mt-auto">
+                          <p className="font-numeric text-lg tracking-[0.2em]">•••• •••• •••• {card.lastFourDigits || '0000'}</p>
+                          <div className="flex gap-xl text-left">
+                            <div>
+                              <p className="text-[10px] uppercase opacity-60">Vencimento</p>
+                              <p className="font-label-sm text-label-sm">Dia {card.dueDay}</p>
+                            </div>
+                            <div>
+                              <p className="text-[10px] uppercase opacity-60">Fatura</p>
+                              <p className="font-label-sm text-label-sm">Fechamento Dia {card.billingDay}</p>
+                            </div>
+                          </div>
+                        </div>
+                        {card.isFrozen && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-20">
+                            <div className="text-center text-white">
+                              <span className="material-symbols-outlined text-4xl animate-pulse">ac_unit</span>
+                              <p className="text-sm font-bold mt-2 uppercase tracking-widest">Congelado</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-md pt-md border-t border-outline-variant/60">
+                      {/* Card Details controls */}
+                      <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant space-y-lg shadow-sm">
                         <div>
-                          <p className="font-label-sm text-label-sm text-on-surface-variant">Fatura Atual</p>
-                          <p className="font-headline text-headline-md text-error font-bold">{formatCurrency(currentInvoice)}</p>
+                          <div className="flex justify-between mb-xs">
+                            <p className="font-label-sm text-label-sm text-on-surface-variant">Limite Utilizado</p>
+                            <p className="font-label-sm text-label-sm font-bold text-primary">{formatCurrency(currentInvoice)} / {formatCurrency(limit)}</p>
+                          </div>
+                          <div className="h-2 w-full bg-surface-container-high rounded-full overflow-hidden">
+                            <div className="h-full bg-primary rounded-full transition-all duration-1000" style={{ width: `${percentUsed}%` }}></div>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-label-sm text-label-sm text-on-surface-variant">Vencimento</p>
-                          <p className="font-headline text-headline-md text-primary font-bold">Dia {card.dueDay}</p>
+                        <div className="grid grid-cols-2 gap-md pt-md border-t border-outline-variant/60">
+                          <div>
+                            <p className="font-label-sm text-label-sm text-on-surface-variant">Fatura Atual</p>
+                            <p className="font-headline text-headline-md text-error font-bold">{formatCurrency(currentInvoice)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-label-sm text-label-sm text-on-surface-variant">Vencimento</p>
+                            <p className="font-headline text-headline-md text-primary font-bold">Dia {card.dueDay}</p>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="space-y-sm">
-                        <button 
-                          onClick={() => {
-                            setPaymentCard(card);
-                            setPaymentAmount(currentInvoice);
-                            const defaultAcc = accounts.find((a: any) => a.id === card.accountId || a.type === 'CHECKING') || accounts[0];
-                            setPaymentAccount(defaultAcc?.id || '');
-                          }}
-                          className="w-full bg-primary text-on-primary py-md rounded-lg font-label-sm text-label-sm hover:opacity-90 active:scale-[0.98] transition-all font-bold"
-                        >
-                          Pagar Fatura Atual
-                        </button>
-                        
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={() => freezeMutation.mutate(card.id)}
-                            className="flex-1 border border-outline text-on-surface-variant py-md rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-colors flex items-center justify-center gap-xs font-bold"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">{card.isFrozen ? 'lock_open' : 'lock'}</span>
-                            {card.isFrozen ? 'Desbloquear' : 'Bloquear Cartão'}
-                          </button>
+                        <div className="space-y-sm">
                           <button
-                            onClick={() => { if (confirm('Excluir este cartão?')) deleteCard.mutate(card.id); }}
-                            className="border border-error/30 text-error px-4 rounded-lg hover:bg-error-container/20 transition-colors flex items-center justify-center"
+                            onClick={() => {
+                              setPaymentCard(card);
+                              setPaymentAmount(currentInvoice);
+                              const defaultAcc = accounts.find((a: any) => a.id === card.accountId || a.type === 'CHECKING') || accounts[0];
+                              setPaymentAccount(defaultAcc?.id || '');
+                            }}
+                            className="w-full bg-primary text-on-primary py-md rounded-lg font-label-sm text-label-sm hover:opacity-90 active:scale-[0.98] transition-all font-bold"
                           >
-                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                            Pagar Fatura Atual
                           </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => freezeMutation.mutate(card.id)}
+                              className="flex-1 border border-outline text-on-surface-variant py-md rounded-lg font-label-sm text-label-sm hover:bg-surface-container-low transition-colors flex items-center justify-center gap-xs font-bold"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">{card.isFrozen ? 'lock_open' : 'lock'}</span>
+                              {card.isFrozen ? 'Desbloquear' : 'Bloquear Cartão'}
+                            </button>
+                            <button
+                              onClick={() => { if (confirm('Excluir este cartão?')) deleteCard.mutate(card.id); }}
+                              className="border border-error/30 text-error px-4 rounded-lg hover:bg-error-container/20 transition-colors flex items-center justify-center"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
-
-            {/* Security Banner */}
-            {cards.length > 0 && (
-              <div className="bg-primary-container text-on-primary-container p-lg rounded-xl flex items-center gap-md border border-outline-variant/30">
-                <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-white">security</span>
-                </div>
-                <div>
-                  <p className="font-label-sm text-label-sm font-bold text-white">Segurança Ativa</p>
-                  <p className="text-[12px] text-white/80 leading-tight">Verificação biométrica ativada para todas as transações deste cartão.</p>
-                </div>
+                  );
+                })()}
               </div>
             )}
+
           </div>
         </div>
-
-        {/* Promo Section at the bottom */}
-        <section className="grid grid-cols-12 gap-gutter">
-          <div className="col-span-12">
-            <div className="relative rounded-2xl overflow-hidden h-48 group shadow-sm border border-outline-variant bg-gradient-to-br from-primary-container/20 via-surface-container-high/40 to-secondary-container/20 backdrop-blur-md">
-              <div className="absolute -top-16 -right-16 w-56 h-56 bg-primary/10 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-700"></div>
-              <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-secondary/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700"></div>
-              
-              <div className="absolute inset-0 bg-gradient-to-r from-background via-background/60 to-transparent flex items-center p-xl">
-                <div className="max-w-xl text-left relative z-10">
-                  <span className="px-md py-1 bg-secondary text-on-secondary rounded-full font-label-sm text-label-sm mb-md inline-block font-bold">Nova Funcionalidade</span>
-                  <h3 className="font-display text-display-lg text-primary mb-xs">Cofres Familiares</h3>
-                  <p className="font-body-md text-on-surface-variant mb-md">Compartilhe o acesso a saldos específicos de forma segura com membros da família, configurando limites individuais.</p>
-                  <button 
-                    onClick={() => setShowCofresModal(true)}
-                    className="bg-primary text-on-primary px-lg py-sm rounded-lg font-label-sm text-label-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all"
-                  >
-                    Explorar Cofres
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
       </div>
 
       {/* ─── MOBILE ACCOUNTS & CARDS ─── */}
