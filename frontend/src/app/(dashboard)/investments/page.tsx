@@ -32,7 +32,7 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  STOCK: '#031632',
+  STOCK: '#f97316',
   STOCK_US: '#0052cc',
   FUND: '#006c49',
   BOND: '#1a2b48',
@@ -301,8 +301,9 @@ export default function InvestmentsPage() {
         // Only count this investment if it was bought on or before end of month
         if (!purchaseDate || purchaseDate > endOfMonth) return sum;
 
-        // Use current value (quantity × currentPrice) as a proxy for the position value
-        const current = Number(inv.quantity || 0) * Number(inv.currentPrice || inv.purchasePrice || 0);
+        const isUSD = inv.type === 'STOCK_US';
+        const rate = isUSD ? (portfolio?.usdBrlRate || 5.75) : 1;
+        const current = Number(inv.quantity || 0) * Number(inv.currentPrice || inv.purchasePrice || 0) * rate;
         return sum + current;
       }, 0);
 
@@ -547,34 +548,24 @@ export default function InvestmentsPage() {
             <p className="text-on-surface-variant font-numeric text-numeric-data mt-xs font-semibold">Rentabilidade: {displayTotalGainPct.toFixed(1)}%</p>
           </div>
 
-          {/* Dividends */}
+          {/* Proventos Recebidos */}
           <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm text-left">
             <div className="flex justify-between items-start mb-sm">
-              <p className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider font-bold">Proventos {currentYear}</p>
-              <span className="material-symbols-outlined text-primary bg-surface-container p-1 rounded">savings</span>
+              <p className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider font-bold">Proventos Recebidos</p>
+              <span className="material-symbols-outlined text-secondary bg-secondary-container/20 p-1 rounded">savings</span>
             </div>
-            <h2 className="font-display text-display-lg text-primary font-bold">{formatCurrency(displayDividends)}</h2>
-            <div className="flex items-center gap-xs mt-xs">
-              <span className="material-symbols-outlined text-[14px] text-secondary">schedule</span>
-              <p className="text-secondary font-numeric text-numeric-data font-semibold text-xs">+{formatCurrency(displayAReceber)} a receber</p>
-            </div>
+            <h2 className="font-display text-display-lg text-secondary font-bold">{formatCurrency(displayDividends)}</h2>
+            <p className="text-on-surface-variant font-numeric text-numeric-data mt-xs font-semibold">{currentYear}</p>
           </div>
 
-          {/* Global Yield */}
-          <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm text-left flex flex-col justify-between">
-            <div>
-              <div className="flex justify-between items-start mb-sm">
-                <p className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider font-bold">Rentabilidade vs CDI</p>
-                <span className="material-symbols-outlined text-primary bg-surface-container p-1 rounded">show_chart</span>
-              </div>
-              <h2 className="font-display text-display-lg text-primary font-bold">{displayYieldVsCdi} <span className="text-label-sm font-label-sm text-on-surface-variant font-normal">vs CDI</span></h2>
+          {/* Proventos a Receber */}
+          <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant shadow-sm text-left">
+            <div className="flex justify-between items-start mb-sm">
+              <p className="text-on-surface-variant font-label-sm text-label-sm uppercase tracking-wider font-bold">Proventos a Receber</p>
+              <span className="material-symbols-outlined text-primary bg-surface-container p-1 rounded">schedule</span>
             </div>
-            <div className="w-full bg-surface-container rounded-full h-1.5 mt-2 overflow-hidden">
-              <div
-                className={cn("h-full", displayCDIProgress >= 0 ? "bg-secondary" : "bg-error")}
-                style={{ width: `${Math.max(0, displayCDIProgress)}%` }}
-              ></div>
-            </div>
+            <h2 className="font-display text-display-lg text-primary font-bold">{formatCurrency(displayAReceber)}</h2>
+            <p className="text-on-surface-variant font-numeric text-numeric-data mt-xs font-semibold">Agendados {currentYear}</p>
           </div>
         </section>
 
