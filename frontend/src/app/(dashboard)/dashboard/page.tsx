@@ -24,9 +24,16 @@ export default function DashboardPage() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
+  // Cards: mês calendário atual
   const { data: upcomingBills } = useQuery({
     queryKey: ['upcoming-bills', startOfMonth, endOfMonth],
     queryFn: () => api.get(`/api/reports/upcoming-bills?startDate=${startOfMonth}&endDate=${endOfMonth}`).then((r) => r.data),
+  });
+
+  // Lista "Próximas Contas": janela rolante de 30 dias
+  const { data: nextBills } = useQuery({
+    queryKey: ['next-bills-30'],
+    queryFn: () => api.get('/api/reports/upcoming-bills?daysAhead=30').then((r) => r.data),
   });
 
   const currentYear = new Date().getFullYear();
@@ -105,10 +112,12 @@ export default function DashboardPage() {
 
   // Real transactions and bills list (empty if no data, no mocks)
   const displayTransactions = transactionsData?.length > 0 ? transactionsData : [];
-  const allBills = upcomingBills?.filter((b: any) => b.status === 'Pending' || !b.isPaid) ?? [];
-  const displayBills = allBills.slice(0, 3);
 
-  // Secondary cards calculations
+  // Próximas Contas (lista): 30 dias rolantes
+  const displayBills = (nextBills?.filter((b: any) => !b.isPaid) ?? []).slice(0, 3);
+
+  // Cards Contas a Pagar: mês calendário atual
+  const allBills = upcomingBills?.filter((b: any) => !b.isPaid) ?? [];
   const totalContasAPagar = allBills.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
   const contasAPagarCount = allBills.length;
 
