@@ -458,35 +458,35 @@ export default function DashboardPage() {
 
             {/* Charts Row */}
             <div className="grid grid-cols-2 gap-gutter">
-              {/* Donut — Despesas por Categoria (mês navegável) */}
-              <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow">
-                <div className="flex justify-between items-start mb-md">
-                  <div>
-                    <h4 className="font-headline text-headline-md text-primary">Despesas por Categoria</h4>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant">valores pagos</p>
-                  </div>
-                  <div className="flex items-center gap-xs">
-                    <button onClick={prevMonth} className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary">
-                      <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-                    </button>
-                    <span className="text-[11px] font-bold text-primary w-[70px] text-center">{monthLabel}</span>
-                    <button onClick={nextMonth} disabled={isCurrentMonth} className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed">
-                      <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                    </button>
-                    <a href="/reports" className="text-[11px] text-primary hover:underline ml-xs">Relatório</a>
-                  </div>
+              {/* Pizza — Despesas por Categoria (mês navegável) */}
+              <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow flex flex-col">
+                {/* Header: título + link */}
+                <div className="flex justify-between items-center mb-1">
+                  <h4 className="font-headline text-headline-md text-primary">Por Categoria</h4>
+                  <a href="/reports" className="text-[11px] text-primary hover:underline">Relatório</a>
+                </div>
+                {/* Sub-header: navegador de mês */}
+                <div className="flex items-center gap-xs mb-md">
+                  <button onClick={prevMonth} className="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary">
+                    <span className="material-symbols-outlined text-[14px]">chevron_left</span>
+                  </button>
+                  <span className="text-[11px] font-bold text-primary w-[60px] text-center">{monthLabel}</span>
+                  <button onClick={nextMonth} disabled={isCurrentMonth} className="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed">
+                    <span className="material-symbols-outlined text-[14px]">chevron_right</span>
+                  </button>
+                  <span className="text-[10px] text-outline">· valores pagos</span>
                 </div>
                 {topCategories.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
-                    <span className="material-symbols-outlined text-[32px] text-outline mb-xs">donut_large</span>
+                    <span className="material-symbols-outlined text-[32px] text-outline mb-xs">pie_chart</span>
                     <p className="text-xs text-on-surface-variant">Nenhuma despesa paga em {monthLabel}.</p>
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
-                    <div className="w-[160px] h-[160px] flex-shrink-0">
+                    <div className="w-[150px] h-[150px] flex-shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={topCategories} dataKey="total" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
+                          <Pie data={topCategories} dataKey="total" cx="50%" cy="50%" outerRadius={70} paddingAngle={1} isAnimationActive={false}>
                             {topCategories.map((entry: any, i: number) => (
                               <Cell key={i} fill={entry.color} />
                             ))}
@@ -508,26 +508,25 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Donut — Despesas por Categoria (acumulado do ano) */}
-              <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow">
-                <div className="flex justify-between items-start mb-md">
-                  <div>
-                    <h4 className="font-headline text-headline-md text-primary">Despesas por Categoria</h4>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant">Acumulado {currentYear} · valores pagos</p>
-                  </div>
+              {/* Pizza — Despesas por Categoria (acumulado do ano) */}
+              <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow flex flex-col">
+                {/* Header: título + link */}
+                <div className="flex justify-between items-center mb-1">
+                  <h4 className="font-headline text-headline-md text-primary">Por Categoria</h4>
                   <a href="/reports" className="text-[11px] text-primary hover:underline">Relatório</a>
                 </div>
+                <p className="font-label-sm text-[10px] text-outline mb-md">Acumulado {currentYear} · valores pagos</p>
                 {topAnnualCategories.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
-                    <span className="material-symbols-outlined text-[32px] text-outline mb-xs">donut_large</span>
+                    <span className="material-symbols-outlined text-[32px] text-outline mb-xs">pie_chart</span>
                     <p className="text-xs text-on-surface-variant">Nenhuma despesa paga em {currentYear}.</p>
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
-                    <div className="w-[160px] h-[160px] flex-shrink-0">
+                    <div className="w-[150px] h-[150px] flex-shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={topAnnualCategories} dataKey="total" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
+                          <Pie data={topAnnualCategories} dataKey="total" cx="50%" cy="50%" outerRadius={70} paddingAngle={1} isAnimationActive={false}>
                             {topAnnualCategories.map((entry: any, i: number) => (
                               <Cell key={i} fill={entry.color} />
                             ))}
