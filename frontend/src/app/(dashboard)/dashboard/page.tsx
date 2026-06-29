@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -62,19 +62,19 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
-  // Gráfico esquerdo: mês selecionado (navegável)
+  // Gráfico esquerdo: mês selecionado (navegável) — apenas pagas
   const { data: expensesByCategory = [] } = useQuery({
     queryKey: ['expenses-by-category-dash', selectedStart, selectedEnd],
-    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${selectedStart}&endDate=${selectedEnd}`).then((r) => r.data),
+    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${selectedStart}&endDate=${selectedEnd}&isPaid=true`).then((r) => r.data),
     staleTime: 60_000,
   });
 
-  // Gráfico direito: acumulado do ano
+  // Gráfico direito: acumulado do ano — apenas pagas
   const annualStart = `${currentYear}-01-01`;
   const annualEnd   = `${currentYear}-12-31`;
   const { data: annualExpensesByCategory = [] } = useQuery({
     queryKey: ['expenses-by-category-annual', currentYear],
-    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${annualStart}&endDate=${annualEnd}`).then((r) => r.data),
+    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${annualStart}&endDate=${annualEnd}&isPaid=true`).then((r) => r.data),
     staleTime: 300_000,
   });
 
@@ -89,11 +89,6 @@ export default function DashboardPage() {
     queryKey: ['income-scheduled'],
     queryFn: () => api.get('/api/transactions?type=INCOME&isPaid=false&limit=50').then((r) => r.data?.data || r.data || []),
     staleTime: 60_000,
-  });
-
-  const { data: transactionsData } = useQuery({
-    queryKey: ['recent-transactions-dash'],
-    queryFn: () => api.get('/api/transactions?limit=4').then((r) => r.data?.data || r.data || []),
   });
 
   // Extract logged in user profile
@@ -151,9 +146,6 @@ export default function DashboardPage() {
     return sum + Number(i.current || 0);
   }, 0);
   const totalInvestimentos = totalInvAccounts + totalInvPortfolio;
-
-  // Real transactions and bills list (empty if no data, no mocks)
-  const displayTransactions = transactionsData?.length > 0 ? transactionsData : [];
 
   // Próximas Contas (lista): 30 dias rolantes
   const displayBills = (nextBills?.filter((b: any) => !b.isPaid) ?? []).slice(0, 3);

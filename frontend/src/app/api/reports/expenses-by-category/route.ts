@@ -32,14 +32,15 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     }
 
     const supabase = createAdminClient();
+    const isPaidParam = sp.get('isPaid');
     let q = supabase
       .from('transactions')
       .select('*, category:categories(name, color, icon)')
       .eq('householdId', user.householdId)
       .eq('type', 'EXPENSE')
-      .eq('isPaid', true)
       .gte('date', startDate)
       .lte('date', endDate);
+    if (isPaidParam !== null) q = q.eq('isPaid', isPaidParam === 'true');
     if (accountId) q = q.eq('accountId', accountId);
 
     const { data: transactions } = await q;

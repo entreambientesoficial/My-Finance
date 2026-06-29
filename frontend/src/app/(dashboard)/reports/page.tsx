@@ -7,16 +7,46 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
+function getPeriodDates(period: string): { startDate: string; endDate: string } {
+  const now = new Date();
+  const pad = (d: Date) => d.toISOString().slice(0, 10);
+  if (period === 'este_mes') {
+    return {
+      startDate: pad(new Date(now.getFullYear(), now.getMonth(), 1)),
+      endDate:   pad(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    };
+  }
+  if (period === 'mes_anterior') {
+    return {
+      startDate: pad(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+      endDate:   pad(new Date(now.getFullYear(), now.getMonth(), 0)),
+    };
+  }
+  if (period === 'trimestre') {
+    return {
+      startDate: pad(new Date(now.getFullYear(), now.getMonth() - 2, 1)),
+      endDate:   pad(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+    };
+  }
+  if (period === 'ano') {
+    return {
+      startDate: `${now.getFullYear()}-01-01`,
+      endDate:   `${now.getFullYear()}-12-31`,
+    };
+  }
+  return { startDate: '', endDate: '' }; // 'all'
+}
+
 export default function ReportsPage() {
-  const [period, setPeriod] = useState('30');
+  const [period, setPeriod] = useState('este_mes');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedAccount, setSelectedAccount] = useState('');
   const [page, setPage] = useState(1);
-  const limit = 10; // Increased limit for desktop
+  const limit = 10;
 
   // Active filters applied on click
   const [appliedFilters, setAppliedFilters] = useState({
-    period: '30',
+    period: 'este_mes',
     categoryId: '',
     accountId: '',
   });
@@ -45,20 +75,15 @@ export default function ReportsPage() {
     },
   });
 
-  // Reactive Category Query
+  // Reactive Category Query — mostra pagas + pendentes
   const { data: byCategory = [], isLoading: loadingCategory } = useQuery({
     queryKey: ['expenses-by-category', appliedFilters],
     queryFn: () => {
       const params = new URLSearchParams();
-      if (appliedFilters.period && appliedFilters.period !== 'all') {
-        const d = new Date();
-        d.setDate(d.getDate() - Number(appliedFilters.period));
-        params.set('startDate', d.toISOString().slice(0, 10));
-        params.set('endDate', new Date().toISOString().slice(0, 10));
-      }
-      if (appliedFilters.accountId) {
-        params.set('accountId', appliedFilters.accountId);
-      }
+      const { startDate, endDate } = getPeriodDates(appliedFilters.period);
+      if (startDate) params.set('startDate', startDate);
+      if (endDate)   params.set('endDate', endDate);
+      if (appliedFilters.accountId) params.set('accountId', appliedFilters.accountId);
       return api.get(`/api/reports/expenses-by-category?${params.toString()}`).then((r) => r.data);
     },
   });
@@ -72,13 +97,10 @@ export default function ReportsPage() {
       params.set('page', String(page));
       params.set('limit', String(limit));
       if (appliedFilters.categoryId) params.set('categoryId', appliedFilters.categoryId);
-      if (appliedFilters.accountId) params.set('accountId', appliedFilters.accountId);
-      
-      if (appliedFilters.period && appliedFilters.period !== 'all') {
-        const d = new Date();
-        d.setDate(d.getDate() - Number(appliedFilters.period));
-        params.set('startDate', d.toISOString());
-      }
+      if (appliedFilters.accountId)  params.set('accountId', appliedFilters.accountId);
+      const { startDate, endDate } = getPeriodDates(appliedFilters.period);
+      if (startDate) params.set('startDate', startDate);
+      if (endDate)   params.set('endDate', endDate);
       return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data);
     },
   });
@@ -111,12 +133,9 @@ export default function ReportsPage() {
 
   function downloadCsv() {
     const params = new URLSearchParams();
-    if (appliedFilters.period && appliedFilters.period !== 'all') {
-      const d = new Date();
-      d.setDate(d.getDate() - Number(appliedFilters.period));
-      params.set('startDate', d.toISOString().slice(0, 10));
-      params.set('endDate', new Date().toISOString().slice(0, 10));
-    }
+    const { startDate, endDate } = getPeriodDates(appliedFilters.period);
+    if (startDate) params.set('startDate', startDate);
+    if (endDate)   params.set('endDate', endDate);
     fetch(`/api/reports/export/transactions.csv?${params.toString()}`, { credentials: 'include' })
       .then((r) => r.blob())
       .then((blob) => {
@@ -174,14 +193,15 @@ export default function ReportsPage() {
             <div className="flex flex-wrap gap-md flex-1">
               <div className="w-56 text-left">
                 <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Período de Transações</label>
-                <select 
+                <select
                   value={period}
                   onChange={(e) => setPeriod(e.target.value)}
                   className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
                 >
-                  <option value="30">Últimos 30 dias</option>
-                  <option value="90">Último trimestre</option>
-                  <option value="365">Último ano</option>
+                  <option value="este_mes">Este mês</option>
+                  <option value="mes_anterior">Mês anterior</option>
+                  <option value="trimestre">Este trimestre</option>
+                  <option value="ano">Este ano</option>
                   <option value="all">Todo o período</option>
                 </select>
               </div>
@@ -250,8 +270,8 @@ export default function ReportsPage() {
               ) : !hasCashFlowData ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-md bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant">
                   <span className="material-symbols-outlined text-[36px] text-outline mb-xs">analytics</span>
-                  <p className="font-body-lg text-on-surface-variant">Nenhum fluxo de caixa registrado para esta conta.</p>
-                  <p className="text-xs text-outline">Os dados do gráfico serão exibidos assim que você tiver lançamentos confirmados.</p>
+                  <p className="font-body-lg text-on-surface-variant">Nenhum pagamento confirmado nos últimos 12 meses.</p>
+                  <p className="text-xs text-outline">O gráfico usa apenas lançamentos marcados como Pago/Recebido.</p>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -279,7 +299,7 @@ export default function ReportsPage() {
 
           {/* Expenses Pie Chart */}
           <div className="col-span-12 lg:col-span-4 bg-surface-container-lowest p-xl rounded-xl shadow-sm border border-outline-variant/50 flex flex-col justify-between h-[400px]">
-            <h3 className="font-headline text-headline-md text-primary mb-md font-bold text-left">Gasto Real por Categoria</h3>
+            <h3 className="font-headline text-headline-md text-primary mb-md font-bold text-left">Despesas por Categoria</h3>
             
             <div className="relative flex-1 flex flex-col justify-center items-center my-sm min-h-[160px]">
               {loadingCategory ? (
@@ -456,14 +476,15 @@ export default function ReportsPage() {
         <section className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant/50 flex flex-col gap-sm">
           <div className="grid grid-cols-1 gap-xs text-left">
             <span className="text-[11px] font-bold text-on-surface-variant">Período</span>
-            <select 
+            <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
               className="bg-surface-container-low border border-outline-variant rounded-lg py-xs px-sm text-sm"
             >
-              <option value="30">Últimos 30 dias</option>
-              <option value="90">Último trimestre</option>
-              <option value="365">Último ano</option>
+              <option value="este_mes">Este mês</option>
+              <option value="mes_anterior">Mês anterior</option>
+              <option value="trimestre">Este trimestre</option>
+              <option value="ano">Este ano</option>
               <option value="all">Todo o período</option>
             </select>
           </div>
