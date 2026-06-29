@@ -49,7 +49,7 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const supabase = createAdminClient();
     const { data: category } = await supabase
       .from('categories')
-      .insert({ ...body, parentId: body.parentId || null, householdId: user.householdId })
+      .insert({ id: crypto.randomUUID(), ...body, parentId: body.parentId || null, householdId: user.householdId, updatedAt: new Date().toISOString() })
       .select()
       .single();
     return created(category);
