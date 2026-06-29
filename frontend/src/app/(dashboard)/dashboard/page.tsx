@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 
 export default function DashboardPage() {
   const [showInsight, setShowInsight] = useState(true);
@@ -21,6 +21,7 @@ export default function DashboardPage() {
   });
 
   const now = new Date();
+  const currentYear = now.getFullYear();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
@@ -36,7 +37,24 @@ export default function DashboardPage() {
     queryFn: () => api.get('/api/reports/upcoming-bills?daysAhead=30').then((r) => r.data),
   });
 
-  const currentYear = new Date().getFullYear();
+  const { data: annualSummary } = useQuery({
+    queryKey: ['annual-summary', currentYear],
+    queryFn: () => api.get('/api/reports/annual-summary').then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  const { data: expensesByCategory = [] } = useQuery({
+    queryKey: ['expenses-by-category-dash', startOfMonth, endOfMonth],
+    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${startOfMonth}&endDate=${endOfMonth}`).then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  const { data: netWorth } = useQuery({
+    queryKey: ['net-worth'],
+    queryFn: () => api.get('/api/reports/net-worth').then((r) => r.data),
+    staleTime: 60_000,
+  });
+
   const { data: proventosData } = useQuery({
     queryKey: ['proventos'],
     queryFn: () => api.get(`/api/proventos?year=${currentYear}`).then((r) => r.data),
@@ -132,6 +150,19 @@ export default function DashboardPage() {
 
   const totalProventosRecebidos = Number(proventosData?.totalRecebido ?? 0);
   const totalProventosAReceber = Number(proventosData?.totalAReceber ?? 0);
+
+  // Annual cards
+  const annualExpensesPaid    = Number(annualSummary?.expensesPaid ?? 0);
+  const annualExpensesPending = Number(annualSummary?.expensesPending ?? 0);
+  const annualIncomePaid      = Number(annualSummary?.incomePaid ?? 0);
+  const annualIncomePending   = Number(annualSummary?.incomePending ?? 0);
+  const annualResult          = annualIncomePaid - annualExpensesPaid;
+
+  // Donut: top 6 categories current month
+  const topCategories = (expensesByCategory as any[]).slice(0, 6);
+
+  // Patrimônio history: work backwards from current net worth using monthly cash-flow balance
+  const currentNetWorthValue = Number(netWorth?.netWorth ?? 0);
 
   // Check if there is any real cash flow data (non-zero income or expenses)
   const hasCashFlowData = cashFlow && cashFlow.length > 0 && cashFlow.some((flow: any) => Number(flow.income || 0) > 0 || Number(flow.expenses || 0) > 0);
@@ -336,70 +367,160 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Recent Transactions (Bottom Left - 8 columns) */}
-            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant custom-card-shadow">
-              <div className="p-lg flex justify-between items-center border-b border-outline-variant/60">
-                <h4 className="font-headline text-headline-md text-primary">Transações Recentes</h4>
-                <a className="font-label-sm text-label-sm text-primary hover:underline" href="/transactions">Visualizar Histórico</a>
+            {/* Annual KPI Cards */}
+            <div className="grid grid-cols-3 gap-gutter">
+              {/* Despesas do Ano */}
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant custom-card-shadow flex flex-col h-[140px]">
+                <div className="flex justify-between items-start">
+                  <div className="w-8 h-8 bg-error/10 rounded-full flex items-center justify-center text-error">
+                    <span className="material-symbols-outlined text-[18px]">trending_down</span>
+                  </div>
+                  <span className="font-label-sm text-[9px] text-error bg-error/10 px-1.5 py-0.5 rounded uppercase font-bold">{currentYear}</span>
+                </div>
+                <div className="mt-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Despesas {currentYear}</p>
+                    <h3 className="font-display text-lg md:text-xl text-error font-bold">{formatCurrency(annualExpensesPaid)}</h3>
+                  </div>
+                  <div className="flex items-center gap-xs">
+                    {annualExpensesPending > 0
+                      ? <span className="text-[10px] text-outline">+ {formatCurrency(annualExpensesPending)} previsto</span>
+                      : <span className="text-[10px] text-outline">Total pago no ano</span>
+                    }
+                  </div>
+                </div>
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-surface-container-low/50">
-                      <th className="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Transação</th>
-                      <th className="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Categoria</th>
-                      <th className="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Data</th>
-                      <th className="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase font-bold text-right w-36">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-outline-variant/30">
-                    {displayTransactions.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-lg py-xl text-center text-on-surface-variant font-body-md">
-                          Nenhuma transação recente cadastrada.
-                        </td>
-                      </tr>
-                    ) : (
-                      displayTransactions.map((tx: any) => {
-                        const isIncome = tx.type === 'INCOME';
-                        const iconName = isIncome ? 'work' : (tx.category?.name?.toLowerCase().includes('food') || tx.category?.name?.toLowerCase().includes('drink') ? 'restaurant' : (tx.category?.name?.toLowerCase().includes('transport') ? 'local_gas_station' : 'payments'));
-                        const formattedDate = new Date(tx.date).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric', year: 'numeric' });
-                        return (
-                          <tr key={tx.id} className="hover:bg-surface-container-low/20 transition-colors cursor-pointer group">
-                            <td className="px-lg py-md flex items-center gap-md">
-                              <div className="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                <span className="material-symbols-outlined">{iconName}</span>
-                              </div>
-                              <div>
-                                <p className="font-numeric text-numeric-data text-primary font-medium">{tx.description}</p>
-                                <p className="text-[12px] text-on-surface-variant">{isIncome ? 'Depósito Direto' : 'Pagamento Mensal'}</p>
-                              </div>
-                            </td>
-                            <td className="px-lg py-md">
-                              <span 
-                                className="text-[11px] font-bold px-xs py-0.5 rounded uppercase tracking-wider"
-                                style={{ 
-                                  backgroundColor: `${tx.category?.color || '#006c49'}1A`,
-                                  color: tx.category?.color || '#006c49' 
-                                }}
-                              >
-                                {tx.category?.name || 'Geral'}
-                              </span>
-                            </td>
-                            <td className="px-lg py-md font-body-md text-body-md text-on-surface-variant">{formattedDate}</td>
-                            <td className={cn(
-                              "px-lg py-md font-numeric text-numeric-data text-right font-bold whitespace-nowrap",
-                              isIncome ? "text-secondary" : "text-error"
-                            )}>
-                              {`${isIncome ? '+' : '-'}${formatCurrency(Number(tx.amount))}`}
-                            </td>
-                          </tr>
-                        );
+
+              {/* Receitas do Ano */}
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant custom-card-shadow flex flex-col h-[140px]">
+                <div className="flex justify-between items-start">
+                  <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center text-secondary">
+                    <span className="material-symbols-outlined text-[18px]">trending_up</span>
+                  </div>
+                  <span className="font-label-sm text-[9px] text-secondary bg-secondary/10 px-1.5 py-0.5 rounded uppercase font-bold">{currentYear}</span>
+                </div>
+                <div className="mt-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Receitas {currentYear}</p>
+                    <h3 className="font-display text-lg md:text-xl text-secondary font-bold">{formatCurrency(annualIncomePaid)}</h3>
+                  </div>
+                  <div className="flex items-center gap-xs">
+                    {annualIncomePending > 0
+                      ? <span className="text-[10px] text-outline">+ {formatCurrency(annualIncomePending)} previsto</span>
+                      : <span className="text-[10px] text-outline">Total recebido no ano</span>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              {/* Resultado do Ano */}
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant custom-card-shadow flex flex-col h-[140px]">
+                <div className="flex justify-between items-start">
+                  <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", annualResult >= 0 ? "bg-secondary/10 text-secondary" : "bg-error/10 text-error")}>
+                    <span className="material-symbols-outlined text-[18px]">balance</span>
+                  </div>
+                  <span className={cn("font-label-sm text-[9px] px-1.5 py-0.5 rounded uppercase font-bold", annualResult >= 0 ? "text-secondary bg-secondary/10" : "text-error bg-error/10")}>{currentYear}</span>
+                </div>
+                <div className="mt-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Resultado {currentYear}</p>
+                    <h3 className={cn("font-display text-lg md:text-xl font-bold", annualResult >= 0 ? "text-secondary" : "text-error")}>{annualResult >= 0 ? '+' : ''}{formatCurrency(annualResult)}</h3>
+                  </div>
+                  <div className="flex items-center gap-xs">
+                    <span className="text-[10px] text-outline">{annualResult >= 0 ? 'Ano no azul ✓' : 'Ano no vermelho'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Charts Row */}
+            <div className="grid grid-cols-2 gap-gutter">
+              {/* Donut — Despesas por Categoria */}
+              <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow">
+                <div className="flex justify-between items-center mb-md">
+                  <div>
+                    <h4 className="font-headline text-headline-md text-primary">Despesas por Categoria</h4>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">Mês atual · valores pagos</p>
+                  </div>
+                  <a href="/reports" className="text-[11px] text-primary hover:underline">Ver relatório</a>
+                </div>
+                {topCategories.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
+                    <span className="material-symbols-outlined text-[32px] text-outline mb-xs">donut_large</span>
+                    <p className="text-xs text-on-surface-variant">Nenhuma despesa paga este mês.</p>
+                  </div>
+                ) : (
+                  <div className="flex gap-md items-center">
+                    <div className="w-[160px] h-[160px] flex-shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={topCategories} dataKey="total" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
+                            {topCategories.map((entry: any, i: number) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {topCategories.map((cat: any, i: number) => (
+                        <div key={i} className="flex items-center gap-xs">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                          <span className="text-[11px] text-on-surface-variant truncate flex-1">{cat.name}</span>
+                          <span className="text-[11px] font-bold text-primary flex-shrink-0">{cat.percentage}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Área — Evolução do Patrimônio */}
+              <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow">
+                <div className="flex justify-between items-center mb-md">
+                  <div>
+                    <h4 className="font-headline text-headline-md text-primary">Evolução do Patrimônio</h4>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">Últimos 6 meses · estimado</p>
+                  </div>
+                </div>
+                {(() => {
+                  const patrimonioData = hasCashFlowData && cashFlow?.length > 0
+                    ? cashFlow.map((_: any, idx: number) => {
+                        const futureNet = (cashFlow as any[]).slice(idx + 1).reduce((s: number, m: any) => s + Number(m.balance || 0), 0);
+                        return { label: (cashFlow[idx].label || '').toUpperCase(), value: Math.max(0, currentNetWorthValue - futureNet) };
                       })
-                    )}
-                  </tbody>
-                </table>
+                    : [];
+                  return patrimonioData.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
+                      <span className="material-symbols-outlined text-[32px] text-outline mb-xs">show_chart</span>
+                      <p className="text-xs text-on-surface-variant">Nenhum dado disponível ainda.</p>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <AreaChart data={patrimonioData} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="patrimonioGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--outline)' }} axisLine={false} tickLine={false} />
+                        <Tooltip formatter={(v: number) => [formatCurrency(v), 'Patrimônio']} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px' }} />
+                        <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} fill="url(#patrimonioGrad)" isAnimationActive={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  );
+                })()}
               </div>
+            </div>
+
+            {/* Link histórico */}
+            <div className="flex justify-end">
+              <a href="/transactions" className="text-[12px] text-on-surface-variant hover:text-primary flex items-center gap-1 transition-colors">
+                <span className="material-symbols-outlined text-[14px]">history</span>
+                Ver histórico de transações
+              </a>
             </div>
           </div>
 
