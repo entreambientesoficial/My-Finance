@@ -20,9 +20,13 @@ export default function DashboardPage() {
     queryFn: () => api.get('/api/reports/cash-flow?months=6').then((r) => r.data),
   });
 
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
   const { data: upcomingBills } = useQuery({
-    queryKey: ['upcoming-bills'],
-    queryFn: () => api.get('/api/reports/upcoming-bills?daysAhead=30').then((r) => r.data),
+    queryKey: ['upcoming-bills', startOfMonth, endOfMonth],
+    queryFn: () => api.get(`/api/reports/upcoming-bills?startDate=${startOfMonth}&endDate=${endOfMonth}`).then((r) => r.data),
   });
 
   const currentYear = new Date().getFullYear();
@@ -108,10 +112,11 @@ export default function DashboardPage() {
   const totalContasAPagar = allBills.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
   const contasAPagarCount = allBills.length;
 
-  const now30 = new Date(); now30.setDate(now30.getDate() + 30);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
   const upcomingIncome = (incomeScheduled as any[]).filter((t: any) => {
     const d = new Date(t.date);
-    return d <= now30;
+    return d >= monthStart && d <= monthEnd;
   });
   const totalContasAReceber = upcomingIncome.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
   const contasAReceberCount = upcomingIncome.length;
@@ -256,45 +261,69 @@ export default function DashboardPage() {
             {/* Secondary KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter -mt-2">
               {/* Contas a Pagar */}
-              <div className="bg-surface-container-lowest px-md py-sm rounded-xl border border-outline-variant custom-card-shadow flex items-center gap-md">
-                <div className="w-9 h-9 bg-error/10 rounded-lg flex items-center justify-center text-error flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">receipt_long</span>
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant custom-card-shadow flex flex-col h-[140px]">
+                <div className="flex justify-between items-start">
+                  <div className="w-8 h-8 bg-error/10 rounded-full flex items-center justify-center text-error">
+                    <span className="material-symbols-outlined text-[18px]">receipt_long</span>
+                  </div>
+                  <span className="font-label-sm text-[9px] text-error bg-error/10 px-1.5 py-0.5 rounded uppercase font-bold">A PAGAR</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider truncate">Contas a Pagar <span className="text-outline">(30 dias)</span></p>
-                  <p className="font-display text-lg text-primary font-bold">{formatCurrency(totalContasAPagar)}</p>
+                <div className="mt-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Contas a Pagar</p>
+                    <h3 className="font-display text-lg md:text-xl text-primary font-bold">{formatCurrency(totalContasAPagar)}</h3>
+                  </div>
+                  <div className="flex items-center gap-xs">
+                    {contasAPagarCount > 0
+                      ? <span className="text-[10px] font-bold bg-error/10 text-error px-xs py-0.5 rounded-full">{contasAPagarCount} lançto{contasAPagarCount !== 1 ? 's' : ''}</span>
+                      : <span className="text-outline text-[11px]">Nenhuma pendente no mês</span>
+                    }
+                  </div>
                 </div>
-                {contasAPagarCount > 0 && (
-                  <span className="text-[10px] font-bold bg-error/10 text-error px-xs py-0.5 rounded-full flex-shrink-0">{contasAPagarCount} lançto{contasAPagarCount !== 1 ? 's' : ''}</span>
-                )}
               </div>
 
               {/* Contas a Receber */}
-              <div className="bg-surface-container-lowest px-md py-sm rounded-xl border border-outline-variant custom-card-shadow flex items-center gap-md">
-                <div className="w-9 h-9 bg-secondary/10 rounded-lg flex items-center justify-center text-secondary flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant custom-card-shadow flex flex-col h-[140px]">
+                <div className="flex justify-between items-start">
+                  <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center text-secondary">
+                    <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
+                  </div>
+                  <span className="font-label-sm text-[9px] text-secondary bg-secondary/10 px-1.5 py-0.5 rounded uppercase font-bold">A RECEBER</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider truncate">Contas a Receber <span className="text-outline">(30 dias)</span></p>
-                  <p className="font-display text-lg text-secondary font-bold">{formatCurrency(totalContasAReceber)}</p>
+                <div className="mt-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Contas a Receber</p>
+                    <h3 className="font-display text-lg md:text-xl text-secondary font-bold">{formatCurrency(totalContasAReceber)}</h3>
+                  </div>
+                  <div className="flex items-center gap-xs">
+                    {contasAReceberCount > 0
+                      ? <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-xs py-0.5 rounded-full">{contasAReceberCount} lançto{contasAReceberCount !== 1 ? 's' : ''}</span>
+                      : <span className="text-outline text-[11px]">Nenhuma prevista no mês</span>
+                    }
+                  </div>
                 </div>
-                {contasAReceberCount > 0 && (
-                  <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-xs py-0.5 rounded-full flex-shrink-0">{contasAReceberCount} lançto{contasAReceberCount !== 1 ? 's' : ''}</span>
-                )}
               </div>
 
               {/* Proventos */}
-              <div className="bg-surface-container-lowest px-md py-sm rounded-xl border border-outline-variant custom-card-shadow flex items-center gap-md">
-                <div className="w-9 h-9 bg-primary/10 rounded-lg flex items-center justify-center text-primary flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">savings</span>
+              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant custom-card-shadow flex flex-col h-[140px]">
+                <div className="flex justify-between items-start">
+                  <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined text-[18px]">savings</span>
+                  </div>
+                  <span className="font-label-sm text-[9px] text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase font-bold">PROVENTOS</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider truncate">Proventos {currentYear}</p>
-                  <p className="font-display text-lg text-primary font-bold">{formatCurrency(totalProventosRecebidos)}</p>
+                <div className="mt-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Proventos {currentYear}</p>
+                    <h3 className="font-display text-lg md:text-xl text-primary font-bold">{formatCurrency(totalProventosRecebidos)}</h3>
+                  </div>
+                  <div className="flex items-center gap-xs">
+                    {totalProventosAReceber > 0
+                      ? <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-xs py-0.5 rounded-full whitespace-nowrap">+{formatCurrency(totalProventosAReceber)} a receber</span>
+                      : <span className="text-outline text-[11px]">Dividendos e JCP recebidos</span>
+                    }
+                  </div>
                 </div>
-                {totalProventosAReceber > 0 && (
-                  <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-xs py-0.5 rounded-full flex-shrink-0 whitespace-nowrap">+{formatCurrency(totalProventosAReceber)}</span>
-                )}
               </div>
             </div>
 
