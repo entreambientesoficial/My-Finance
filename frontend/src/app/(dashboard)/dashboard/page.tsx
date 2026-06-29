@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export default function DashboardPage() {
   const [showInsight, setShowInsight] = useState(true);
@@ -49,11 +49,6 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
-  const { data: netWorth } = useQuery({
-    queryKey: ['net-worth'],
-    queryFn: () => api.get('/api/reports/net-worth').then((r) => r.data),
-    staleTime: 60_000,
-  });
 
   const { data: proventosData } = useQuery({
     queryKey: ['proventos'],
@@ -160,9 +155,6 @@ export default function DashboardPage() {
 
   // Donut: top 6 categories current month
   const topCategories = (expensesByCategory as any[]).slice(0, 6);
-
-  // Patrimônio history: work backwards from current net worth using monthly cash-flow balance
-  const currentNetWorthValue = Number(netWorth?.netWorth ?? 0);
 
   // Check if there is any real cash flow data (non-zero income or expenses)
   const hasCashFlowData = cashFlow && cashFlow.length > 0 && cashFlow.some((flow: any) => Number(flow.income || 0) > 0 || Number(flow.expenses || 0) > 0);
@@ -476,40 +468,56 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Área — Evolução do Patrimônio */}
+              {/* Donut — Distribuição do Patrimônio */}
               <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow">
                 <div className="flex justify-between items-center mb-md">
                   <div>
-                    <h4 className="font-headline text-headline-md text-primary">Evolução do Patrimônio</h4>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant">Últimos 6 meses · estimado</p>
+                    <h4 className="font-headline text-headline-md text-primary">Distribuição do Patrimônio</h4>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">Como seu dinheiro está alocado</p>
                   </div>
                 </div>
                 {(() => {
-                  const patrimonioData = hasCashFlowData && cashFlow?.length > 0
-                    ? cashFlow.map((_: any, idx: number) => {
-                        const futureNet = (cashFlow as any[]).slice(idx + 1).reduce((s: number, m: any) => s + Number(m.balance || 0), 0);
-                        return { label: (cashFlow[idx].label || '').toUpperCase(), value: Math.max(0, currentNetWorthValue - futureNet) };
-                      })
-                    : [];
-                  return patrimonioData.length === 0 ? (
+                  const total = totalCaixa + totalReserva + totalInvestimentos;
+                  const distData = [
+                    { name: 'Caixa', value: totalCaixa, color: '#10b981' },
+                    { name: 'Reserva', value: totalReserva, color: '#3b82f6' },
+                    { name: 'Investimentos', value: totalInvestimentos, color: '#f97316' },
+                  ].filter(d => d.value > 0);
+                  return total === 0 ? (
                     <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
-                      <span className="material-symbols-outlined text-[32px] text-outline mb-xs">show_chart</span>
-                      <p className="text-xs text-on-surface-variant">Nenhum dado disponível ainda.</p>
+                      <span className="material-symbols-outlined text-[32px] text-outline mb-xs">account_balance</span>
+                      <p className="text-xs text-on-surface-variant">Nenhuma conta cadastrada ainda.</p>
                     </div>
                   ) : (
-                    <ResponsiveContainer width="100%" height={200}>
-                      <AreaChart data={patrimonioData} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="patrimonioGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
-                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--outline)' }} axisLine={false} tickLine={false} />
-                        <Tooltip formatter={(v: number) => [formatCurrency(v), 'Patrimônio']} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px' }} />
-                        <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} fill="url(#patrimonioGrad)" isAnimationActive={false} />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    <div className="flex gap-md items-center">
+                      <div className="w-[160px] h-[160px] flex-shrink-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={distData} dataKey="value" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
+                              {distData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                            </Pie>
+                            <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px' }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="flex-1 space-y-3">
+                        {distData.map((d, i) => (
+                          <div key={i}>
+                            <div className="flex justify-between items-center mb-1">
+                              <div className="flex items-center gap-xs">
+                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
+                                <span className="text-[12px] text-on-surface-variant">{d.name}</span>
+                              </div>
+                              <span className="text-[12px] font-bold text-primary">{total > 0 ? Math.round((d.value / total) * 100) : 0}%</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+                              <div className="h-full rounded-full" style={{ width: `${total > 0 ? (d.value / total) * 100 : 0}%`, backgroundColor: d.color }} />
+                            </div>
+                            <p className="text-[11px] text-outline mt-0.5">{formatCurrency(d.value)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   );
                 })()}
               </div>
