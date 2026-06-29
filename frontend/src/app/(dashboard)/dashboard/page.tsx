@@ -6,8 +6,29 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
+const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
 export default function DashboardPage() {
   const [showInsight, setShowInsight] = useState(true);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  // Seletor de mês para o gráfico de categorias
+  const [selMonth, setSelMonth] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  const isCurrentMonth = selMonth.year === now.getFullYear() && selMonth.month === now.getMonth();
+  const selectedStart = new Date(selMonth.year, selMonth.month, 1).toISOString().slice(0, 10);
+  const selectedEnd   = new Date(selMonth.year, selMonth.month + 1, 0).toISOString().slice(0, 10);
+  const monthLabel    = `${MONTHS_PT[selMonth.month]}/${selMonth.year}`;
+
+  const prevMonth = () => setSelMonth(p => {
+    const d = new Date(p.year, p.month - 1, 1);
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const nextMonth = () => setSelMonth(p => {
+    const d = new Date(p.year, p.month + 1, 1);
+    if (d > now) return p;
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
 
   // Fetch real data from NestJS API
   const { data: summary } = useQuery({
@@ -20,8 +41,6 @@ export default function DashboardPage() {
     queryFn: () => api.get('/api/reports/cash-flow?months=6').then((r) => r.data),
   });
 
-  const now = new Date();
-  const currentYear = now.getFullYear();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
 
@@ -43,10 +62,20 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
+  // Gráfico esquerdo: mês selecionado (navegável)
   const { data: expensesByCategory = [] } = useQuery({
-    queryKey: ['expenses-by-category-dash', startOfMonth, endOfMonth],
-    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${startOfMonth}&endDate=${endOfMonth}`).then((r) => r.data),
+    queryKey: ['expenses-by-category-dash', selectedStart, selectedEnd],
+    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${selectedStart}&endDate=${selectedEnd}`).then((r) => r.data),
     staleTime: 60_000,
+  });
+
+  // Gráfico direito: acumulado do ano
+  const annualStart = `${currentYear}-01-01`;
+  const annualEnd   = `${currentYear}-12-31`;
+  const { data: annualExpensesByCategory = [] } = useQuery({
+    queryKey: ['expenses-by-category-annual', currentYear],
+    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${annualStart}&endDate=${annualEnd}`).then((r) => r.data),
+    staleTime: 300_000,
   });
 
 
@@ -153,8 +182,10 @@ export default function DashboardPage() {
   const annualIncomePending   = Number(annualSummary?.incomePending ?? 0);
   const annualResult          = (annualIncomePaid + annualIncomePending) - (annualExpensesPaid + annualExpensesPending);
 
-  // Donut: top 6 categories current month
+  // Donut esquerdo: top 6 do mês selecionado
   const topCategories = (expensesByCategory as any[]).slice(0, 6);
+  // Donut direito: top 6 do ano
+  const topAnnualCategories = (annualExpensesByCategory as any[]).slice(0, 6);
 
   // Check if there is any real cash flow data (non-zero income or expenses)
   const hasCashFlowData = cashFlow && cashFlow.length > 0 && cashFlow.some((flow: any) => Number(flow.income || 0) > 0 || Number(flow.expenses || 0) > 0);
@@ -427,19 +458,28 @@ export default function DashboardPage() {
 
             {/* Charts Row */}
             <div className="grid grid-cols-2 gap-gutter">
-              {/* Donut — Despesas por Categoria */}
+              {/* Donut — Despesas por Categoria (mês navegável) */}
               <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow">
-                <div className="flex justify-between items-center mb-md">
+                <div className="flex justify-between items-start mb-md">
                   <div>
                     <h4 className="font-headline text-headline-md text-primary">Despesas por Categoria</h4>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant">Mês atual · valores pagos</p>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">valores pagos</p>
                   </div>
-                  <a href="/reports" className="text-[11px] text-primary hover:underline">Ver relatório</a>
+                  <div className="flex items-center gap-xs">
+                    <button onClick={prevMonth} className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary">
+                      <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                    </button>
+                    <span className="text-[11px] font-bold text-primary w-[70px] text-center">{monthLabel}</span>
+                    <button onClick={nextMonth} disabled={isCurrentMonth} className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed">
+                      <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                    </button>
+                    <a href="/reports" className="text-[11px] text-primary hover:underline ml-xs">Relatório</a>
+                  </div>
                 </div>
                 {topCategories.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
                     <span className="material-symbols-outlined text-[32px] text-outline mb-xs">donut_large</span>
-                    <p className="text-xs text-on-surface-variant">Nenhuma despesa paga este mês.</p>
+                    <p className="text-xs text-on-surface-variant">Nenhuma despesa paga em {monthLabel}.</p>
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
@@ -468,58 +508,45 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              {/* Donut — Distribuição do Patrimônio */}
+              {/* Donut — Despesas por Categoria (acumulado do ano) */}
               <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow">
-                <div className="flex justify-between items-center mb-md">
+                <div className="flex justify-between items-start mb-md">
                   <div>
-                    <h4 className="font-headline text-headline-md text-primary">Distribuição do Patrimônio</h4>
-                    <p className="font-label-sm text-label-sm text-on-surface-variant">Como seu dinheiro está alocado</p>
+                    <h4 className="font-headline text-headline-md text-primary">Despesas por Categoria</h4>
+                    <p className="font-label-sm text-label-sm text-on-surface-variant">Acumulado {currentYear} · valores pagos</p>
                   </div>
+                  <a href="/reports" className="text-[11px] text-primary hover:underline">Relatório</a>
                 </div>
-                {(() => {
-                  const total = totalCaixa + totalReserva + totalInvestimentos;
-                  const distData = [
-                    { name: 'Caixa', value: totalCaixa, color: '#10b981' },
-                    { name: 'Reserva', value: totalReserva, color: '#3b82f6' },
-                    { name: 'Investimentos', value: totalInvestimentos, color: '#f97316' },
-                  ].filter(d => d.value > 0);
-                  return total === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
-                      <span className="material-symbols-outlined text-[32px] text-outline mb-xs">account_balance</span>
-                      <p className="text-xs text-on-surface-variant">Nenhuma conta cadastrada ainda.</p>
+                {topAnnualCategories.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
+                    <span className="material-symbols-outlined text-[32px] text-outline mb-xs">donut_large</span>
+                    <p className="text-xs text-on-surface-variant">Nenhuma despesa paga em {currentYear}.</p>
+                  </div>
+                ) : (
+                  <div className="flex gap-md items-center">
+                    <div className="w-[160px] h-[160px] flex-shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={topAnnualCategories} dataKey="total" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
+                            {topAnnualCategories.map((entry: any, i: number) => (
+                              <Cell key={i} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px' }} />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
-                  ) : (
-                    <div className="flex gap-md items-center">
-                      <div className="w-[160px] h-[160px] flex-shrink-0">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie data={distData} dataKey="value" cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={2} isAnimationActive={false}>
-                              {distData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                            </Pie>
-                            <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px' }} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                      <div className="flex-1 space-y-3">
-                        {distData.map((d, i) => (
-                          <div key={i}>
-                            <div className="flex justify-between items-center mb-1">
-                              <div className="flex items-center gap-xs">
-                                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: d.color }} />
-                                <span className="text-[12px] text-on-surface-variant">{d.name}</span>
-                              </div>
-                              <span className="text-[12px] font-bold text-primary">{total > 0 ? Math.round((d.value / total) * 100) : 0}%</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden">
-                              <div className="h-full rounded-full" style={{ width: `${total > 0 ? (d.value / total) * 100 : 0}%`, backgroundColor: d.color }} />
-                            </div>
-                            <p className="text-[11px] text-outline mt-0.5">{formatCurrency(d.value)}</p>
-                          </div>
-                        ))}
-                      </div>
+                    <div className="flex-1 space-y-1.5 min-w-0">
+                      {topAnnualCategories.map((cat: any, i: number) => (
+                        <div key={i} className="flex items-center gap-xs">
+                          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
+                          <span className="text-[11px] text-on-surface-variant truncate flex-1">{cat.name}</span>
+                          <span className="text-[11px] font-bold text-primary flex-shrink-0">{cat.percentage}%</span>
+                        </div>
+                      ))}
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
               </div>
             </div>
 
