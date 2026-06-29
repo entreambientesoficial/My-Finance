@@ -151,7 +151,7 @@ export default function DashboardPage() {
   const annualExpensesPending = Number(annualSummary?.expensesPending ?? 0);
   const annualIncomePaid      = Number(annualSummary?.incomePaid ?? 0);
   const annualIncomePending   = Number(annualSummary?.incomePending ?? 0);
-  const annualResult          = annualIncomePaid - annualExpensesPaid;
+  const annualResult          = (annualIncomePaid + annualIncomePending) - (annualExpensesPaid + annualExpensesPending);
 
   // Donut: top 6 categories current month
   const topCategories = (expensesByCategory as any[]).slice(0, 6);
@@ -372,12 +372,12 @@ export default function DashboardPage() {
                 <div className="mt-3 flex-1 flex flex-col justify-between">
                   <div>
                     <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Despesas {currentYear}</p>
-                    <h3 className="font-display text-lg md:text-xl text-error font-bold">{formatCurrency(annualExpensesPaid)}</h3>
+                    <h3 className="font-display text-lg md:text-xl text-error font-bold">{formatCurrency(annualExpensesPaid + annualExpensesPending)}</h3>
                   </div>
                   <div className="flex items-center gap-xs">
-                    {annualExpensesPending > 0
-                      ? <span className="text-[10px] text-outline">+ {formatCurrency(annualExpensesPending)} previsto</span>
-                      : <span className="text-[10px] text-outline">Total pago no ano</span>
+                    {annualExpensesPaid > 0
+                      ? <span className="text-[10px] text-outline">{formatCurrency(annualExpensesPaid)} pago</span>
+                      : <span className="text-[10px] text-outline">Nenhuma despesa paga ainda</span>
                     }
                   </div>
                 </div>
@@ -394,12 +394,12 @@ export default function DashboardPage() {
                 <div className="mt-3 flex-1 flex flex-col justify-between">
                   <div>
                     <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Receitas {currentYear}</p>
-                    <h3 className="font-display text-lg md:text-xl text-secondary font-bold">{formatCurrency(annualIncomePaid)}</h3>
+                    <h3 className="font-display text-lg md:text-xl text-secondary font-bold">{formatCurrency(annualIncomePaid + annualIncomePending)}</h3>
                   </div>
                   <div className="flex items-center gap-xs">
-                    {annualIncomePending > 0
-                      ? <span className="text-[10px] text-outline">+ {formatCurrency(annualIncomePending)} previsto</span>
-                      : <span className="text-[10px] text-outline">Total recebido no ano</span>
+                    {annualIncomePaid > 0
+                      ? <span className="text-[10px] text-outline">{formatCurrency(annualIncomePaid)} recebido</span>
+                      : <span className="text-[10px] text-outline">Nenhuma receita recebida ainda</span>
                     }
                   </div>
                 </div>
@@ -419,7 +419,7 @@ export default function DashboardPage() {
                     <h3 className={cn("font-display text-lg md:text-xl font-bold", annualResult >= 0 ? "text-secondary" : "text-error")}>{annualResult >= 0 ? '+' : ''}{formatCurrency(annualResult)}</h3>
                   </div>
                   <div className="flex items-center gap-xs">
-                    <span className="text-[10px] text-outline">{annualResult >= 0 ? 'Ano no azul ✓' : 'Ano no vermelho'}</span>
+                    <span className="text-[10px] text-outline">{annualResult >= 0 ? 'Ano no azul (projetado) ✓' : 'Ano no vermelho (projetado)'}</span>
                   </div>
                 </div>
               </div>
