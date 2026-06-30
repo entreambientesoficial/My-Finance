@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
@@ -603,9 +603,19 @@ function ImportPanel({
   );
 }
 
+function SearchParamsHandler({ onAction }: { onAction: (type: string) => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      const type = searchParams.get('type') ?? '';
+      onAction(type);
+    }
+  }, [searchParams, onAction]);
+  return null;
+}
+
 export default function TransactionsPage() {
   const qc = useQueryClient();
-  const searchParams = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [filters, setFilters] = useState<any>({ page: 1, limit: 25, sortBy: 'date', sortDir: 'desc' });
@@ -653,16 +663,12 @@ export default function TransactionsPage() {
     if (watchCardId) setValue('isPaid', 'false');
   }, [watchCardId, setValue]);
 
-  // Abre modal e pré-seleciona tipo se vier via ?action=new&type=INCOME|EXPENSE|TRANSFER
-  useEffect(() => {
-    if (searchParams.get('action') === 'new') {
-      const type = searchParams.get('type');
-      if (type && ['INCOME', 'EXPENSE', 'TRANSFER'].includes(type)) {
-        setValue('type', type);
-      }
-      setShowForm(true);
+  const handleQuickAction = useCallback((type: string) => {
+    if (type && ['INCOME', 'EXPENSE', 'TRANSFER'].includes(type)) {
+      setValue('type', type);
     }
-  }, [searchParams, setValue]);
+    setShowForm(true);
+  }, [setValue]);
 
   const [newSelectedParentId, setNewSelectedParentId] = useState('');
   const [newSelectedSubId, setNewSelectedSubId] = useState('');
@@ -856,6 +862,9 @@ export default function TransactionsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
+      <Suspense fallback={null}>
+        <SearchParamsHandler onAction={handleQuickAction} />
+      </Suspense>
       {/* Decorative Floating Blur */}
       <div className="fixed top-0 right-0 w-48 h-48 bg-primary/5 rounded-full -mr-24 -mt-24 blur-3xl pointer-events-none"></div>
 
