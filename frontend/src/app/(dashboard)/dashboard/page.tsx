@@ -246,6 +246,24 @@ export default function DashboardPage() {
               Olá, {userName}. {subtitleMessage}
             </p>
           </div>
+          {/* Atalhos rápidos */}
+          <div className="flex items-center gap-sm">
+            <a href="/transactions?action=new&type=INCOME"
+              className="flex items-center gap-xs px-md py-sm bg-secondary/10 text-secondary border border-secondary/20 rounded-lg font-label-sm text-[12px] font-bold hover:bg-secondary/20 transition-colors">
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              Receita
+            </a>
+            <a href="/transactions?action=new&type=EXPENSE"
+              className="flex items-center gap-xs px-md py-sm bg-error/10 text-error border border-error/20 rounded-lg font-label-sm text-[12px] font-bold hover:bg-error/20 transition-colors">
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              Despesa
+            </a>
+            <a href="/transactions?action=new&type=TRANSFER"
+              className="flex items-center gap-xs px-md py-sm bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg font-label-sm text-[12px] font-bold hover:bg-blue-500/20 transition-colors">
+              <span className="material-symbols-outlined text-[16px]">swap_horiz</span>
+              Transferência
+            </a>
+          </div>
         </div>
 
         {/* Bento Grid Section */}
@@ -624,15 +642,16 @@ export default function DashboardPage() {
                       const billDate = new Date(bill.date);
                       const day = billDate.getDate();
                       const monthName = bill.monthStr || billDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
-                      const isPending = bill.status === 'Pending' || !bill.isPaid;
+                      const isPaid = bill.isPaid;
+                      const isOverdue = !isPaid && billDate < new Date();
                       return (
                         <div key={bill.id} className="flex items-center gap-md p-md border border-outline-variant rounded-lg bg-surface-container-low/30 hover:border-primary transition-colors cursor-pointer">
                           <div className={cn(
                             "text-center px-sm py-xs rounded flex flex-col justify-center min-w-[50px]",
-                            isPending ? "bg-error-container/20" : "bg-surface-container-highest"
+                            isOverdue ? "bg-error-container/20" : isPaid ? "bg-surface-container-highest" : "bg-surface-container-high/40"
                           )}>
-                            <span className={cn("text-[10px] font-bold uppercase", isPending ? "text-error" : "text-on-surface-variant")}>{monthName}</span>
-                            <span className={cn("text-headline-md font-bold", isPending ? "text-error" : "text-primary")}>{day}</span>
+                            <span className={cn("text-[10px] font-bold uppercase", isOverdue ? "text-error" : "text-on-surface-variant")}>{monthName}</span>
+                            <span className={cn("text-headline-md font-bold", isOverdue ? "text-error" : "text-primary")}>{day}</span>
                           </div>
                           <div className="flex-1">
                             <p className="font-numeric text-numeric-data text-primary font-bold">{bill.description}</p>
@@ -640,8 +659,8 @@ export default function DashboardPage() {
                           </div>
                           <div className="text-right">
                             <p className="font-numeric text-numeric-data text-primary font-bold">{formatCurrency(Number(bill.amount))}</p>
-                            <p className={cn("text-[10px] font-bold uppercase", isPending ? "text-error" : "text-secondary")}>
-                              {isPending ? 'Pendente' : 'Pago'}
+                            <p className={cn("text-[10px] font-bold uppercase", isOverdue ? "text-error" : isPaid ? "text-secondary" : "text-on-surface-variant")}>
+                              {isPaid ? 'Pago' : isOverdue ? 'Atrasado' : 'Pendente'}
                             </p>
                           </div>
                         </div>
@@ -662,12 +681,25 @@ export default function DashboardPage() {
         {/* Insight Full Width Section */}
         {showInsight && (
           <div className="bg-surface-container-lowest p-xl rounded-xl border border-outline-variant custom-card-shadow flex flex-col md:flex-row gap-xl items-center">
-            <div className="md:w-1/3">
-              <img 
-                alt="Visualização de dados financeiros" 
-                className="rounded-lg w-full h-48 object-cover shadow-lg" 
-                src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=600&q=80"
-              />
+            <div className="md:w-1/3 flex items-center justify-center">
+              <svg viewBox="0 0 280 180" className="w-full max-w-[280px] h-[180px]" aria-hidden="true">
+                <rect width="280" height="180" rx="12" fill="var(--surface-container-low)" />
+                {/* Barras do gráfico */}
+                <rect x="30"  y="110" width="28" height="50" rx="4" fill="var(--secondary)" opacity="0.25" />
+                <rect x="70"  y="80"  width="28" height="80" rx="4" fill="var(--secondary)" opacity="0.4"  />
+                <rect x="110" y="60"  width="28" height="100" rx="4" fill="var(--secondary)" opacity="0.6" />
+                <rect x="150" y="40"  width="28" height="120" rx="4" fill="var(--secondary)" opacity="0.8" />
+                <rect x="190" y="55"  width="28" height="105" rx="4" fill="var(--secondary)" />
+                {/* Linha de tendência */}
+                <polyline points="44,105 84,75 124,55 164,35 204,50" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+                {/* Pontos */}
+                {[[44,105],[84,75],[124,55],[164,35],[204,50]].map(([x,y],i) => (
+                  <circle key={i} cx={x} cy={y} r="4" fill="var(--primary)" opacity="0.9" />
+                ))}
+                {/* Ícone de seta */}
+                <circle cx="238" cy="36" r="18" fill="var(--primary)" opacity="0.15" />
+                <text x="238" y="42" textAnchor="middle" fontSize="18" fill="var(--primary)" fontFamily="Material Symbols Outlined">trending_up</text>
+              </svg>
             </div>
             <div className="md:w-2/3">
               <div className="inline-block bg-primary text-white text-[10px] font-bold px-sm py-1 rounded-full uppercase tracking-widest mb-md">

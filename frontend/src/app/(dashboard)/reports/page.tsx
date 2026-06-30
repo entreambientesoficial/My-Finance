@@ -393,6 +393,7 @@ export default function ReportsPage() {
                   transactionsData.map((tx: any) => {
                     const isIncome = tx.type === 'INCOME';
                     const formattedDate = new Date(tx.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+                    const isOverdue = !tx.isPaid && new Date(tx.date) < new Date();
                     return (
                       <tr key={tx.id} className="hover:bg-surface-container-low/10 transition-colors">
                         <td className="px-xl py-md font-numeric text-numeric-data">{formattedDate}</td>
@@ -418,12 +419,12 @@ export default function ReportsPage() {
                         <td className="px-xl py-md text-left">
                           <span className={cn(
                             "flex items-center gap-xs font-label-sm text-[11px] font-bold uppercase",
-                            tx.isPaid ? "text-secondary" : "text-on-surface-variant"
+                            tx.isPaid ? "text-secondary" : isOverdue ? "text-error" : "text-on-surface-variant"
                           )}>
                             <span className="material-symbols-outlined text-[16px]">
-                              {tx.isPaid ? 'check_circle' : 'schedule'}
+                              {tx.isPaid ? 'check_circle' : isOverdue ? 'warning' : 'schedule'}
                             </span>
-                            {tx.isPaid ? (isIncome ? 'Recebido' : 'Pago') : 'Pendente'}
+                            {tx.isPaid ? (isIncome ? 'Recebido' : 'Pago') : isOverdue ? 'Atrasado' : 'Pendente'}
                           </span>
                         </td>
                       </tr>

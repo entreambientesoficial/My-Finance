@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -399,7 +400,7 @@ function AccountInfo({ account, card, toAccount, type }: any) {
   );
 }
 
-function StatusBadge({ type, isPaid }: { type: string; isPaid: boolean }) {
+function StatusBadge({ type, isPaid, date }: { type: string; isPaid: boolean; date?: string }) {
   if (type === 'TRANSFER') {
     return (
       <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-xs font-bold flex items-center gap-1 w-fit">
@@ -416,9 +417,18 @@ function StatusBadge({ type, isPaid }: { type: string; isPaid: boolean }) {
       </span>
     );
   }
+  const isOverdue = date ? new Date(date) < new Date() : false;
+  if (isOverdue) {
+    return (
+      <span className="px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-xs font-bold flex items-center gap-1 w-fit">
+        <span className="material-symbols-outlined text-sm">warning</span>
+        Atrasado
+      </span>
+    );
+  }
   return (
-    <span className="px-2 py-0.5 rounded-full bg-error-container text-on-error-container text-xs font-bold flex items-center gap-1 w-fit">
-      <span className="material-symbols-outlined text-sm">pending</span>
+    <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-bold flex items-center gap-1 w-fit">
+      <span className="material-symbols-outlined text-sm">schedule</span>
       Pendente
     </span>
   );
@@ -595,6 +605,7 @@ function ImportPanel({
 
 export default function TransactionsPage() {
   const qc = useQueryClient();
+  const searchParams = useSearchParams();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [filters, setFilters] = useState<any>({ page: 1, limit: 25, sortBy: 'date', sortDir: 'desc' });
@@ -641,6 +652,17 @@ export default function TransactionsPage() {
   useEffect(() => {
     if (watchCardId) setValue('isPaid', 'false');
   }, [watchCardId, setValue]);
+
+  // Abre modal e pré-seleciona tipo se vier via ?action=new&type=INCOME|EXPENSE|TRANSFER
+  useEffect(() => {
+    if (searchParams.get('action') === 'new') {
+      const type = searchParams.get('type');
+      if (type && ['INCOME', 'EXPENSE', 'TRANSFER'].includes(type)) {
+        setValue('type', type);
+      }
+      setShowForm(true);
+    }
+  }, [searchParams, setValue]);
 
   const [newSelectedParentId, setNewSelectedParentId] = useState('');
   const [newSelectedSubId, setNewSelectedSubId] = useState('');
@@ -1017,7 +1039,7 @@ export default function TransactionsPage() {
                             <AccountInfo account={t.account} card={t.card} toAccount={t.toAccount} type={t.type} />
                           </td>
                           <td className="px-md lg:px-sm py-md">
-                            <StatusBadge type={t.type} isPaid={t.isPaid} />
+                            <StatusBadge type={t.type} isPaid={t.isPaid} date={t.date} />
                           </td>
                           <td className="px-md lg:px-sm py-md text-right">
                             <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
@@ -1230,7 +1252,7 @@ export default function TransactionsPage() {
 
                 {/* Status & Actions */}
                 <div className="flex justify-between items-center pt-2 border-t border-outline-variant/30">
-                  <StatusBadge type={t.type} isPaid={t.isPaid} />
+                  <StatusBadge type={t.type} isPaid={t.isPaid} date={t.date} />
                   
                   <div className="flex items-center gap-1">
                     {isReal ? (
