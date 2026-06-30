@@ -109,7 +109,7 @@ export function DELETE(req: NextRequest, { params }: Ctx) {
         .eq('householdId', user.householdId)
         .maybeSingle();
       if (!tx) return notFound('Transação não encontrada');
-      await supabase.from('transactions').delete().eq('id', params.id);
+      await supabase.from('transactions').delete().eq('id', params.id).eq('householdId', user.householdId);
       return ok({ message: 'Transação removida' });
     } catch (err) {
       console.error('[transactions/:id DELETE]', err);
