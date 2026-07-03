@@ -20,7 +20,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       const startDate = new Date(date.getFullYear(), date.getMonth(), 1).toISOString();
       const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59).toISOString();
 
-      let q = supabase.from('transactions').select('type, amount').eq('householdId', householdId).eq('isPaid', true).gte('date', startDate).lte('date', endDate);
+      let q = supabase.from('transactions').select('type, amount').eq('householdId', householdId).gte('date', startDate).lte('date', endDate);
       if (accountId) q = q.eq('accountId', accountId);
       const { data: rows } = await q;
 

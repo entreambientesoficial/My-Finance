@@ -251,7 +251,7 @@ export default function ReportsPage() {
             <div className="flex justify-between items-start mb-md">
               <div className="text-left">
                 <h3 className="font-headline text-headline-md text-primary font-bold">Fluxo de Caixa Consolidado</h3>
-                <p className="font-body-md text-body-md text-on-surface-variant">Comparativo de Receitas vs. Despesas (últimos 12 meses)</p>
+                <p className="font-body-md text-body-md text-on-surface-variant">Receitas vs. Despesas lançadas — pagas e pendentes (últimos 12 meses)</p>
               </div>
               <div className="flex gap-md">
                 <div className="flex items-center gap-xs">
@@ -273,7 +273,7 @@ export default function ReportsPage() {
               ) : !hasCashFlowData ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-md bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant">
                   <span className="material-symbols-outlined text-[36px] text-outline mb-xs">analytics</span>
-                  <p className="font-body-lg text-on-surface-variant">Nenhum pagamento confirmado nos últimos 12 meses.</p>
+                  <p className="font-body-lg text-on-surface-variant">Nenhum lançamento encontrado nos últimos 12 meses.</p>
                   <p className="text-xs text-outline">O gráfico usa apenas lançamentos marcados como Pago/Recebido.</p>
                 </div>
               ) : (
