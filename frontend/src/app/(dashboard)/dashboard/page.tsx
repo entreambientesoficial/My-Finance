@@ -91,6 +91,18 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
+  const { data: paidExpensesMonth = [] } = useQuery({
+    queryKey: ['paid-expenses-month', startOfMonth, endOfMonth],
+    queryFn: () => api.get(`/api/transactions?type=EXPENSE&isPaid=true&startDate=${startOfMonth}&endDate=${endOfMonth}&limit=100`).then((r) => r.data?.data || r.data || []),
+    staleTime: 60_000,
+  });
+
+  const { data: receivedIncomeMonth = [] } = useQuery({
+    queryKey: ['received-income-month', startOfMonth, endOfMonth],
+    queryFn: () => api.get(`/api/transactions?type=INCOME&isPaid=true&startDate=${startOfMonth}&endDate=${endOfMonth}&limit=100`).then((r) => r.data?.data || r.data || []),
+    staleTime: 60_000,
+  });
+
   // Extract logged in user profile
   const { data: me } = useQuery({
     queryKey: ['me'],
@@ -154,6 +166,8 @@ export default function DashboardPage() {
   const allBills = upcomingBills?.filter((b: any) => !b.isPaid) ?? [];
   const totalContasAPagar = allBills.reduce((sum: number, b: any) => sum + Number(b.amount || 0), 0);
   const contasAPagarCount = allBills.length;
+  const totalContasPagas = (paidExpensesMonth as any[]).reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  const contasPagasCount = (paidExpensesMonth as any[]).length;
 
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -163,6 +177,8 @@ export default function DashboardPage() {
   });
   const totalContasAReceber = upcomingIncome.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
   const contasAReceberCount = upcomingIncome.length;
+  const totalRecebido = (receivedIncomeMonth as any[]).reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+  const recebidoCount = (receivedIncomeMonth as any[]).length;
 
   const totalProventosRecebidos = Number(proventosData?.totalRecebido ?? 0);
   const totalProventosAReceber = Number(proventosData?.totalAReceber ?? 0);
@@ -334,46 +350,78 @@ export default function DashboardPage() {
             {/* Secondary KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-gutter -mt-2">
               {/* Contas a Pagar */}
-              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant custom-card-shadow flex flex-col h-[140px]">
-                <div className="flex justify-between items-start">
-                  <div className="w-8 h-8 bg-error/10 rounded-full flex items-center justify-center text-error">
-                    <span className="material-symbols-outlined text-[18px]">receipt_long</span>
-                  </div>
-                  <span className="font-label-sm text-[9px] text-error bg-error/10 px-1.5 py-0.5 rounded uppercase font-bold">A PAGAR</span>
-                </div>
-                <div className="mt-3 flex-1 flex flex-col justify-between">
-                  <div>
-                    <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Contas a Pagar</p>
-                    <h3 className="font-display text-lg md:text-xl text-primary font-bold">{formatCurrency(totalContasAPagar)}</h3>
-                  </div>
-                  <div className="flex items-center gap-xs">
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant custom-card-shadow flex flex-col overflow-hidden">
+                {/* Pendente */}
+                <div className="p-md flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-xs">
+                      <div className="w-6 h-6 bg-error/10 rounded-full flex items-center justify-center text-error">
+                        <span className="material-symbols-outlined text-[14px]">receipt_long</span>
+                      </div>
+                      <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider">A Pagar</p>
+                    </div>
                     {contasAPagarCount > 0
-                      ? <span className="text-[10px] font-bold bg-error/10 text-error px-xs py-0.5 rounded-full">{contasAPagarCount} lançto{contasAPagarCount !== 1 ? 's' : ''}</span>
-                      : <span className="text-outline text-[11px]">Nenhuma pendente no mês</span>
+                      ? <span className="text-[9px] font-bold bg-error/10 text-error px-1.5 py-0.5 rounded-full">{contasAPagarCount} lançto{contasAPagarCount !== 1 ? 's' : ''}</span>
+                      : <span className="text-[9px] text-outline">Nenhuma</span>
                     }
                   </div>
+                  <h3 className="font-display text-lg md:text-xl text-error font-bold">{formatCurrency(totalContasAPagar)}</h3>
+                </div>
+                {/* Divisor */}
+                <div className="border-t border-outline-variant/60 mx-md" />
+                {/* Pago */}
+                <div className="p-md flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-xs">
+                      <div className="w-6 h-6 bg-secondary/10 rounded-full flex items-center justify-center text-secondary">
+                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                      </div>
+                      <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider">Pago</p>
+                    </div>
+                    {contasPagasCount > 0
+                      ? <span className="text-[9px] font-bold bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full">{contasPagasCount} lançto{contasPagasCount !== 1 ? 's' : ''}</span>
+                      : <span className="text-[9px] text-outline">Nenhum</span>
+                    }
+                  </div>
+                  <h3 className="font-display text-lg md:text-xl text-secondary font-bold">{formatCurrency(totalContasPagas)}</h3>
                 </div>
               </div>
 
               {/* Contas a Receber */}
-              <div className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant custom-card-shadow flex flex-col h-[140px]">
-                <div className="flex justify-between items-start">
-                  <div className="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center text-secondary">
-                    <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-                  </div>
-                  <span className="font-label-sm text-[9px] text-secondary bg-secondary/10 px-1.5 py-0.5 rounded uppercase font-bold">A RECEBER</span>
-                </div>
-                <div className="mt-3 flex-1 flex flex-col justify-between">
-                  <div>
-                    <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider mb-0.5">Contas a Receber</p>
-                    <h3 className="font-display text-lg md:text-xl text-secondary font-bold">{formatCurrency(totalContasAReceber)}</h3>
-                  </div>
-                  <div className="flex items-center gap-xs">
+              <div className="bg-surface-container-lowest rounded-xl border border-outline-variant custom-card-shadow flex flex-col overflow-hidden">
+                {/* Pendente */}
+                <div className="p-md flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-xs">
+                      <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                        <span className="material-symbols-outlined text-[14px]">account_balance_wallet</span>
+                      </div>
+                      <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider">A Receber</p>
+                    </div>
                     {contasAReceberCount > 0
-                      ? <span className="text-[10px] font-bold bg-secondary/10 text-secondary px-xs py-0.5 rounded-full">{contasAReceberCount} lançto{contasAReceberCount !== 1 ? 's' : ''}</span>
-                      : <span className="text-outline text-[11px]">Nenhuma prevista no mês</span>
+                      ? <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">{contasAReceberCount} lançto{contasAReceberCount !== 1 ? 's' : ''}</span>
+                      : <span className="text-[9px] text-outline">Nenhuma</span>
                     }
                   </div>
+                  <h3 className="font-display text-lg md:text-xl text-primary font-bold">{formatCurrency(totalContasAReceber)}</h3>
+                </div>
+                {/* Divisor */}
+                <div className="border-t border-outline-variant/60 mx-md" />
+                {/* Recebido */}
+                <div className="p-md flex flex-col gap-1">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-xs">
+                      <div className="w-6 h-6 bg-secondary/10 rounded-full flex items-center justify-center text-secondary">
+                        <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                      </div>
+                      <p className="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider">Recebido</p>
+                    </div>
+                    {recebidoCount > 0
+                      ? <span className="text-[9px] font-bold bg-secondary/10 text-secondary px-1.5 py-0.5 rounded-full">{recebidoCount} lançto{recebidoCount !== 1 ? 's' : ''}</span>
+                      : <span className="text-[9px] text-outline">Nenhum</span>
+                    }
+                  </div>
+                  <h3 className="font-display text-lg md:text-xl text-secondary font-bold">{formatCurrency(totalRecebido)}</h3>
                 </div>
               </div>
 
