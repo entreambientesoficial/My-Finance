@@ -302,7 +302,7 @@ function EditTransactionModal({
                   className="w-4 h-4 text-secondary focus:ring-secondary border-outline-variant bg-surface-container-lowest" 
                 />
                 <span className="text-on-surface-variant group-hover:text-secondary transition-colors font-medium">
-                  {transactionType === 'INCOME' ? 'Recebido' : 'Pago / Efetivado'}
+                  {transactionType === 'INCOME' ? 'Recebido' : 'Pago'}
                 </span>
               </label>
               <label className="flex items-center gap-xs cursor-pointer group text-sm">
@@ -413,7 +413,7 @@ function StatusBadge({ type, isPaid, date }: { type: string; isPaid: boolean; da
     return (
       <span className="px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container text-xs font-bold flex items-center gap-1 w-fit">
         <span className="material-symbols-outlined text-sm">check_circle</span>
-        Efetivado
+        Pago
       </span>
     );
   }
@@ -1595,7 +1595,7 @@ export default function TransactionsPage() {
                         className="w-4 h-4 text-secondary focus:ring-secondary border-outline-variant bg-surface-container-lowest"
                       />
                       <span className="text-on-surface-variant group-hover:text-secondary transition-colors font-medium">
-                        {transactionType === 'INCOME' ? 'Recebido' : 'Pago / Efetivado'}
+                        {transactionType === 'INCOME' ? 'Recebido' : 'Pago'}
                       </span>
                     </label>
                     <label className="flex items-center gap-xs cursor-pointer group text-sm">
