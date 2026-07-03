@@ -49,10 +49,12 @@ function EditTransactionModal({
       toAccountId: transaction.toAccountId || '',
       cardId: transaction.cardId || '',
       isPaid: transaction.isPaid ? 'true' : 'false',
+      purchaseDate: transaction.purchaseDate ? new Date(transaction.purchaseDate).toISOString().slice(0, 10) : '',
     }
   });
 
   const transactionType = watch('type');
+  const editWatchCardId = watch('cardId');
 
   // Find initial parent and child IDs
   const initialCategoryId = transaction.categoryId || '';
@@ -276,8 +278,8 @@ function EditTransactionModal({
             <div className="flex flex-col gap-xs md:col-span-2">
               <label className="font-label-sm text-[10px] text-outline uppercase font-bold">CARTÃO DE CRÉDITO</label>
               <div className="relative">
-                <select 
-                  {...register('cardId')} 
+                <select
+                  {...register('cardId')}
                   className="w-full appearance-none px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all cursor-pointer text-sm"
                 >
                   <option value="">Nenhum (Debitado da conta)</option>
@@ -287,6 +289,19 @@ function EditTransactionModal({
                 </select>
                 <span className="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-outline-variant text-[18px]">credit_card</span>
               </div>
+            </div>
+          )}
+
+          {/* Purchase date — only for card transactions */}
+          {transactionType === 'EXPENSE' && editWatchCardId && (
+            <div className="md:col-span-2 flex flex-col gap-xs">
+              <label className="font-label-sm text-[10px] text-outline uppercase font-bold">DATA DA COMPRA</label>
+              <input
+                type="date"
+                {...register('purchaseDate')}
+                className="w-full px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all text-sm"
+              />
+              <p className="text-[11px] text-on-surface-variant">Opcional. Data real em que a compra foi feita (diferente do vencimento da fatura).</p>
             </div>
           )}
 
@@ -1047,6 +1062,12 @@ export default function TransactionsPage() {
                           <td className="px-md lg:px-sm py-md font-numeric text-xs whitespace-nowrap">
                             <div className="flex flex-col gap-0.5">
                               <span>{formatDateLong(t.date)}</span>
+                              {t.purchaseDate && t.purchaseDate.slice(0, 10) !== t.date.slice(0, 10) && (
+                                <span className="text-on-surface-variant text-[10px] flex items-center gap-0.5">
+                                  <span className="material-symbols-outlined text-[11px]">shopping_cart</span>
+                                  Compra {formatDateLong(t.purchaseDate)}
+                                </span>
+                              )}
                               {t.isPaid && t.paidDate && t.paidDate.slice(0, 10) !== t.date.slice(0, 10) && (
                                 <span className="text-secondary text-[10px] flex items-center gap-0.5">
                                   <span className="material-symbols-outlined text-[11px]">payments</span>
@@ -1571,6 +1592,19 @@ export default function TransactionsPage() {
                       Lançado na fatura do cartão. O saldo da conta só será afetado ao pagar a fatura.
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Purchase date — only for card transactions */}
+              {transactionType === 'EXPENSE' && watchCardId && (
+                <div className="md:col-span-2 flex flex-col gap-xs">
+                  <label className="font-label-sm text-[10px] text-outline uppercase font-bold">DATA DA COMPRA</label>
+                  <input
+                    type="date"
+                    {...register('purchaseDate')}
+                    className="w-full px-md py-sm rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-2 focus:ring-primary/10 font-body-md outline-none transition-all text-sm"
+                  />
+                  <p className="text-[11px] text-on-surface-variant">Opcional. Data real em que a compra foi feita (diferente do vencimento da fatura).</p>
                 </div>
               )}
 

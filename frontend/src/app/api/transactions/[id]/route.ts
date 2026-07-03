@@ -48,6 +48,7 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
         ...(body.date && { date: new Date(body.date).toISOString() }),
         ...(body.paidDate !== undefined && { paidDate: body.paidDate ? new Date(body.paidDate).toISOString() : null }),
         ...(body.isPaid === false && { paidDate: null }),
+        ...(body.purchaseDate !== undefined && { purchaseDate: body.purchaseDate ? new Date(body.purchaseDate).toISOString() : null }),
         ...(body.categoryId !== undefined && { categoryId: body.categoryId || null }),
         ...(body.accountId !== undefined && { accountId: body.accountId || null }),
         ...(body.toAccountId !== undefined && { toAccountId: body.toAccountId || null }),
