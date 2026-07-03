@@ -119,6 +119,11 @@ export default function AccountsPage() {
     enabled: !!activeEntityIdEarly,
   });
 
+  const { data: allCategories = [] } = useQuery({
+    queryKey: ['categories-all'],
+    queryFn: () => api.get('/api/categories').then((r) => r.data),
+  });
+
   const { data: goals = [] } = useQuery({
     queryKey: ['goals'],
     queryFn: () => api.get('/api/goals').then((r) => r.data),
@@ -245,7 +250,18 @@ export default function AccountsPage() {
   });
 
   const totalBalance = (accounts as any[]).reduce((sum, a) => sum + Number(a.balance), 0);
-  
+
+  // Category parent lookup for Atividade Recente
+  const catById: Record<string, any> = {};
+  for (const c of allCategories as any[]) catById[c.id] = c;
+  const resolveCategory = (catId: string | null) => {
+    if (!catId) return null;
+    const cat = catById[catId];
+    if (!cat) return null;
+    const parent = cat.parentId ? catById[cat.parentId] : null;
+    return parent ? { parent, sub: cat } : { parent: cat, sub: null };
+  };
+
   const activeEntityId = selectedEntityId || (accounts.length > 0 ? accounts[0].id : cards.length > 0 ? cards[0].id : null);
   
   const isCardSelected = cards.some((c: any) => c.id === activeEntityId);
@@ -405,6 +421,10 @@ export default function AccountsPage() {
                       const isIncome = tx.type === 'INCOME';
                       const iconName = isIncome ? 'payments' : (tx.category?.icon || 'shopping_bag');
                       const formattedDate = new Date(tx.date).toLocaleDateString('pt-BR', { month: 'short', day: 'numeric', year: 'numeric' });
+                      const resolved = resolveCategory(tx.categoryId || tx.category?.id || null);
+                      const parentCat = resolved?.parent;
+                      const subCat = resolved?.sub;
+                      const catColor = parentCat?.color || tx.category?.color || '#6b7280';
                       return (
                         <tr key={tx.id} className="hover:bg-surface-container-low/20 transition-colors">
                           <td className="px-lg py-md">
@@ -419,15 +439,21 @@ export default function AccountsPage() {
                             </div>
                           </td>
                           <td className="px-lg py-md">
-                            <span 
-                              className="px-md py-1 rounded-full font-label-sm text-label-sm"
-                              style={{ 
-                                backgroundColor: `${tx.category?.color || '#6b7280'}1A`,
-                                color: tx.category?.color || '#6b7280'
-                              }}
-                            >
-                              {tx.category?.name || (isIncome ? 'Receita' : 'Geral')}
-                            </span>
+                            {parentCat ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span
+                                  className="px-md py-0.5 rounded-full font-label-sm text-label-sm w-fit"
+                                  style={{ backgroundColor: `${catColor}1A`, color: catColor }}
+                                >
+                                  {parentCat.name}
+                                </span>
+                                {subCat && (
+                                  <span className="text-[10px] text-on-surface-variant pl-1">› {subCat.name}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-on-surface-variant text-sm">{isIncome ? 'Receita' : 'Geral'}</span>
+                            )}
                           </td>
                           <td className={cn(
                             "px-lg py-md text-right font-numeric text-numeric-data font-bold whitespace-nowrap",
