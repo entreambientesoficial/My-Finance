@@ -99,9 +99,24 @@ export default function AccountsPage() {
     queryFn: () => api.get('/api/cards').then((r) => r.data),
   });
 
+  // Compute active entity early so the transactions query can filter server-side
+  const activeEntityIdEarly = selectedEntityId || (accounts.length > 0 ? (accounts as any[])[0].id : cards.length > 0 ? (cards as any[])[0].id : null);
+  const isCardSelectedEarly = (cards as any[]).some((c: any) => c.id === activeEntityIdEarly);
+
   const { data: transactions = [] } = useQuery({
-    queryKey: ['recent-transactions-activity'],
-    queryFn: () => api.get('/api/transactions?limit=20').then((r) => r.data?.data || r.data || []),
+    queryKey: ['recent-transactions-activity', activeEntityIdEarly, isCardSelectedEarly],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      params.set('limit', '30');
+      params.set('sortBy', 'date');
+      params.set('sortDir', 'desc');
+      if (activeEntityIdEarly) {
+        if (isCardSelectedEarly) params.set('cardId', activeEntityIdEarly);
+        else params.set('accountId', activeEntityIdEarly);
+      }
+      return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data?.data || r.data || []);
+    },
+    enabled: !!activeEntityIdEarly,
   });
 
   const { data: goals = [] } = useQuery({
@@ -241,10 +256,8 @@ export default function AccountsPage() {
     cards.find((c: any) => c.id === activeEntityId)?.name ||
     'Nenhuma selecionada';
 
-  // Filter transactions for recent activity under the active entity (account or card)
-  const recentActivity = transactions.filter((t: any) => 
-    t.accountId === activeEntityId || t.cardId === activeEntityId
-  );
+  // Already filtered server-side; reverse DESC→ASC so newest appears at the bottom
+  const recentActivity = [...(transactions as any[])].reverse();
 
   return (
     <>
