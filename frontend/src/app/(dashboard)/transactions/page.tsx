@@ -1078,52 +1078,52 @@ export default function TransactionsPage() {
                           <td className="px-md lg:px-sm py-md">
                             <StatusBadge type={t.type} isPaid={t.isPaid} date={t.date} />
                           </td>
-                          <td className="px-md lg:px-sm py-md text-right">
-                            <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <td className="px-1 py-md text-right">
+                            <div className="flex items-center justify-end gap-0.5 opacity-80 group-hover:opacity-100 transition-opacity">
                               {isReal ? (
                                 <>
                                   <button
                                     onClick={() => handleTogglePaid(t)}
                                     className={cn(
-                                      "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                      "w-7 h-7 rounded-full flex items-center justify-center transition-colors",
                                       t.isPaid
                                         ? "text-on-surface-variant hover:bg-surface-container hover:text-amber-600"
                                         : "text-secondary hover:bg-secondary/15"
                                     )}
                                     title={t.isPaid ? 'Marcar como Pendente' : (t.type === 'INCOME' ? 'Marcar como Recebido' : 'Marcar como Pago')}
                                   >
-                                    <span className="material-symbols-outlined text-[20px]">
+                                    <span className="material-symbols-outlined text-[17px]">
                                       {t.isPaid ? 'undo' : 'check_circle'}
                                     </span>
                                   </button>
 
                                   <button
                                     onClick={() => setEditingTx(t)}
-                                    className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary"
+                                    className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary"
                                     title="Editar"
                                   >
-                                    <span className="material-symbols-outlined text-[20px]">edit</span>
+                                    <span className="material-symbols-outlined text-[17px]">edit</span>
                                   </button>
 
                                   <button
                                     onClick={() => setAttachTx(t)}
-                                    className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary relative"
+                                    className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-primary relative"
                                     title="Anexos"
                                   >
-                                    <span className="material-symbols-outlined text-[20px]">attach_file</span>
+                                    <span className="material-symbols-outlined text-[17px]">attach_file</span>
                                     {t.attachments?.length > 0 && (
-                                      <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-[#006c49] text-[9px] text-white rounded-full flex items-center justify-center font-bold">
+                                      <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#006c49] text-[8px] text-white rounded-full flex items-center justify-center font-bold">
                                         {t.attachments.length}
                                       </span>
                                     )}
                                   </button>
- 
+
                                   <button
                                     onClick={() => { if (confirm('Remover este lançamento?')) deleteMutation.mutate(t.id); }}
-                                    className="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-error"
+                                    className="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-error"
                                     title="Excluir"
                                   >
-                                    <span className="material-symbols-outlined text-[20px]">delete</span>
+                                    <span className="material-symbols-outlined text-[17px]">delete</span>
                                   </button>
                                 </>
                               ) : (
