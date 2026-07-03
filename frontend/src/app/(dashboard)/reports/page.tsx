@@ -96,6 +96,8 @@ export default function ReportsPage() {
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('limit', String(limit));
+      params.set('sortBy', 'date');
+      params.set('sortDir', 'asc');
       if (appliedFilters.categoryId) params.set('categoryId', appliedFilters.categoryId);
       if (appliedFilters.accountId)  params.set('accountId', appliedFilters.accountId);
       const { startDate, endDate } = getPeriodDates(appliedFilters.period);

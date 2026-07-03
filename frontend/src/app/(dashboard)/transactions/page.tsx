@@ -618,7 +618,7 @@ export default function TransactionsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [filters, setFilters] = useState<any>({ page: 1, limit: 25, sortBy: 'date', sortDir: 'desc' });
+  const [filters, setFilters] = useState<any>({ page: 1, limit: 25, sortBy: 'date', sortDir: 'asc' });
   const [selectedType, setSelectedType] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -738,9 +738,12 @@ export default function TransactionsPage() {
     },
   });
 
+  const [pendingPaidTx, setPendingPaidTx] = useState<any>(null);
+  const [pendingPaidDate, setPendingPaidDate] = useState('');
+
   const togglePaidMutation = useMutation({
-    mutationFn: ({ id, isPaid }: { id: string; isPaid: boolean }) =>
-      api.patch(`/api/transactions/${id}`, { isPaid }),
+    mutationFn: ({ id, isPaid, paidDate }: { id: string; isPaid: boolean; paidDate?: string | null }) =>
+      api.patch(`/api/transactions/${id}`, { isPaid, paidDate }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['monthly-summary'] });
@@ -750,6 +753,21 @@ export default function TransactionsPage() {
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao atualizar'),
   });
+
+  function handleTogglePaid(t: any) {
+    if (t.isPaid) {
+      togglePaidMutation.mutate({ id: t.id, isPaid: false, paidDate: null });
+    } else {
+      const today = new Date().toISOString().slice(0, 10);
+      const txDate = t.date ? t.date.slice(0, 10) : today;
+      if (today !== txDate) {
+        setPendingPaidDate(today);
+        setPendingPaidTx(t);
+      } else {
+        togglePaidMutation.mutate({ id: t.id, isPaid: true, paidDate: today });
+      }
+    }
+  }
 
   function exportCsv() {
     const params = new URLSearchParams();
@@ -1026,7 +1044,17 @@ export default function TransactionsPage() {
                       const isReal = true;
                       return (
                         <tr key={t.id} className="hover:bg-surface-container-low/20 transition-colors group">
-                          <td className="px-md lg:px-sm py-md font-numeric text-xs whitespace-nowrap">{formatDateLong(t.date)}</td>
+                          <td className="px-md lg:px-sm py-md font-numeric text-xs whitespace-nowrap">
+                            <div className="flex flex-col gap-0.5">
+                              <span>{formatDateLong(t.date)}</span>
+                              {t.isPaid && t.paidDate && t.paidDate.slice(0, 10) !== t.date.slice(0, 10) && (
+                                <span className="text-secondary text-[10px] flex items-center gap-0.5">
+                                  <span className="material-symbols-outlined text-[11px]">payments</span>
+                                  Pago {formatDateLong(t.paidDate)}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-md lg:px-sm py-md">
                             <div className="flex flex-col max-w-[200px] lg:max-w-[260px]">
                               <div className="flex items-center gap-1.5">
@@ -1055,11 +1083,11 @@ export default function TransactionsPage() {
                               {isReal ? (
                                 <>
                                   <button
-                                    onClick={() => togglePaidMutation.mutate({ id: t.id, isPaid: !t.isPaid })}
+                                    onClick={() => handleTogglePaid(t)}
                                     className={cn(
                                       "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                      t.isPaid 
-                                        ? "text-on-surface-variant hover:bg-surface-container hover:text-amber-600" 
+                                      t.isPaid
+                                        ? "text-on-surface-variant hover:bg-surface-container hover:text-amber-600"
                                         : "text-secondary hover:bg-secondary/15"
                                     )}
                                     title={t.isPaid ? 'Marcar como Pendente' : (t.type === 'INCOME' ? 'Marcar como Recebido' : 'Marcar como Pago')}
@@ -1267,7 +1295,7 @@ export default function TransactionsPage() {
                     {isReal ? (
                       <>
                         <button
-                          onClick={() => togglePaidMutation.mutate({ id: t.id, isPaid: !t.isPaid })}
+                          onClick={() => handleTogglePaid(t)}
                           className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant"
                           title="Atualizar Status"
                         >
@@ -1686,6 +1714,46 @@ export default function TransactionsPage() {
             importOfxFileRef={importOfxFileRef}
           />
         </Modal>
+      )}
+
+      {/* ─── MODAL: CONFIRMAR DATA DE PAGAMENTO ─── */}
+      {pendingPaidTx && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-outline-variant rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div>
+              <h2 className="font-headline text-headline-md text-primary font-bold">Confirmar Pagamento</h2>
+              <p className="text-sm text-on-surface-variant mt-1">
+                Vencimento: <span className="font-semibold text-on-surface">{formatDateLong(pendingPaidTx.date)}</span>
+              </p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">Data do Pagamento</label>
+              <input
+                type="date"
+                value={pendingPaidDate}
+                onChange={(e) => setPendingPaidDate(e.target.value)}
+                className="w-full bg-surface-container border border-outline-variant rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary"
+              />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setPendingPaidTx(null)}
+                className="flex-1 py-2.5 rounded-xl border border-outline-variant text-on-surface-variant text-sm hover:bg-surface-container transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  togglePaidMutation.mutate({ id: pendingPaidTx.id, isPaid: true, paidDate: pendingPaidDate });
+                  setPendingPaidTx(null);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-secondary text-on-secondary text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ─── MODAL: EDITAR LANÇAMENTO ─── */}

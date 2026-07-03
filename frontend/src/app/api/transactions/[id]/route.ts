@@ -46,6 +46,8 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
       const updateData: any = {
         ...body,
         ...(body.date && { date: new Date(body.date).toISOString() }),
+        ...(body.paidDate !== undefined && { paidDate: body.paidDate ? new Date(body.paidDate).toISOString() : null }),
+        ...(body.isPaid === false && { paidDate: null }),
         ...(body.categoryId !== undefined && { categoryId: body.categoryId || null }),
         ...(body.accountId !== undefined && { accountId: body.accountId || null }),
         ...(body.toAccountId !== undefined && { toAccountId: body.toAccountId || null }),
