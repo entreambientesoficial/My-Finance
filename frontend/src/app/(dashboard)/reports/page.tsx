@@ -42,6 +42,7 @@ export default function ReportsPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedAccount, setSelectedAccount] = useState('');
   const [page, setPage] = useState(1);
+  const [hoveredSlice, setHoveredSlice] = useState<{ name: string; total: number; color: string } | null>(null);
   const limit = 10;
 
   // Active filters applied on click
@@ -313,29 +314,43 @@ export default function ReportsPage() {
                   <p className="text-[11px] text-outline px-sm">Tente mudar o período de busca ou selecionar outra conta bancária.</p>
                 </div>
               ) : (
-                <div className="w-44 h-44 flex items-center justify-center relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie 
-                        data={byCategory} 
-                        dataKey="total" 
-                        nameKey="name" 
-                        cx="50%" 
-                        cy="50%" 
-                        innerRadius={58} 
-                        outerRadius={74} 
-                        paddingAngle={2.5}
-                      >
-                        {byCategory.map((entry: any, i: number) => (
-                          <Cell key={i} fill={entry.color || '#6b7280'} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-high)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute text-center flex flex-col justify-center items-center pointer-events-none">
-                    <span className="block font-numeric text-[18px] text-primary font-bold tracking-tight">{formatCurrency(totalExpenses)}</span>
-                    <span className="font-label-sm text-[9px] text-on-surface-variant uppercase font-bold tracking-wider">Total</span>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-44 h-44 flex items-center justify-center relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={byCategory}
+                          dataKey="total"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={58}
+                          outerRadius={74}
+                          paddingAngle={2.5}
+                          onMouseEnter={(data) => setHoveredSlice(data)}
+                          onMouseLeave={() => setHoveredSlice(null)}
+                        >
+                          {byCategory.map((entry: any, i: number) => (
+                            <Cell key={i} fill={entry.color || '#6b7280'} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute text-center flex flex-col justify-center items-center pointer-events-none">
+                      <span className="block font-numeric text-[18px] text-primary font-bold tracking-tight">{formatCurrency(totalExpenses)}</span>
+                      <span className="font-label-sm text-[9px] text-on-surface-variant uppercase font-bold tracking-wider">Total</span>
+                    </div>
+                  </div>
+                  <div className="h-8 flex items-center justify-center">
+                    {hoveredSlice ? (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-lg border border-outline-variant">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: hoveredSlice.color }} />
+                        <span className="text-xs font-semibold text-on-surface">{hoveredSlice.name}</span>
+                        <span className="text-xs text-on-surface-variant">{formatCurrency(hoveredSlice.total)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-on-surface-variant opacity-50">Passe o mouse sobre o gráfico</span>
+                    )}
                   </div>
                 </div>
               )}
@@ -524,28 +539,41 @@ export default function ReportsPage() {
               <div className="py-8 text-center text-outline text-xs">Sem despesas registradas no período.</div>
             ) : (
               <>
-                <div className="w-36 h-36 flex items-center justify-center relative my-md">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie 
-                        data={byCategory} 
-                        dataKey="total" 
-                        nameKey="name" 
-                        cx="50%" 
-                        cy="50%" 
-                        innerRadius={46} 
-                        outerRadius={58} 
-                        paddingAngle={2}
-                      >
-                        {byCategory.map((entry: any, i: number) => (
-                          <Cell key={i} fill={entry.color || '#6b7280'} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute text-center flex flex-col justify-center items-center pointer-events-none">
-                    <span className="block font-numeric text-xs font-bold text-primary">{formatCurrency(totalExpenses)}</span>
-                    <span className="font-label-sm text-[8px] text-on-surface-variant uppercase font-bold tracking-wider">Total</span>
+                <div className="flex flex-col items-center gap-2 my-md">
+                  <div className="w-36 h-36 flex items-center justify-center relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={byCategory}
+                          dataKey="total"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={46}
+                          outerRadius={58}
+                          paddingAngle={2}
+                          onMouseEnter={(data) => setHoveredSlice(data)}
+                          onMouseLeave={() => setHoveredSlice(null)}
+                        >
+                          {byCategory.map((entry: any, i: number) => (
+                            <Cell key={i} fill={entry.color || '#6b7280'} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute text-center flex flex-col justify-center items-center pointer-events-none">
+                      <span className="block font-numeric text-xs font-bold text-primary">{formatCurrency(totalExpenses)}</span>
+                      <span className="font-label-sm text-[8px] text-on-surface-variant uppercase font-bold tracking-wider">Total</span>
+                    </div>
+                  </div>
+                  <div className="h-7 flex items-center justify-center">
+                    {hoveredSlice && (
+                      <div className="flex items-center gap-2 px-3 py-1 bg-surface-container rounded-lg border border-outline-variant">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hoveredSlice.color }} />
+                        <span className="text-xs font-semibold text-on-surface">{hoveredSlice.name}</span>
+                        <span className="text-xs text-on-surface-variant">{formatCurrency(hoveredSlice.total)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
