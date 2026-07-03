@@ -32,10 +32,28 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     }
 
     const supabase = createAdminClient();
+
+    // Fetch all categories to resolve parent hierarchy
+    const { data: allCats } = await supabase
+      .from('categories')
+      .select('id, name, color, icon, parentId')
+      .eq('householdId', user.householdId);
+
+    // Map: categoryId → effective parent category (or itself if top-level)
+    const catById: Record<string, any> = {};
+    for (const c of allCats ?? []) catById[c.id] = c;
+
+    const resolveParent = (catId: string | null) => {
+      if (!catId) return null;
+      const cat = catById[catId];
+      if (!cat) return null;
+      return cat.parentId && catById[cat.parentId] ? catById[cat.parentId] : cat;
+    };
+
     const isPaidParam = sp.get('isPaid');
     let q = supabase
       .from('transactions')
-      .select('*, category:categories(name, color, icon)')
+      .select('id, amount, description, categoryId')
       .eq('householdId', user.householdId)
       .eq('type', 'EXPENSE')
       .gte('date', startDate)
@@ -48,9 +66,16 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     const byCategory: Record<string, any> = {};
     for (const t of transactions ?? []) {
       if (isCardPayment(t.description || '')) continue;
-      const key = t.categoryId || '__sem_categoria';
+      const parent = resolveParent(t.categoryId);
+      const key = parent?.id || '__sem_categoria';
       if (!byCategory[key]) {
-        byCategory[key] = { name: t.category?.name || 'Sem categoria', color: t.category?.color || '#6b7280', icon: t.category?.icon || 'more_horiz', total: 0, count: 0 };
+        byCategory[key] = {
+          name: parent?.name || 'Sem categoria',
+          color: parent?.color || '#6b7280',
+          icon: parent?.icon || 'more_horiz',
+          total: 0,
+          count: 0,
+        };
       }
       byCategory[key].total += Number(t.amount);
       byCategory[key].count++;
