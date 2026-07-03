@@ -251,9 +251,12 @@ export default function AccountsPage() {
 
   const totalBalance = (accounts as any[]).reduce((sum, a) => sum + Number(a.balance), 0);
 
-  // Category parent lookup for Atividade Recente
+  // Category parent lookup for Atividade Recente (API returns parents with nested children)
   const catById: Record<string, any> = {};
-  for (const c of allCategories as any[]) catById[c.id] = c;
+  for (const p of allCategories as any[]) {
+    catById[p.id] = { ...p, parentId: null };
+    for (const c of p.children || []) catById[c.id] = { ...c, parentId: p.id };
+  }
   const resolveCategory = (catId: string | null) => {
     if (!catId) return null;
     const cat = catById[catId];
