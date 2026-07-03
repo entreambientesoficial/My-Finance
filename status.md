@@ -1,8 +1,8 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-06-24
-> Stack atual: Next.js 14 App Router + PostgreSQL (Supabase) + Prisma + JWT manual
-> Stack alvo: Next.js 14 App Router + Supabase client + Supabase Auth (sem Prisma runtime, sem JWT manual)
+> Atualizado em: 2026-07-03
+> Stack: Next.js 14 App Router + Supabase Auth + Supabase JS client + Cloudflare Pages
+> App em produção: https://my-finance-my.pages.dev
 
 ---
 
@@ -10,81 +10,104 @@
 
 SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários por household (casa/família), com contas bancárias, cartões de crédito, lançamentos, orçamentos, metas, investimentos e relatórios.
 
-**Acesso local:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
-- Swagger Docs: http://localhost:3001/api/docs
-- PostgreSQL: Supabase — `db.qovqkvcvlrzmtvufursn.supabase.co`
-- Redis: não utilizado (removido)
+**App em produção:** https://my-finance-my.pages.dev (Cloudflare Pages, deploy automático no push para `master`)
+
+**Repo:** `entreambientesoficial/My-Finance` — branch `master`
+
+**Stack definitiva (sem backend separado):**
+- Next.js 14 App Router + Edge Runtime (`export const runtime = 'edge'` em todas as rotas)
+- Supabase Auth (Google OAuth + email/senha)
+- Supabase JS client (admin client com `SUPABASE_SERVICE_KEY` service_role para bypassar RLS)
+- `withAuth` middleware em `frontend/src/lib/with-auth.ts` — todas as rotas de API usam isso
+- Cloudflare Pages — projeto `my-finance-my`
+
+**Variáveis de ambiente (Cloudflare Pages):**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_KEY` (service_role JWT legado — formato `eyJ...`, não `sb_secret_`)
+- `NEXT_PUBLIC_APP_URL` = `https://my-finance-my.pages.dev`
+- `BRAPI_TOKEN` (brapi.dev para cotações sem rate limit)
+
+**Regras críticas do banco (aprendidas na prática):**
+- `id: crypto.randomUUID()` obrigatório em todos os inserts (Prisma não gera UUID no Supabase)
+- `updatedAt: new Date().toISOString()` obrigatório em todos os inserts
+- FK ambígua em `transactions`: usar `account:accounts!accountId(...)` e `toAccount:accounts!toAccountId(...)`
+- householdId deve filtrar TODAS as queries (isolamento multi-tenant)
 
 ---
 
-## Próxima Etapa
-- [x] Desenvolvimento e melhorias de UX/UI na tela: **Relatórios**
-- [x] Revisar comportamento de Categorias & Subcategorias na tela de **Transações**
-- [x] Refatorar e aprimorar a tela de **Configurações** (Perfil, Família e Categorias)
-- [x] **Auditoria e hardening de segurança** (2026-06-22)
-- [x] **Correções pós-auditoria:** logout inesperado, orçamentos, OFX, LGPD (2026-06-23)
-- [x] **PWA, Google OAuth, middleware JWT, correção "Alex Rivera"** (2026-06-23)
-- [x] **Tentativa de deploy Cloudflare Pages** — fracassou por incompatibilidade Prisma + Edge Runtime (2026-06-24, ver log)
-- [x] **Hard reset** para commit `251e1b9` — codebase voltou ao estado de 2026-06-23 noite
-- [x] **FASE 5 — Migração Supabase Auth + Supabase client** — CONCLUÍDA (2026-06-24)
-- [x] **Build Cloudflare Pages passando** — commit `803fd11` (2026-06-24)
-- [ ] **PRÓXIMO PASSO IMEDIATO:** Adicionar variáveis de ambiente no Cloudflare Pages ← FAZER PRIMEIRO
-- [ ] **Pós-deploy — Revisão geral de integrações** (Supabase, GitHub, Google Cloud)
+## Status Atual (2026-06-30)
+
+✅ **APP EM PRODUÇÃO — compartilhado com amigos e família para validação**
+
+Anderson aguarda ~1 mês de feedback real antes de decidir sobre viabilidade comercial. Caso de uso prioritário para validação: **recebimento de dividendos**.
 
 ---
 
-## ⚠️ PRÓXIMO PASSO — Cloudflare Pages sem variáveis de ambiente
+## Funcionalidades Implementadas
 
-O build está passando mas o app retorna 500 porque o projeto `my-finance-my` não tem variáveis configuradas.
+| Área | Status |
+|------|--------|
+| Auth (Google OAuth + email/senha) | ✅ |
+| Contas bancárias (CRUD + saldo automático) | ✅ |
+| Cartões de crédito (CRUD + fatura + pagar fatura) | ✅ |
+| Transações (CRUD + recorrência + parcelamento + CSV/OFX import + anexos) | ✅ |
+| Categorias hierárquicas (CRUD + subcategorias) | ✅ |
+| Orçamentos | ✅ |
+| Metas | ✅ |
+| Investimentos (B3, FIIs, Ações EUA, Renda Fixa CDI, Cripto, Poupança) | ✅ |
+| Proventos/dividendos via brapi.dev | ✅ |
+| Dashboard com KPIs mensais + anuais + gráficos | ✅ |
+| Relatórios (fluxo de caixa, categorias, export PDF/CSV) | ✅ |
+| PWA (instalável no celular e desktop) | ✅ |
+| Sessões independentes por dispositivo | ✅ |
+| Notificações (sino com contas vencendo) | ✅ |
 
-**Cloudflare Pages → my-finance-my → Settings → Variables and secrets → + Add**
+---
 
-| Variável | De onde pegar | Tipo |
-|----------|---------------|------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL | Text |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → anon key | Text |
-| `SUPABASE_SERVICE_KEY` | Supabase → Project Settings → API → service_role key | Secret |
-| `NEXT_PUBLIC_APP_URL` | `https://my-finance-my.pages.dev` | Text |
+## Próximas Etapas (Para Produto Comercial)
 
-Após salvar → clicar em **Redeploy** para o build rodar com as variáveis.
+### Obrigatório:
+- [ ] **Onboarding** — usuário novo cai em dashboard vazio sem orientação
+- [ ] **Landing page** — hoje o app abre direto no login
+- [ ] **Planos e cobrança** — Stripe + limites por plano
+- [ ] **Convite de membros do household** — base (householdId) já existe, falta UI
+- [ ] **Suporte** — canal de contato, FAQ, política de privacidade, termos de uso
 
-**Observação importante:** `NEXT_PUBLIC_*` precisam estar disponíveis no momento do build (não só no runtime) para serem embutidas no Next.js.
+### Melhorias desejáveis:
+- [ ] Atualização automática de valor atual para BOND (hoje é manual)
+- [ ] Filtro por tipo de ativo na tela de investimentos
+- [ ] Histórico de transações por conta
+- [ ] Suporte a venda de ativos
+- [ ] Animações discretas e microinterações (hoje estáticas)
+- [ ] Mais estados vazios ("empty states") ricos e ilustrados
+- [ ] **Proventos — entrada manual** *(aguardando teste, ver abaixo)*
+
+### ⏳ Aguardando validação (2026-07-02):
+- **Proventos de FIIs não aparecem após sync:** GARE11 (data-com 30/06) e GGRC11 (data-com 01/07) não apareceram em "Proventos a Receber" mesmo após clicar "Atualizar Cotações". Suspeita: delay de 1–3 dias do brapi.dev para dividendos recém-declarados. Anderson vai aguardar até ~05/07 para ver se os dados aparecem automaticamente. Se não aparecerem, avaliar implementação de entrada manual de proventos. MRVL (ação EUA) confirmado como limitação permanente do brapi.dev — precisará de solução separada.
 
 ---
 
 ## Como Rodar Localmente
 
 ```bash
-# 1. Backend (banco no Supabase — não precisa docker-compose)
-cd backend
-copy .env.example .env        # Windows — preencha as senhas
-npm install
-npx prisma migrate deploy      # aplica todas as migrations no Supabase
-npx prisma db seed             # popula com dados de demonstração
-npm run start:dev
-
-# 2. Frontend (outro terminal)
 cd frontend
-copy .env.example .env.local  # Windows
+copy .env.local.example .env.local   # Windows — preencha as variáveis Supabase
 npm install
 npm run dev
+# App disponível em http://localhost:3000
 ```
 
-**Login de demonstração:** demo@myfinance.com / demo123
+**Variáveis necessárias em `frontend/.env.local`:**
+```
+NEXT_PUBLIC_SUPABASE_URL=https://qovqkvcvlrzmtvufursn.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_KEY=eyJ...          # service_role key (não anon!)
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+BRAPI_TOKEN=...                      # opcional para cotações
+```
 
-> **Configurar `.env` do backend:**
-> - `DATABASE_URL` → transaction pooler do Supabase (porta 6543)
-> - `DIRECT_URL` → conexão direta do Supabase (porta 5432) — usada nas migrations
-> - Ambas as URLs estão no formato correto no `.env.example` — só substituir `[YOUR-PASSWORD]`
-> - Senha: Supabase Dashboard → Project Settings → Database → Database password
->
-> **Pasta de anexos** (criar manualmente — ignorada pelo git):
-> ```bash
-> mkdir -p backend/uploads/attachments   # Linux/Mac
-> md backend\uploads\attachments         # Windows
-> ```
+> **Não existe mais backend separado.** Toda a lógica de negócio está em `frontend/src/app/api/**`.
 
 ---
 
@@ -92,60 +115,48 @@ npm run dev
 
 ```
 MY-FINANCE/
-├── status.md                  ← Este arquivo
-├── docker-compose.yml         ← PostgreSQL 16 + Redis 7
+├── status.md                        ← Este arquivo
 ├── .gitignore
 │
-├── backend/                   ← NestJS API (porta 3001)
-│   ├── src/
-│   │   ├── main.ts            ← Bootstrap, Swagger, CORS
-│   │   ├── app.module.ts      ← Módulo raiz
-│   │   ├── prisma/            ← PrismaService (global)
-│   │   ├── auth/              ← Register, Login, Refresh, Logout (JWT)
-│   │   ├── users/             ← Perfil do usuário
-│   │   ├── households/        ← Casa/família, resumo financeiro
-│   │   ├── accounts/          ← Contas bancárias (CRUD)
-│   │   ├── cards/             ← Cartões de crédito (CRUD + freeze + fatura)
-│   │   ├── categories/        ← Categorias hierárquicas (CRUD)
-│   │   ├── transactions/      ← Lançamentos com paginação, filtros, CSV/OFX import, anexos
-│   │   ├── budgets/           ← Orçamentos com progresso real
-│   │   ├── goals/             ← Metas financeiras com aporte
-│   │   ├── investments/       ← Carteira de investimentos com P&L
-│   │   ├── reports/           ← Fluxo de caixa, categorias, patrimônio, export PDF
-│   │   ├── mail/              ← MailService global (nodemailer, graceful no-op sem SMTP)
-│   │   └── notifications/     ← Jobs agendados (cron) para alertas de e-mail
-│   └── prisma/
-│       ├── schema.prisma      ← 10 entidades definidas
-│       └── seed.ts            ← Dados de demonstração
-│
-├── frontend/                  ← Next.js 14 App Router (porta 3000)
-│   └── src/
-│       ├── app/
-│       │   ├── (auth)/
-│       │   │   ├── login/     ← Página de login
-│       │   │   └── register/  ← Página de cadastro
-│       │   └── (dashboard)/
-│       │       ├── layout.tsx ← Layout com sidebar
-│       │       ├── dashboard/ ← Dashboard principal
-│       │       ├── accounts/  ← Contas & Cartões
-│       │       ├── transactions/ ← Lista + CSV/OFX import + filtros + anexos
-│       │       ├── budgets/   ← Orçamento com barras de progresso
-│       │       ├── goals/     ← Metas com aporte direto
-│       │       ├── investments/ ← Carteira com P&L
-│       │       ├── reports/   ← Relatórios com gráficos + export PDF
-│       │       └── settings/  ← Perfil, Família, Categorias, Convites
-│       ├── components/
-│       │   └── layout/
-│       │       └── Sidebar.tsx ← Sidebar de navegação
-│       ├── lib/
-│       │   ├── api.ts         ← Axios client com refresh automático
-│       │   └── utils.ts       ← formatCurrency, formatDate, etc.
-│       └── (auth)/
-│           ├── login/         ← Página de login
-│           ├── register/      ← Página de cadastro
-│           └── accept-invite/ ← Aceitar convite de household (token URL)
-│
-└── stitch_smart_home_finance_pro/  ← Protótipo visual original (referência)
+└── frontend/                        ← Next.js 14 App Router (porta 3000 local)
+    └── src/
+        ├── app/
+        │   ├── (auth)/
+        │   │   ├── login/           ← Login (email/senha + Google OAuth)
+        │   │   ├── register/        ← Cadastro
+        │   │   └── accept-invite/   ← Convite de household (token URL)
+        │   ├── api/                 ← Rotas de API (Edge Runtime)
+        │   │   ├── auth/            ← login, register, logout, me, google
+        │   │   ├── accounts/        ← CRUD contas + [id]
+        │   │   ├── cards/           ← CRUD cartões + invoice + freeze
+        │   │   ├── categories/      ← CRUD categorias + [id]
+        │   │   ├── transactions/    ← CRUD + import CSV/OFX + anexos
+        │   │   ├── budgets/         ← CRUD + progresso
+        │   │   ├── goals/           ← CRUD + aportes
+        │   │   ├── investments/     ← CRUD + portfolio
+        │   │   ├── reports/         ← cash-flow, expenses-by-category, upcoming-bills, export
+        │   │   ├── household/       ← dados da família
+        │   │   └── notifications/   ← contas vencendo
+        │   └── (dashboard)/
+        │       ├── layout.tsx       ← Layout com sidebar + header
+        │       ├── dashboard/       ← Dashboard principal (KPIs + gráficos)
+        │       ├── accounts/        ← Contas & Cartões
+        │       ├── transactions/    ← Lista + filtros + import + anexos
+        │       ├── budgets/         ← Orçamentos com progresso
+        │       ├── goals/           ← Metas com aporte
+        │       ├── investments/     ← Carteira com P&L + proventos
+        │       ├── reports/         ← Fluxo de caixa + categorias + export
+        │       └── settings/        ← Perfil, Família, Categorias, Privacidade
+        ├── components/
+        │   └── layout/
+        │       └── Sidebar.tsx
+        └── lib/
+            ├── supabase/
+            │   ├── admin.ts         ← createAdminClient() — service_role
+            │   └── client.ts        ← createBrowserClient() — anon
+            ├── with-auth.ts         ← Middleware JWT para todas as rotas de API
+            ├── api.ts               ← Axios client (frontend → Next.js API)
+            └── utils.ts             ← formatCurrency, formatDate, etc.
 ```
 
 ---
@@ -318,114 +329,211 @@ Após o sistema estar funcionando em produção, revisar cada serviço externo:
 
 ---
 
-## API Endpoints Disponíveis
+## API Routes (Next.js — todos com Edge Runtime)
 
 ```
-POST   /auth/register
-POST   /auth/login
-POST   /auth/refresh
-POST   /auth/logout
+POST   /api/auth/login
+POST   /api/auth/register
+POST   /api/auth/logout
+GET    /api/auth/me
+GET    /api/auth/google         ← OAuth callback
 
-GET    /users/me
-PATCH  /users/me
+GET    /api/accounts            GET/POST
+GET    /api/accounts/[id]       GET/PATCH/DELETE
 
-GET    /households/mine
-GET    /households/mine/summary
-PATCH  /households/mine
+GET    /api/cards               GET/POST
+GET    /api/cards/[id]          GET/PATCH/DELETE
+PATCH  /api/cards/[id]/freeze
+GET    /api/cards/[id]/invoice?month=&year=
 
-GET    /accounts
-POST   /accounts
-GET    /accounts/:id
-PATCH  /accounts/:id
-DELETE /accounts/:id
+GET    /api/categories          GET/POST
+PATCH  /api/categories/[id]     PATCH/DELETE
 
-GET    /cards
-POST   /cards
-GET    /cards/:id
-PATCH  /cards/:id
-PATCH  /cards/:id/freeze
-GET    /cards/:id/invoice?month=&year=
-DELETE /cards/:id
+GET    /api/transactions        GET/POST (filtros: type,categoryId,accountId,startDate,endDate,isPaid,page,limit)
+GET    /api/transactions/[id]   GET/PATCH/DELETE
+POST   /api/transactions/import/csv
+POST   /api/transactions/import/ofx
+POST   /api/transactions/[id]/attachments
+DELETE /api/transactions/[id]/attachments/[filename]
 
-GET    /categories?type=
-POST   /categories
-PATCH  /categories/:id
-DELETE /categories/:id
+GET    /api/budgets             GET/POST
+GET    /api/budgets/progress?month=&year=
+PATCH  /api/budgets/[id]        PATCH/DELETE
 
-GET    /transactions?type=&categoryId=&accountId=&startDate=&endDate=&page=&limit=
-POST   /transactions
-GET    /transactions/summary/monthly?month=&year=
-GET    /transactions/:id
-PATCH  /transactions/:id
-DELETE /transactions/:id
+GET    /api/goals               GET/POST
+POST   /api/goals/[id]/progress
+PATCH  /api/goals/[id]          PATCH/DELETE
 
-GET    /budgets?month=&year=
-POST   /budgets
-GET    /budgets/progress?month=&year=
-PATCH  /budgets/:id
-DELETE /budgets/:id
+GET    /api/investments         GET/POST
+GET    /api/investments/portfolio
+PATCH  /api/investments/[id]    PATCH/DELETE
 
-GET    /goals
-POST   /goals
-POST   /goals/:id/progress
-PATCH  /goals/:id
-DELETE /goals/:id
+GET    /api/reports/cash-flow?months=
+GET    /api/reports/expenses-by-category?startDate=&endDate=&isPaid=
+GET    /api/reports/upcoming-bills?startDate=&endDate=
+GET    /api/reports/export/transactions.csv
+GET    /api/reports/export/summary.pdf
 
-GET    /investments
-POST   /investments
-GET    /investments/portfolio
-PATCH  /investments/:id
-DELETE /investments/:id
-
-GET    /reports/cash-flow?months=
-GET    /reports/expenses-by-category?month=&year=
-GET    /reports/net-worth
-GET    /reports/upcoming-bills?daysAhead=
-GET    /reports/export/transactions.csv?type=&startDate=&endDate=
-GET    /reports/export/summary.pdf
-
-POST   /transactions/import/csv        (multipart: file + accountId?)
-POST   /transactions/import/ofx        (multipart: file + accountId?)
-POST   /transactions/:id/attachments   (multipart: file)
-DELETE /transactions/:id/attachments/:filename
-```
-
----
-
-## Variáveis de Ambiente
-
-### backend/.env
-```
-# Transaction pooler — runtime queries
-DATABASE_URL="postgresql://postgres.qovqkvcvlrzmtvufursn:[PASSWORD]@aws-0-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1"
-# Conexão direta — migrations
-DIRECT_URL="postgresql://postgres:[PASSWORD]@db.qovqkvcvlrzmtvufursn.supabase.co:5432/postgres"
-
-JWT_SECRET="change-this-secret-in-production-min-32-chars"
-JWT_EXPIRES_IN="15m"
-JWT_REFRESH_SECRET="change-this-refresh-secret-in-production-min-32-chars"
-JWT_REFRESH_EXPIRES_IN="7d"
-PORT=3001
-NODE_ENV=development
-FRONTEND_URL="http://localhost:3000"
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASS=
-SMTP_FROM="MY-FINANCE <no-reply@myfinance.app>"
-```
-
-### frontend/.env.local
-```
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=change-this-secret-min-32-chars
-BACKEND_URL=http://localhost:3001
-NEXT_PUBLIC_API_URL=http://localhost:3001
+GET    /api/household
+PATCH  /api/household
+GET    /api/notifications
 ```
 
 ---
 
 ## Log de Alterações
+
+### 2026-07-03 — UX/UI Polish + Novas Funcionalidades
+
+#### 🐛 Fluxo de Caixa — Incluir lançamentos pendentes
+- Gráfico "Fluxo de Caixa Consolidado" só mostrava transações `isPaid=true`, ficando zerado nos meses sem baixas. Corrigido: filtro `isPaid` removido do endpoint `/api/reports/cash-flow`. Agora mostra todos os lançamentos (pagos + pendentes). Subtítulo atualizado. Commit: `771151c`
+
+#### 🏷️ Status "Efetivado" → "Pago"
+- Badge de status na tabela de transações renomeado de "Efetivado" para "Pago". Rótulo nos formulários também atualizado. Status ficam: **Pago**, **Pendente**, **Atrasado**, **Transferido**. Commit: `0b778a1`
+
+#### 🔍 Atividade Recente (Contas & Cartões) — dois fixes
+- **Transação faltando:** query buscava 20 transações de todas as contas misturadas; parcelas futuras de IPTU consumiam o limite antes de chegar em transações do dia. Corrigido: query agora passa `accountId` ou `cardId` para a API filtrar no servidor, trazendo 30 transações específicas da conta/cartão selecionado.
+- **Ordem crescente:** lista exibia mais recentes no topo. Corrigido: busca DESC no servidor e reverte para exibição ASC (mais antigas no topo, mais recentes no final). Commit: `5c50723`
+
+#### 🗂️ Atividade Recente — Categoria resolve pai
+- Coluna "Categoria" mostrava subcategoria diretamente (ex: "Padaria"). Corrigido: busca todas as categorias, constrói mapa pai/filho, exibe categoria pai colorida + subcategoria em cinza abaixo. Fix posterior ao bug de indexação do array `children` da API. Commits: `a4af491`, `452d631`
+
+#### 💳 Data da Compra para lançamentos de cartão
+- Novo campo opcional `purchaseDate` em transações. Aparece no formulário (novo e edição) apenas quando cartão é selecionado. Na lista de transações, exibe data da compra abaixo do vencimento com ícone 🛒. Coluna adicionada no Supabase: `ALTER TABLE transactions ADD COLUMN IF NOT EXISTS "purchaseDate" timestamptz`. Commit: `b689e8e`
+
+#### 📊 Dashboard — Cards A Pagar / A Receber divididos
+- Cards "Contas a Pagar" e "Contas a Receber" divididos em dois blocos cada, separados por divisor:
+  - **A Pagar** (vermelho) + **Pago** (verde) no mesmo card
+  - **A Receber** (azul) + **Recebido** (verde) no mesmo card
+- Adicionadas duas queries: `paid-expenses-month` e `received-income-month` com filtros de data do mês atual. Commit: `c6ac3cd`
+
+#### ⏳ Monitoramento Proventos (pendente desde 2026-07-02)
+- GARE11 e GGRC11 ainda não apareceram em "Proventos a Receber". Aguardando até ~2026-07-05 para confirmar se o brapi.dev atualiza automaticamente. MRVL permanece como limitação permanente (ação EUA, brapi.dev não suporta).
+
+---
+
+### 2026-06-30 (Tarde) — Fix de Build + Segurança Supabase (RLS) + Auditoria Pós-Deploy
+
+#### 🐛 Fix de Build Cloudflare — `useSearchParams` sem Suspense
+- Deploy do commit `a5e4e84` falhou: `Error occurred prerendering page "/transactions"`.
+- Causa: `useSearchParams()` chamado direto em `TransactionsPage` (adicionado para os quick actions do dashboard) sem `<Suspense>` — mesmo problema já corrigido em `login/page.tsx` em 2026-06-24.
+- Corrigido: lógica extraída para componente `SearchParamsHandler`, isolado e envolto em `<Suspense fallback={null}>`.
+- Commit: `1b375e0`
+
+#### 🔐 Supabase — RLS habilitado em todas as tabelas (alerta de segurança)
+- Supabase enviou alerta "Table publicly accessible" (`rls_disabled_in_public`) — Row-Level Security estava desabilitado, expondo o banco a leitura/escrita direta via `NEXT_PUBLIC_SUPABASE_ANON_KEY` (que é pública por necessidade, embutida no bundle do frontend).
+- Resolvido executando no SQL Editor do Supabase:
+  ```sql
+  DO $$
+  DECLARE tbl text;
+  BEGIN
+    FOR tbl IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+    LOOP EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
+    END LOOP;
+  END $$;
+  ```
+- Seguro porque o app usa exclusivamente `createAdminClient()` (service_role, que bypassa RLS) — nenhuma rota usa o anon key para acessar dados. RLS sem policies bloqueia 100% do acesso via anon key e não afeta o app.
+- Testado pós-fix: login, dashboard e listagem de transações funcionando normalmente.
+- **Esta era uma das 2 pendências manuais da auditoria de 2026-06-22** — agora resolvida.
+
+#### 🔐 Auditoria de Segurança — Varredura completa das 42 rotas de API
+- Disparada após o fix de RLS, para checar a robustez geral do sistema (já compartilhado com amigos/família).
+- **1 vulnerabilidade real encontrada e corrigida:** `DELETE /api/transactions/[id]` validava ownership (`householdId`) antes de deletar, mas o `DELETE` em si não incluía o filtro `householdId` — risco teórico de deleção cross-household se o UUID de outra transação fosse conhecido. Corrigido: `.eq('householdId', user.householdId)` adicionado ao DELETE. Commit: `de2bffa`.
+- **Itens reportados sem risco real (revisados e descartados):**
+  - Mass assignment via `{ ...body, householdId: user.householdId }`: seguro porque `householdId` sempre vem depois do spread (última chave vence em JS) — corpo da requisição nunca sobrescreve o household do token.
+  - `POST /api/auth/logout` sem `withAuth`: comportamento intencional — logout precisa funcionar mesmo com token expirado.
+- **Conclusão:** as 40+ rotas restantes usam `withAuth` + filtro `householdId` corretamente. Nenhum campo sensível (senha, token) é retornado nas respostas.
+
+#### 📊 Capacidade do sistema (avaliação de escala, sem ação necessária)
+- Stack atual (Cloudflare Pages Free + Supabase Free) suporta confortavelmente o uso atual (amigos/família, 10-30 pessoas) e até centenas de usuários simultâneos sem ajuste.
+- Gargalo real não é concorrência, é **storage do Supabase (500MB no free tier)** — relevante apenas se o volume de anexos crescer muito. Upgrade para Supabase Pro (~$25/mês) resolve caso necessário no futuro.
+
+#### 🔍 Investigação — rotação de credenciais (pendências da auditoria de 27/jun) descartadas
+- A auditoria de 2026-06-27 listou como pendência manual "rotacionar `SUPABASE_SERVICE_KEY`" e "rotacionar senha do banco" — por precaução genérica, sem evidência concreta de vazamento.
+- Investigado com `git log --all -p`: a chave real **nunca foi commitada** — só existe placeholder em `.env.example`; `.env`/`.env.local` sempre estiveram no `.gitignore`.
+- "Senha do banco" não se aplica mais — app não usa conexão direta Postgres/Prisma desde a migração para Supabase JS client.
+- Único acesso ao app durante os testes foi o próprio Anderson.
+- **Conclusão: nenhuma rotação necessária agora.** Fica como boa prática periódica futura, não como pendência de segurança.
+
+---
+
+### 2026-06-29/30 — Dashboard + Relatórios + UX Polish
+
+#### 📊 Dashboard — Cards Anuais (fix)
+- Cards "Receitas 2026" / "Despesas 2026" exibiam R$ 0,00 porque somavam apenas `isPaid=true`.
+- Corrigido: valor principal = pago + pendente (total projetado); subtítulo mostra o pago isolado.
+- `annualResult` também atualizado para incluir pendentes dos dois lados.
+- Commit: `5a667b3`
+
+#### 📊 Dashboard — Redesign dos Gráficos de Pizza (feat + fix)
+- Gráfico "Distribuição de Patrimônio" substituído por gráfico de pizza "Por Categoria" para o mês atual.
+- Segundo gráfico: pizza "Por Categoria" acumulado do ano (valores pagos).
+- Seletor de mês (◀ Jun/2026 ▶) acima do gráfico mensal; botão direito desabilitado no mês corrente.
+- Pré-existia problema de donut (innerRadius=45 em vez de pizza sólida) → removido `innerRadius`.
+- Título "Despesas por Categoria" estava quebrando para 2 linhas → encurtado para "Por Categoria" + seletor em linha separada.
+- Cards dos dois gráficos desalinhados → adicionado `flex flex-col` nos cards.
+- API `/api/reports/expenses-by-category`: parâmetro `isPaid` agora é opcional (antes hardcoded `true`).
+  - Dashboard passa `isPaid=true` explicitamente; Relatórios não passa (mostra todos).
+- Commits: `e9ccdbb`, `e8f6550`
+
+#### 📊 Dashboard — SVG Illustration + Quick Actions (feat)
+- Foto Unsplash no card "Insight Mensal" substituída por ilustração SVG inline (barras + linha de tendência).
+  - Usa `var(--secondary)` e `var(--primary)` — respeita o tema dark automaticamente.
+- Três atalhos rápidos adicionados no header do dashboard:
+  - `+ Receita` → `/transactions?action=new&type=INCOME`
+  - `+ Despesa` → `/transactions?action=new&type=EXPENSE`
+  - `Transferência` → `/transactions?action=new&type=TRANSFER`
+- Tela de Transações lê `useSearchParams` via `useEffect`: abre o modal e pré-seleciona o tipo automaticamente.
+- Commit: `a5e4e84`
+
+#### 📊 Dashboard — 3-State Status (feat)
+- "Próximas Contas" no dashboard e tabela de transações agora mostram 3 estados distintos:
+  - ✅ **Efetivado** (verde) — `isPaid = true`
+  - ⚠️ **Atrasado** (vermelho) — `!isPaid && date < today`
+  - 🕐 **Pendente** (cinza) — `!isPaid && date >= today`
+- `StatusBadge` em `transactions/page.tsx` atualizado com a mesma lógica 3-state.
+- Commit: `a5e4e84`
+
+#### 📋 Relatórios — Filtros por Mês Calendário + Correção de Bug (fix)
+- Filtros mudaram de "últimos 30/60/90/365 dias" (rolling) para meses calendário:
+  - `este_mes`, `mes_anterior`, `trimestre`, `ano`, `todos`
+- Helper `getPeriodDates(period)` retorna `{startDate, endDate}` baseados em `new Date(year, month, 1)` / `new Date(year, month+1, 0)`.
+- Bug crítico corrigido: tabela de transações só usava `startDate` sem `endDate` → trazia todos os lançamentos futuros. Agora usa ambas as datas da query.
+- Gráfico de categorias no Relatórios agora mostra todos (pago + pendente); não passa `isPaid` para a API.
+- Mensagem de empty state do gráfico de fluxo de caixa melhorada: "Nenhum pagamento confirmado nos últimos 12 meses. O gráfico usa apenas lançamentos marcados como Pago/Recebido."
+- Commit: `0b2c09b`
+
+---
+
+### 2026-06-27 — Auditoria de Segurança + Dashboard Redesign
+
+#### 🔐 Auditoria de Segurança — 9 Correções Aplicadas
+- **`/api/debug` deletado** — rota expunha user + household sem proteção.
+- **Mass assignment:** `householdId` não pode mais ser sobrescrito via body em nenhuma rota; sempre lido de `user.householdId`.
+- **householdId checks:** Todas as rotas de PATCH/DELETE validam que o recurso pertence ao household do usuário antes de modificar.
+- **`SUPABASE_SERVICE_KEY` verificado:** confirmado que key legada (`eyJ...`) é usada; não `sb_secret_` (o formato novo ainda não é suportado pelo client).
+- Duas pendências manuais no Supabase (RLS policies) documentadas em `feedback_security_audit.md`.
+
+#### 🔐 Auth — Logout por Dispositivo
+- `signOut` scope mudou de `global` (derrubava todas as sessões) para `local` (só a sessão atual).
+- Motivação: usuário queria poder usar app no celular e no desktop simultaneamente.
+
+#### 🗂️ Categorias — Bug de Insert (fix)
+- Insert de nova categoria falhava silenciosamente por falta de `id: crypto.randomUUID()`.
+- Corrigido em `/api/categories/route.ts`.
+
+#### 📅 Contas a Pagar — Lógica de Mês Calendário (fix)
+- "Próximas Contas" e cards de KPI mensais passaram de rolling 30 dias para mês calendário:
+  - `startDate = new Date(year, month, 1)` / `endDate = new Date(year, month+1, 0)`
+- Dois queries distintos no dashboard: `upcomingBills` (calendário, para cards) e `nextBills` (30 dias, para lista "Próximas Contas" no painel).
+
+#### 🎨 Dashboard Redesign
+- Seção "Transações Recentes" removida (sobrepunha a tela de Transações sem agregar).
+- Cards anuais adicionados: Receitas 2026, Despesas 2026, Resultado 2026.
+- Cards mensais + anuais equalizados em altura (`h-full`).
+- Dois gráficos de donut adicionados: despesas por categoria (mensal) e distribuição de patrimônio (anual).
+
+---
 
 ### 2026-06-24 (Tarde) — Correções Edge Runtime + Build Passando
 
