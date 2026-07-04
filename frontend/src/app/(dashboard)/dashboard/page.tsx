@@ -115,7 +115,7 @@ export default function DashboardPage() {
     queryFn: () => api.get('/api/investments/portfolio').then((r) => r.data),
   });
 
-  const userName = me?.name || 'Marcus';
+  const userName = me?.name || me?.email?.split('@')[0] || 'Você';
 
   // Process dynamic account data
   const accounts = summary?.accounts || [];
@@ -847,16 +847,18 @@ export default function DashboardPage() {
             <>
               <div className="h-36 flex items-end justify-between gap-base chart-container">
                 {rechartsData.map((data: any, idx: number) => {
-                  const incomeHeight = `${Math.min(100, Math.max(15, (data.income / 12000) * 100))}%`;
-                  const expenseHeight = `${Math.min(100, Math.max(15, (data.expense / 12000) * 100))}%`;
+                  const maxVal = Math.max(...rechartsData.map((d: any) => Math.max(Number(d.Receitas || 0), Number(d.Despesas || 0))));
+                  const base = maxVal > 0 ? maxVal : 1;
+                  const incomeHeight = `${Math.min(100, Math.max(8, (Number(data.Receitas || 0) / base) * 100))}%`;
+                  const expenseHeight = `${Math.min(100, Math.max(8, (Number(data.Despesas || 0) / base) * 100))}%`;
                   return (
                     <div key={idx} className="flex-1 flex gap-[2px] items-end h-full">
-                      <div 
+                      <div
                         className="flex-1 rounded-t-sm hover:opacity-80 transition-all duration-300"
                         style={{ height: incomeHeight, backgroundColor: '#10b981' }}
                         title={`Receita: ${formatCurrency(data.Receitas)}`}
                       />
-                      <div 
+                      <div
                         className="flex-1 rounded-t-sm transition-all duration-300"
                         style={{ height: expenseHeight, backgroundColor: '#ef4444' }}
                         title={`Despesa: ${formatCurrency(data.Despesas)}`}
@@ -876,6 +878,55 @@ export default function DashboardPage() {
               Nenhum lançamento no período.
             </div>
           )}
+        </section>
+
+        {/* Mobile KPI Cards: A Pagar/Pago + A Receber/Recebido */}
+        <section className="grid grid-cols-2 gap-md">
+          {/* Contas a Pagar / Pago */}
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col overflow-hidden">
+            <div className="p-md flex flex-col gap-1">
+              <div className="flex items-center gap-xs">
+                <div className="w-5 h-5 bg-error/10 rounded-full flex items-center justify-center text-error">
+                  <span className="material-symbols-outlined text-[12px]">receipt_long</span>
+                </div>
+                <p className="font-label-sm text-[9px] text-on-surface-variant uppercase tracking-wider">A Pagar</p>
+              </div>
+              <p className="font-numeric text-sm font-bold text-error">{formatCurrency(totalContasAPagar)}</p>
+            </div>
+            <div className="border-t border-outline-variant/60 mx-md" />
+            <div className="p-md flex flex-col gap-1">
+              <div className="flex items-center gap-xs">
+                <div className="w-5 h-5 bg-secondary/10 rounded-full flex items-center justify-center text-secondary">
+                  <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                </div>
+                <p className="font-label-sm text-[9px] text-on-surface-variant uppercase tracking-wider">Pago</p>
+              </div>
+              <p className="font-numeric text-sm font-bold text-secondary">{formatCurrency(totalContasPagas)}</p>
+            </div>
+          </div>
+
+          {/* Contas a Receber / Recebido */}
+          <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm flex flex-col overflow-hidden">
+            <div className="p-md flex flex-col gap-1">
+              <div className="flex items-center gap-xs">
+                <div className="w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined text-[12px]">account_balance_wallet</span>
+                </div>
+                <p className="font-label-sm text-[9px] text-on-surface-variant uppercase tracking-wider">A Receber</p>
+              </div>
+              <p className="font-numeric text-sm font-bold text-primary">{formatCurrency(totalContasAReceber)}</p>
+            </div>
+            <div className="border-t border-outline-variant/60 mx-md" />
+            <div className="p-md flex flex-col gap-1">
+              <div className="flex items-center gap-xs">
+                <div className="w-5 h-5 bg-secondary/10 rounded-full flex items-center justify-center text-secondary">
+                  <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                </div>
+                <p className="font-label-sm text-[9px] text-on-surface-variant uppercase tracking-wider">Recebido</p>
+              </div>
+              <p className="font-numeric text-sm font-bold text-secondary">{formatCurrency(totalRecebido)}</p>
+            </div>
+          </div>
         </section>
 
         {/* Mobile Upcoming Bills list */}

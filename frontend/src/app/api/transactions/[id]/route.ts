@@ -8,6 +8,42 @@ type Ctx = { params: { id: string } };
 
 const TX_SELECT = '*, category:categories(*), account:accounts!accountId(*), toAccount:accounts!toAccountId(*), card:cards(*)';
 
+async function adjustBalance(supabase: any, householdId: string, accountId: string, delta: number) {
+  const { data: acc } = await supabase
+    .from('accounts')
+    .select('balance')
+    .eq('id', accountId)
+    .eq('householdId', householdId)
+    .maybeSingle();
+  if (!acc) return;
+  await supabase
+    .from('accounts')
+    .update({ balance: parseFloat(acc.balance ?? '0') + delta })
+    .eq('id', accountId)
+    .eq('householdId', householdId);
+}
+
+// Apply or reverse a transaction's balance effect.
+// pass reverse=true to undo a previously applied effect.
+async function applyTxBalance(
+  supabase: any,
+  householdId: string,
+  tx: { isPaid: boolean; cardId: string | null; type: string; amount: string | number; accountId: string | null; toAccountId: string | null },
+  reverse = false,
+) {
+  if (!tx.isPaid || tx.cardId) return; // card invoices are settled separately
+  const sign = reverse ? -1 : 1;
+  const amount = parseFloat(String(tx.amount));
+  if (tx.type === 'INCOME' && tx.accountId) {
+    await adjustBalance(supabase, householdId, tx.accountId, sign * amount);
+  } else if (tx.type === 'EXPENSE' && tx.accountId) {
+    await adjustBalance(supabase, householdId, tx.accountId, sign * -amount);
+  } else if (tx.type === 'TRANSFER' && tx.accountId && tx.toAccountId) {
+    await adjustBalance(supabase, householdId, tx.accountId, sign * -amount);
+    await adjustBalance(supabase, householdId, tx.toAccountId, sign * amount);
+  }
+}
+
 export function GET(req: NextRequest, { params }: Ctx) {
   return withAuth(async (_r, user) => {
     try {
@@ -62,34 +98,21 @@ export function PATCH(req: NextRequest, { params }: Ctx) {
         .select()
         .single();
 
-      // Card transactions never adjust account balance directly (settled via "Pagar Fatura")
-      if (body.isPaid !== undefined && oldTx.isPaid !== (body.isPaid === true) && !oldTx.cardId) {
-        const isMarkedPaid = body.isPaid === true;
-        const amount = parseFloat(oldTx.amount);
-        const accId = oldTx.accountId;
-        const toAccId = oldTx.toAccountId;
-
-        const adjustBalance = async (id: string, delta: number) => {
-          const { data: acc } = await supabase.from('accounts').select('balance').eq('id', id).eq('householdId', user.householdId).maybeSingle();
-          if (!acc) return;
-          await supabase.from('accounts').update({ balance: parseFloat(acc.balance ?? '0') + delta }).eq('id', id).eq('householdId', user.householdId);
+      // Balance recalculation: reverse old state, apply new state.
+      // Triggers whenever any balance-affecting field is present in the request body.
+      const balanceFieldsInBody = ['isPaid', 'amount', 'accountId', 'toAccountId', 'type', 'cardId'];
+      if (balanceFieldsInBody.some((f) => f in body)) {
+        const newState = {
+          isPaid: body.isPaid !== undefined ? body.isPaid === true : oldTx.isPaid,
+          cardId: body.cardId !== undefined ? (body.cardId || null) : oldTx.cardId,
+          type: body.type || oldTx.type,
+          amount: body.amount !== undefined ? body.amount : oldTx.amount,
+          accountId: body.accountId !== undefined ? (body.accountId || null) : oldTx.accountId,
+          toAccountId: body.toAccountId !== undefined ? (body.toAccountId || null) : oldTx.toAccountId,
         };
-
-        if (isMarkedPaid) {
-          if (oldTx.type === 'INCOME' && accId) await adjustBalance(accId, amount);
-          else if (oldTx.type === 'EXPENSE' && accId) await adjustBalance(accId, -amount);
-          else if (oldTx.type === 'TRANSFER' && accId && toAccId) {
-            await adjustBalance(accId, -amount);
-            await adjustBalance(toAccId, amount);
-          }
-        } else {
-          if (oldTx.type === 'INCOME' && accId) await adjustBalance(accId, -amount);
-          else if (oldTx.type === 'EXPENSE' && accId) await adjustBalance(accId, amount);
-          else if (oldTx.type === 'TRANSFER' && accId && toAccId) {
-            await adjustBalance(accId, amount);
-            await adjustBalance(toAccId, -amount);
-          }
-        }
+        // Reverse whatever the old state contributed to balance, then apply the new state
+        await applyTxBalance(supabase, user.householdId, oldTx, true);
+        await applyTxBalance(supabase, user.householdId, newState);
       }
 
       return ok(updated);
@@ -107,12 +130,17 @@ export function DELETE(req: NextRequest, { params }: Ctx) {
       const supabase = createAdminClient();
       const { data: tx } = await supabase
         .from('transactions')
-        .select('id')
+        .select('*')
         .eq('id', params.id)
         .eq('householdId', user.householdId)
         .maybeSingle();
       if (!tx) return notFound('Transação não encontrada');
+
       await supabase.from('transactions').delete().eq('id', params.id).eq('householdId', user.householdId);
+
+      // Reverse the balance effect of the deleted transaction
+      await applyTxBalance(supabase, user.householdId, tx, true);
+
       return ok({ message: 'Transação removida' });
     } catch (err) {
       console.error('[transactions/:id DELETE]', err);

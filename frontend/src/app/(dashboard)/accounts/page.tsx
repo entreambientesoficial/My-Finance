@@ -99,6 +99,11 @@ export default function AccountsPage() {
     queryFn: () => api.get('/api/cards').then((r) => r.data),
   });
 
+  const { data: me } = useQuery({
+    queryKey: ['me'],
+    queryFn: () => api.get('/api/users/me').then((r) => r.data),
+  });
+
   // Compute active entity early so the transactions query can filter server-side
   const activeEntityIdEarly = selectedEntityId || (accounts.length > 0 ? (accounts as any[])[0].id : cards.length > 0 ? (cards as any[])[0].id : null);
   const isCardSelectedEarly = (cards as any[]).some((c: any) => c.id === activeEntityIdEarly);
@@ -679,7 +684,7 @@ export default function AccountsPage() {
                 >
                   <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-16 -mt-16"></div>
                   <div className="flex justify-between items-start z-10">
-                    <span className="font-label-sm opacity-80 uppercase tracking-widest font-bold">{CARD_BRAND_LABELS[card.brand]} INFINITE</span>
+                    <span className="font-label-sm opacity-80 uppercase tracking-widest font-bold">{card.name}</span>
                     <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>contactless</span>
                   </div>
                   <div className="z-10 mt-auto">
@@ -687,7 +692,7 @@ export default function AccountsPage() {
                     <div className="flex justify-between items-end text-left">
                       <div>
                         <p className="text-[10px] uppercase opacity-60">Titular</p>
-                        <p className="font-label-sm font-bold">CLIENTE DEMO</p>
+                        <p className="font-label-sm font-bold">{me?.name?.toUpperCase() || '—'}</p>
                       </div>
                       <div>
                         <p className="text-[10px] uppercase opacity-60 text-right">Vencimento</p>
