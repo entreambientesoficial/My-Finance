@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-07-03
+> Atualizado em: 2026-07-04
 > Stack: Next.js 14 App Router + Supabase Auth + Supabase JS client + Cloudflare Pages
 > App em produção: https://my-finance-my.pages.dev
 
@@ -36,7 +36,7 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 
 ---
 
-## Status Atual (2026-06-30)
+## Status Atual (2026-07-04)
 
 ✅ **APP EM PRODUÇÃO — compartilhado com amigos e família para validação**
 
@@ -382,6 +382,108 @@ GET    /api/notifications
 ---
 
 ## Log de Alterações
+
+### 2026-07-04 — Correções Mobile, Saldo de Contas e Sync de Tema
+
+#### 🐛 Versão Mobile — Auditoria e Correções (6 bugs corrigidos)
+
+**"CLIENTE DEMO" hardcoded no card de cartão de crédito:**
+- `accounts/page.tsx`: nome do titular estava fixo como `"CLIENTE DEMO"`. Corrigido: adicionada query `['me']` para buscar o perfil do usuário e usar `me?.name?.toUpperCase()`.
+- Também corrigido: nome do cartão exibia `{CARD_BRAND_LABELS[card.brand]} INFINITE` em vez de `{card.name}`. Corrigido para usar `card.name` diretamente.
+
+**Dashboard mobile — Gráfico de Fluxo de Caixa em branco:**
+- Barras CSS do gráfico mobile usavam `data.income`/`data.expense`, mas `rechartsData` tem chaves `Receitas`/`Despesas`. Resultado: `NaN%` como altura → barras invisíveis.
+- Corrigido: chaves alinhadas com a API. Altura agora proporcional ao valor máximo do período (`Math.max(...rechartsData.map(...))` como base).
+
+**Dashboard mobile — Username fallback "Marcus" hardcoded:**
+- Linha de boas-vindas exibia `'Marcus'` em vez do nome real. Corrigido para `me?.name || me?.email?.split('@')[0] || 'Você'`.
+
+**Dashboard mobile — Cards "A Pagar/Pago" e "A Receber/Recebido" ausentes:**
+- Os 4 cards de KPI estavam apenas no bloco desktop (`hidden md:block`). Na versão mobile não apareciam.
+- Corrigido: adicionados os mesmos 4 cards em grid 2 colunas no bloco mobile (`block md:hidden`).
+
+Commit: `13a3dfb`
+
+---
+
+#### 🔄 Saldo de Contas — Reescrita Completa da Lógica de Balanço
+
+**Problema identificado:** DELETE de transação não revertia o saldo. PATCH não recalculava quando amount/accountId/type/cardId mudavam.
+
+**Solução:** `frontend/src/app/api/transactions/[id]/route.ts` reescrito com duas funções auxiliares:
+
+```typescript
+// Aplica ou reverte o impacto de uma transação no saldo das contas
+async function applyTxBalance(supabase, householdId, tx, reverse = false) {
+  if (!tx.isPaid || tx.cardId) return; // cartões são liquidados via fatura
+  const sign = reverse ? -1 : 1;
+  const amount = parseFloat(String(tx.amount));
+  if (tx.type === 'INCOME') await adjustBalance(supabase, householdId, tx.accountId, sign * amount);
+  else if (tx.type === 'EXPENSE') await adjustBalance(supabase, householdId, tx.accountId, sign * -amount);
+  else if (tx.type === 'TRANSFER') {
+    await adjustBalance(supabase, householdId, tx.accountId, sign * -amount);      // débito na origem
+    await adjustBalance(supabase, householdId, tx.toAccountId, sign * amount);     // crédito no destino
+  }
+}
+```
+
+- **DELETE:** agora faz `select('*')` para buscar a transação completa e chama `applyTxBalance(tx, true)` antes de deletar.
+- **PATCH:** se qualquer campo que afeta saldo está no body (`isPaid`, `amount`, `accountId`, `toAccountId`, `type`, `cardId`), reverte estado antigo e aplica novo estado: `applyTxBalance(oldTx, true)` + `applyTxBalance(newState)`.
+
+Commit: `13a3dfb`
+
+---
+
+#### 🏦 Contas Bancárias — Grid de 3 Colunas (desktop)
+
+- Grid de contas bancárias mudou de `grid-cols-1 md:grid-cols-2` para `grid-cols-1 md:grid-cols-2 lg:grid-cols-3`.
+- Tamanho do texto de saldo reduzido de `text-display-lg` → `text-2xl` para caber em cards menores.
+- Empty state atualizado: `col-span-2` → `col-span-2 lg:col-span-3`.
+
+Commit: `87af5d8`
+
+---
+
+#### 🌗 Sync de Tema Entre Dispositivos
+
+**Problema:** tema (dark/light) estava só no `localStorage`, que é específico por dispositivo. Mobile sempre carregava em light mode independentemente do tema escolhido no desktop.
+
+**Solução em 3 camadas:**
+
+1. **Coluna no banco:** `ALTER TABLE users ADD COLUMN IF NOT EXISTS theme text` executado no Supabase SQL Editor.
+
+2. **API `GET /api/users/me`:** adicionado `theme` ao `select(...)`. API `PATCH /api/users/me`: aceita `theme: 'light' | 'dark'` e salva na coluna.
+
+3. **`frontend/src/lib/theme.tsx`:** adicionada função `syncFromProfile(profileTheme)`. O `toggle()` agora chama `PATCH /api/users/me` (fire-and-forget) ao mudar o tema.
+
+4. **`frontend/src/app/(dashboard)/layout.tsx`:** `useEffect` que chama `syncFromProfile(me.theme)` quando o perfil do usuário é carregado — sincroniza o tema salvo no DB para o dispositivo atual.
+
+**Fluxo:** ao fazer login em um novo dispositivo, o tema é lido do banco e aplicado. localStorage é mantido como cache local para renderização imediata antes do perfil carregar.
+
+Commit: `3516b9c`
+
+> **Nota:** usuário deve alternar o tema uma vez no PC para salvar `dark` no banco. Na próxima entrada pelo celular, o tema será sincronizado automaticamente.
+
+---
+
+#### 📋 Tabela de Transações — Colunas Cortando (fix)
+
+**Problema:** a coluna "Ações" (com ícones da lixeira) estava com o texto e os ícones cortados — `<table>` sem layout fixo distribui colunas de forma não determinística.
+
+**Solução:** `frontend/src/app/(dashboard)/transactions/page.tsx`:
+- `<table className="... table-fixed">` — layout fixo, colunas respeitam larguras declaradas
+- `<colgroup>` com larguras explícitas: Data=110px, Valor=110px, Conta/Cartão=140px, Status=110px, Ações=120px; Descrição = auto (preenche o restante)
+- Padding de todas as células mudado de `px-md lg:px-sm` para `px-3` (economiza ~48px total)
+- `max-w-[200px] lg:max-w-[260px]` na célula de descrição substituído por `min-w-0` (overflow responsivo via `table-fixed`)
+
+Commit: `d90248e`
+
+---
+
+#### ⏳ Monitoramento Proventos (pendente desde 2026-07-02)
+- GARE11 e GGRC11 ainda não apareceram em "Proventos a Receber". Aguardando até ~2026-07-05 para confirmar se o brapi.dev atualiza automaticamente. MRVL permanece como limitação permanente (ação EUA, brapi.dev não suporta).
+
+---
 
 ### 2026-07-03 — UX/UI Polish + Novas Funcionalidades
 
