@@ -4,9 +4,14 @@ import { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light' | 'dark';
 
-const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
+const ThemeContext = createContext<{
+  theme: Theme;
+  toggle: () => void;
+  syncFromProfile: (profileTheme: string | null | undefined) => void;
+}>({
   theme: 'light',
   toggle: () => {},
+  syncFromProfile: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -20,16 +25,34 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle('dark', initial === 'dark');
   }, []);
 
-  function toggle() {
-    setTheme((prev) => {
-      const next = prev === 'light' ? 'dark' : 'light';
-      localStorage.setItem('theme', next);
-      document.documentElement.classList.toggle('dark', next === 'dark');
-      return next;
-    });
+  function applyTheme(next: Theme) {
+    setTheme(next);
+    localStorage.setItem('theme', next);
+    document.documentElement.classList.toggle('dark', next === 'dark');
   }
 
-  return <ThemeContext.Provider value={{ theme, toggle }}>{children}</ThemeContext.Provider>;
+  function toggle() {
+    const next = theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
+    // Persist to user profile so all devices stay in sync
+    fetch('/api/users/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme: next }),
+    }).catch(() => {});
+  }
+
+  // Called once the user profile loads — syncs the saved preference to this device
+  function syncFromProfile(profileTheme: string | null | undefined) {
+    if (!profileTheme || profileTheme === theme) return;
+    applyTheme(profileTheme as Theme);
+  }
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggle, syncFromProfile }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {

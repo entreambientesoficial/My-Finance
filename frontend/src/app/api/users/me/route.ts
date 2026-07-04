@@ -10,7 +10,7 @@ export const GET = withAuth(async (_req, user) => {
     const supabase = createAdminClient();
     const { data: me } = await supabase
       .from('users')
-      .select('id, name, email, avatarUrl, householdId, household:households(id, name, currency), createdAt')
+      .select('id, name, email, avatarUrl, theme, householdId, household:households(id, name, currency), createdAt')
       .eq('id', user.sub)
       .maybeSingle();
     if (!me) return notFound('Usuário não encontrado');
@@ -24,11 +24,12 @@ export const GET = withAuth(async (_req, user) => {
 export const PATCH = withAuth(async (req: NextRequest, user) => {
   try {
     const body = await req.json();
-    const { currentPassword, newPassword, name, avatarUrl } = body;
+    const { currentPassword, newPassword, name, avatarUrl, theme } = body;
     const updateData: Record<string, unknown> = {};
 
     if (name !== undefined) updateData.name = name;
     if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+    if (theme === 'light' || theme === 'dark') updateData.theme = theme;
 
     if (newPassword) {
       if (!currentPassword) return badRequest('A senha atual é obrigatória para cadastrar uma nova senha');

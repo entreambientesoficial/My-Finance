@@ -32,7 +32,7 @@ const mobileNavItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { theme } = useTheme();
+  const { theme, syncFromProfile } = useTheme();
 
   const [authMeta, setAuthMeta] = useState<{ name?: string; avatarUrl?: string } | null>(null);
 
@@ -54,6 +54,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     retry: false,
     staleTime: 300_000,
   });
+
+  useEffect(() => {
+    if (me?.theme) syncFromProfile(me.theme);
+  }, [me?.theme]);
 
   async function logout() {
     try {
