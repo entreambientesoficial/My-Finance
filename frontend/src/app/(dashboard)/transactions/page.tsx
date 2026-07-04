@@ -1013,7 +1013,15 @@ export default function TransactionsPage() {
 
               {/* Transactions Table */}
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-left text-sm table-fixed">
+                  <colgroup>
+                    <col className="w-[110px]" />
+                    <col />
+                    <col className="w-[110px]" />
+                    <col className="w-[140px]" />
+                    <col className="w-[110px]" />
+                    <col className="w-[120px]" />
+                  </colgroup>
                   <thead className="bg-surface-container-low text-on-surface-variant font-label-sm text-xs font-bold uppercase tracking-wider">
                     <tr>
                       {[
@@ -1023,7 +1031,7 @@ export default function TransactionsPage() {
                       ].map(({ key, label, align }) => (
                         <th
                           key={key}
-                          className={cn("px-md lg:px-sm py-md cursor-pointer select-none hover:text-primary transition-colors group", align)}
+                          className={cn("px-3 py-md cursor-pointer select-none hover:text-primary transition-colors group", align)}
                           onClick={() => setFilters((f: any) => ({ ...f, page: 1, sortBy: key, sortDir: f.sortBy === key && f.sortDir === 'asc' ? 'desc' : 'asc' }))}
                         >
                           <span className="inline-flex items-center gap-1">
@@ -1034,9 +1042,9 @@ export default function TransactionsPage() {
                           </span>
                         </th>
                       ))}
-                      <th className="px-md lg:px-sm py-md">Conta / Cartão</th>
-                      <th className="px-md lg:px-sm py-md">Status</th>
-                      <th className="px-md lg:px-sm py-md text-right">Ações</th>
+                      <th className="px-3 py-md">Conta / Cartão</th>
+                      <th className="px-3 py-md">Status</th>
+                      <th className="px-3 py-md text-right">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-outline-variant/35 bg-surface-container-lowest">
@@ -1059,7 +1067,7 @@ export default function TransactionsPage() {
                       const isReal = true;
                       return (
                         <tr key={t.id} className="hover:bg-surface-container-low/20 transition-colors group">
-                          <td className="px-md lg:px-sm py-md font-numeric text-xs whitespace-nowrap">
+                          <td className="px-3 py-md font-numeric text-xs whitespace-nowrap">
                             <div className="flex flex-col gap-0.5">
                               <span>{formatDateLong(t.date)}</span>
                               {t.purchaseDate && t.purchaseDate.slice(0, 10) !== t.date.slice(0, 10) && (
@@ -1076,8 +1084,8 @@ export default function TransactionsPage() {
                               )}
                             </div>
                           </td>
-                          <td className="px-md lg:px-sm py-md">
-                            <div className="flex flex-col max-w-[200px] lg:max-w-[260px]">
+                          <td className="px-3 py-md">
+                            <div className="flex flex-col min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-primary truncate text-sm">{t.description || 'Sem descrição'}</span>
                                 {t.installmentNumber && t.totalInstallments && (
@@ -1090,13 +1098,13 @@ export default function TransactionsPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-md lg:px-sm py-md text-right font-semibold">
+                          <td className="px-3 py-md text-right font-semibold">
                             {renderAmount(t)}
                           </td>
-                          <td className="px-md lg:px-sm py-md">
+                          <td className="px-3 py-md">
                             <AccountInfo account={t.account} card={t.card} toAccount={t.toAccount} type={t.type} />
                           </td>
-                          <td className="px-md lg:px-sm py-md">
+                          <td className="px-3 py-md">
                             <StatusBadge type={t.type} isPaid={t.isPaid} date={t.date} />
                           </td>
                           <td className="px-1 py-md text-right">
