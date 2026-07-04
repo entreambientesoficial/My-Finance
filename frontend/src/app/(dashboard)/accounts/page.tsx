@@ -317,9 +317,9 @@ export default function AccountsPage() {
           <div className="col-span-12 lg:col-span-8 space-y-gutter">
             <h3 className="font-headline text-headline-md text-primary px-1 font-bold">Contas Bancárias</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
               {accounts.length === 0 ? (
-                <div className="col-span-2 bg-surface-container-lowest p-xl rounded-xl border border-dashed border-outline-variant text-center flex flex-col items-center justify-center min-h-[160px]">
+                <div className="col-span-2 lg:col-span-3 bg-surface-container-lowest p-xl rounded-xl border border-dashed border-outline-variant text-center flex flex-col items-center justify-center min-h-[160px]">
                   <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-2">account_balance</span>
                   <p className="font-headline text-headline-sm text-primary font-bold">Nenhuma Conta Conectada</p>
                   <p className="font-body-md text-on-surface-variant text-sm mt-1">Conecte uma nova conta bancária para gerenciar seus saldos.</p>
@@ -382,7 +382,7 @@ export default function AccountsPage() {
                     <div className="space-y-base relative z-10 mt-auto">
                       <p className="font-label-sm text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Saldo Disponível</p>
                       <p
-                        className="font-display text-display-lg font-bold"
+                        className="font-display text-2xl font-bold"
                         style={{ color: Number(account.balance) < 0 ? 'var(--error)' : 'var(--primary)' }}
                       >
                         {formatCurrency(Number(account.balance), account.currency)}
