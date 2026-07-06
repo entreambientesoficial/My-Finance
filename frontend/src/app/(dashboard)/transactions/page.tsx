@@ -15,7 +15,7 @@ const TYPE_LABELS: Record<string, string> = { INCOME: 'Receita', EXPENSE: 'Despe
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
       <div className="bg-card border border-outline-variant rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-outline-variant">
           <h2 className="font-headline text-headline-md text-primary font-bold">{title}</h2>
@@ -1760,7 +1760,7 @@ export default function TransactionsPage() {
 
       {/* ─── MODAL: CONFIRMAR DATA DE PAGAMENTO ─── */}
       {pendingPaidTx && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
           <div className="bg-card border border-outline-variant rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
             <div>
               <h2 className="font-headline text-headline-md text-primary font-bold">Confirmar Pagamento</h2>

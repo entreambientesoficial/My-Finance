@@ -621,7 +621,7 @@ export default function SettingsPage() {
 
       {/* ── MODAL: EXCLUIR CONTA ─────────────────────────────────────────────── */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-[60] p-4">
           <div className="bg-card border border-error/30 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="p-5 border-b border-outline-variant flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center flex-shrink-0">
