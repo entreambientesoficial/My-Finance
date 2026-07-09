@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-07-04
+> Atualizado em: 2026-07-09
 > Stack: Next.js 14 App Router + Supabase Auth + Supabase JS client + Cloudflare Pages
 > App em produção: https://my-finance-my.pages.dev
 
@@ -36,7 +36,7 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 
 ---
 
-## Status Atual (2026-07-04)
+## Status Atual (2026-07-09)
 
 ✅ **APP EM PRODUÇÃO — compartilhado com amigos e família para validação**
 
@@ -382,6 +382,66 @@ GET    /api/notifications
 ---
 
 ## Log de Alterações
+
+### 2026-07-09 — Modais Mobile + Resgate de Investimentos + Consolidação por Ticker
+
+#### 🐛 Modais não funcionavam no mobile (botão Salvar inacessível)
+
+**Causa raiz:** todos os modais usavam `z-50`, mesma classe da barra de navegação mobile. Como o `<nav>` aparece depois no DOM que o `{children}` da página, ele ficava visualmente por cima dos modais e interceptava os toques no botão "Salvar".
+
+**Correção:** z-index dos overlays dos modais alterado de `z-50` para `z-[60]` em 4 arquivos:
+- `transactions/page.tsx` — componente `Modal` reutilizável + modal inline "Confirmar Pagamento"
+- `accounts/page.tsx` — 2 modais
+- `goals/page.tsx` — modal de aporte
+- `settings/page.tsx` — modal de exclusão de conta
+
+Commit: `2722db7`
+
+---
+
+#### 💰 Resgate / Venda de Investimentos (nova funcionalidade)
+
+**Problema:** não havia como "baixar" uma aplicação. O único recurso era excluir o registro (sem creditar a conta).
+
+**Solução — nova rota `POST /api/investments/[id]/sell`:**
+- Aceita `{ accountId, amount, date, extraIds? }` no body
+- Credita o valor na conta selecionada (`accounts.balance += amount`)
+- Cria transação de receita: `"Resgate: {TICKER}"` (isPaid=true)
+- Deleta o(s) registro(s) de investimento
+- Suporta posições consolidadas via `extraIds[]` (deleta múltiplos registros)
+
+**UI — novo botão "paid" em cada ativo (desktop e mobile):**
+- Abre modal "Resgatar / Vender" com valor atual pré-preenchido (editável)
+- Seletor de conta destino + campo de data
+- Funciona para todos os tipos: Renda Fixa, FIIs, Ações BR, Ações EUA
+
+Commit: `6a89488`
+
+---
+
+#### 📊 Consolidação de Ativos por Ticker (duas correções)
+
+**Problema 1 — exibição:** comprar o mesmo ativo duas vezes criava duas linhas separadas na carteira (ex: GARE11 com 100 cotas e GARE11 com 3 cotas exibidos separadamente).
+
+**Correção — `portfolio/route.ts`:** após calcular o portfólio, consolida registros com mesmo `type + ticker` em uma única linha:
+- Quantidade total = soma das quantidades
+- Preço médio ponderado = `Σ(qty × price) / Σ(qty)` — fórmula padrão da Receita Federal
+- Custos e valores atuais somados
+- Campo `_ids: string[]` guarda todos os IDs originais (usado no resgate e no delete)
+- BONDs nunca são consolidados (cada aplicação tem termos próprios)
+- Posições consolidadas (`_ids.length > 1`): botão editar desabilitado (edit_off); delete e resgate operam sobre todos os IDs
+
+**Problema 2 — novos aportes:** adicionar novo aporte do mesmo ticker criava registro duplicado em vez de atualizar a posição existente.
+
+**Correção — `investments/route.ts` POST:** antes de inserir, verifica se já existe registro com mesmo `ticker + type + householdId`. Se existir:
+- Atualiza `quantity = qty_existente + qty_nova`
+- Recalcula `purchasePrice` com preço médio ponderado
+- Retorna registro atualizado (sem criar novo)
+- Ticker normalizado para uppercase no insert
+
+Commit: `6a89488`
+
+---
 
 ### 2026-07-04 — Correções Mobile, Saldo de Contas e Sync de Tema
 
