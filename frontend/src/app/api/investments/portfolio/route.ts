@@ -112,13 +112,48 @@ export const GET = withAuth(async (_req: NextRequest, user) => {
       };
     });
 
-    const totalCost = summary.reduce((s, i) => s + i.cost, 0);
-    const totalCurrent = summary.reduce((s, i) => s + i.current, 0);
+    // Consolidate by (type, ticker): multiple purchases of the same ticker merge into one row
+    const consolidatedMap = new Map<string, (typeof summary)[0] & { _ids: string[] }>();
+    for (const inv of summary) {
+      const isBond = inv.type === 'BOND';
+      // Bonds are never consolidated (each application has its own terms)
+      const key = isBond ? inv.id : `${inv.type}::${(inv.ticker || '').toUpperCase() || inv.id}`;
+      const existing = consolidatedMap.get(key);
+      if (!existing) {
+        consolidatedMap.set(key, { ...inv, _ids: [inv.id] });
+      } else {
+        const prevQty = Number(existing.quantity);
+        const addQty = Number(inv.quantity);
+        const totalQty = prevQty + addQty;
+        // Weighted average purchase price (in original currency, before FX)
+        existing.purchasePrice =
+          totalQty > 0
+            ? (prevQty * Number(existing.purchasePrice) + addQty * Number(inv.purchasePrice)) / totalQty
+            : existing.purchasePrice;
+        existing.quantity = totalQty;
+        existing.cost += inv.cost;
+        existing.current += inv.current;
+        existing.gain = existing.current - existing.cost;
+        existing.gainPct = existing.cost > 0 ? (existing.gain / existing.cost) * 100 : 0;
+        existing._ids.push(inv.id);
+        // Use earliest purchase date
+        if (inv.purchaseDate && (!existing.purchaseDate || inv.purchaseDate < existing.purchaseDate)) {
+          existing.purchaseDate = inv.purchaseDate;
+        }
+      }
+    }
+    const consolidated = Array.from(consolidatedMap.values()).map((inv) => ({
+      ...inv,
+      gainPct: Math.round(inv.gainPct * 100) / 100,
+    }));
+
+    const totalCost = consolidated.reduce((s, i) => s + i.cost, 0);
+    const totalCurrent = consolidated.reduce((s, i) => s + i.current, 0);
     const totalGain = totalCurrent - totalCost;
     const totalGainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
 
     return ok({
-      investments: summary,
+      investments: consolidated,
       totalCost,
       totalCurrent,
       totalGain,

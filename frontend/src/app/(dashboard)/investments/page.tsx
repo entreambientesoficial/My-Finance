@@ -46,6 +46,7 @@ export default function InvestmentsPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<any | null>(null);
+  const [redeemInvestment, setRedeemInvestment] = useState<any | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
 
@@ -100,6 +101,17 @@ export default function InvestmentsPage() {
   const formIsUSD = watchedType === 'STOCK_US';
   const formIsBond = watchedType === 'BOND';
 
+  const { register: redeemRegister, handleSubmit: redeemHandleSubmit, reset: redeemReset, control: redeemControl } = useForm<any>();
+
+  const openRedeemModal = (inv: any) => {
+    setRedeemInvestment(inv);
+    redeemReset({
+      amount: Number(inv.current || 0).toFixed(2),
+      accountId: '',
+      date: new Date().toISOString().slice(0, 10),
+    });
+  };
+
   const createMutation = useMutation({
     mutationFn: (data: any) => api.post('/api/investments', {
       ...data,
@@ -135,7 +147,10 @@ export default function InvestmentsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/api/investments/${id}`),
+    mutationFn: (inv: any) => {
+      const ids: string[] = inv._ids?.length > 1 ? inv._ids : [inv.id];
+      return Promise.all(ids.map((id: string) => api.delete(`/api/investments/${id}`)));
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['portfolio'] });
       qc.invalidateQueries({ queryKey: ['accounts'] });
@@ -145,6 +160,29 @@ export default function InvestmentsPage() {
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao remover ativo'),
   });
+
+  const redeemMutation = useMutation({
+    mutationFn: ({ ids, accountId, amount, date }: { ids: string[]; accountId: string; amount: number; date: string }) => {
+      const [firstId, ...extraIds] = ids;
+      return api.post(`/api/investments/${firstId}/sell`, { accountId, amount: Number(amount), date, extraIds });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portfolio'] });
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['recent-transactions-activity'] });
+      qc.invalidateQueries({ queryKey: ['household-summary'] });
+      toast.success('Ativo resgatado com sucesso!');
+      setRedeemInvestment(null);
+      redeemReset();
+    },
+    onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao resgatar ativo'),
+  });
+
+  const onRedeemSubmit = (d: any) => {
+    if (!redeemInvestment) return;
+    const ids: string[] = redeemInvestment._ids?.length > 0 ? redeemInvestment._ids : [redeemInvestment.id];
+    redeemMutation.mutate({ ids, accountId: d.accountId, amount: d.amount, date: d.date });
+  };
 
   const handleEditInvestment = (inv: any) => {
     setEditingInvestment(inv);
@@ -776,10 +814,13 @@ export default function InvestmentsPage() {
                                     </td>
                                     <td className="px-lg py-md text-right">
                                       <div className="flex items-center justify-end gap-2">
+                                        <button onClick={() => openRedeemModal(inv)} className="text-placeholder hover:text-secondary transition-colors" title="Resgatar aplicação">
+                                          <span className="material-symbols-outlined text-[18px]">paid</span>
+                                        </button>
                                         <button onClick={() => handleEditInvestment(inv)} className="text-placeholder hover:text-primary transition-colors" title="Editar">
                                           <span className="material-symbols-outlined text-[18px]">edit</span>
                                         </button>
-                                        <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors" title="Excluir">
+                                        <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv); }} className="text-placeholder hover:text-error transition-colors" title="Excluir">
                                           <span className="material-symbols-outlined text-[18px]">delete</span>
                                         </button>
                                       </div>
@@ -824,10 +865,17 @@ export default function InvestmentsPage() {
                                     </td>
                                     <td className="px-lg py-md text-right">
                                       <div className="flex items-center justify-end gap-2">
-                                        <button onClick={() => handleEditInvestment(inv)} className="text-placeholder hover:text-primary transition-colors" title="Editar">
-                                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                                        <button onClick={() => openRedeemModal(inv)} className="text-placeholder hover:text-secondary transition-colors" title="Vender / Resgatar">
+                                          <span className="material-symbols-outlined text-[18px]">paid</span>
                                         </button>
-                                        <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors" title="Excluir">
+                                        {(inv._ids?.length ?? 1) === 1 ? (
+                                          <button onClick={() => handleEditInvestment(inv)} className="text-placeholder hover:text-primary transition-colors" title="Editar">
+                                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                                          </button>
+                                        ) : (
+                                          <span className="text-placeholder text-[18px] material-symbols-outlined cursor-default opacity-30" title="Posição consolidada — edição indisponível. Use Resgatar e adicione novamente.">edit_off</span>
+                                        )}
+                                        <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv); }} className="text-placeholder hover:text-error transition-colors" title="Excluir">
                                           <span className="material-symbols-outlined text-[18px]">delete</span>
                                         </button>
                                       </div>
@@ -1014,10 +1062,15 @@ export default function InvestmentsPage() {
                                 {!isBond && inv.broker && <span className="text-[10px] text-on-surface-variant">({inv.broker})</span>}
                               </div>
                               <div className="flex items-center gap-1">
-                                <button onClick={() => handleEditInvestment(inv)} className="text-placeholder hover:text-primary transition-colors p-1" title="Editar">
-                                  <span className="material-symbols-outlined text-[16px]">edit</span>
+                                <button onClick={() => openRedeemModal(inv)} className="text-placeholder hover:text-secondary transition-colors p-1" title="Resgatar / Vender">
+                                  <span className="material-symbols-outlined text-[16px]">paid</span>
                                 </button>
-                                <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv.id); }} className="text-placeholder hover:text-error transition-colors p-1" title="Excluir">
+                                {(inv._ids?.length ?? 1) === 1 && (
+                                  <button onClick={() => handleEditInvestment(inv)} className="text-placeholder hover:text-primary transition-colors p-1" title="Editar">
+                                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                                  </button>
+                                )}
+                                <button onClick={() => { if (confirm('Excluir este ativo?')) deleteMutation.mutate(inv); }} className="text-placeholder hover:text-error transition-colors p-1" title="Excluir">
                                   <span className="material-symbols-outlined text-[16px]">delete</span>
                                 </button>
                               </div>
@@ -1076,6 +1129,96 @@ export default function InvestmentsPage() {
           </div>
         </section>
       </div>
+
+      {/* ─── MODAL: RESGATAR / VENDER ATIVO ─── */}
+      {redeemInvestment && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-card border border-outline-variant rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-outline-variant">
+              <div>
+                <h2 className="font-headline text-headline-md text-primary font-bold">
+                  {redeemInvestment.type === 'BOND' ? 'Resgatar Aplicação' : 'Vender Ativo'}
+                </h2>
+                <p className="text-sm text-on-surface-variant mt-0.5 font-semibold">
+                  {redeemInvestment.ticker || redeemInvestment.name}
+                  {(redeemInvestment._ids?.length ?? 1) > 1 && (
+                    <span className="ml-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold">POSIÇÃO CONSOLIDADA</span>
+                  )}
+                </p>
+              </div>
+              <button onClick={() => setRedeemInvestment(null)} className="p-1 hover:bg-surface-container rounded-full text-on-surface-variant transition-colors">
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+            <form onSubmit={redeemHandleSubmit(onRedeemSubmit)} className="p-5 space-y-4">
+              <div className="bg-surface-container rounded-lg px-4 py-3 flex justify-between items-center">
+                <span className="text-sm text-on-surface-variant font-medium">Valor atual estimado</span>
+                <span className="font-numeric font-bold text-primary">{formatCurrency(Number(redeemInvestment.current || 0))}</span>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">Valor Recebido *</label>
+                <Controller
+                  control={redeemControl}
+                  name="amount"
+                  render={({ field }) => (
+                    <CurrencyInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      required
+                      className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2.5 text-sm font-numeric focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                  )}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">Creditar em qual conta? *</label>
+                <select
+                  required
+                  {...redeemRegister('accountId')}
+                  className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none cursor-pointer"
+                >
+                  <option value="">Selecionar conta</option>
+                  {(accounts as any[]).map((a: any) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">Data do Resgate</label>
+                <input
+                  type="date"
+                  {...redeemRegister('date')}
+                  className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                />
+              </div>
+
+              <p className="text-[11px] text-on-surface-variant bg-surface-container rounded-lg px-3 py-2">
+                O valor será creditado na conta selecionada como receita e o ativo removido da carteira.
+              </p>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setRedeemInvestment(null)}
+                  className="flex-1 py-2.5 rounded-lg border border-outline-variant text-on-surface-variant text-sm font-semibold hover:bg-surface-container transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={redeemMutation.isPending}
+                  className="flex-1 py-2.5 rounded-lg bg-secondary text-white text-sm font-bold hover:opacity-90 transition-all active:scale-95 disabled:opacity-60"
+                >
+                  {redeemMutation.isPending ? 'Resgatando...' : 'Confirmar Resgate'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -52,6 +52,39 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       }
     }
 
+    // For variable assets (non-BOND), merge with existing record if same ticker+type exists
+    const canMerge = investmentData.type && investmentData.type !== 'BOND' && investmentData.ticker;
+    if (canMerge) {
+      const { data: existing } = await supabase
+        .from('investments')
+        .select('id, quantity, purchasePrice')
+        .eq('householdId', user.householdId)
+        .eq('ticker', String(investmentData.ticker).toUpperCase())
+        .eq('type', investmentData.type)
+        .maybeSingle();
+
+      if (existing) {
+        const addQty = Number(investmentData.quantity || 0);
+        const prevQty = Number(existing.quantity || 0);
+        const totalQty = prevQty + addQty;
+        const avgPrice =
+          totalQty > 0
+            ? (prevQty * Number(existing.purchasePrice) + addQty * Number(investmentData.purchasePrice || 0)) / totalQty
+            : Number(existing.purchasePrice);
+
+        const { data: merged } = await supabase
+          .from('investments')
+          .update({ quantity: totalQty, purchasePrice: avgPrice, updatedAt: new Date().toISOString() })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        return ok(merged);
+      }
+
+      // Normalise ticker to uppercase before insert
+      investmentData.ticker = String(investmentData.ticker).toUpperCase();
+    }
+
     const { data: investment, error: invError } = await supabase
       .from('investments')
       .insert({
