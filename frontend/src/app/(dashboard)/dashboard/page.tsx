@@ -201,7 +201,7 @@ export default function DashboardPage() {
   const renderActiveShape = (props: any) => {
     const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
     return (
-      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 3} outerRadius={outerRadius + 5}
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6}
         startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.95} />
     );
   };
@@ -552,11 +552,11 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
-                    <div className="relative w-[150px] h-[150px] flex-shrink-0">
+                    <div className="w-[150px] h-[150px] flex-shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie data={topCategories} dataKey="total" cx="50%" cy="50%"
-                            innerRadius={44} outerRadius={68} paddingAngle={2}
+                            outerRadius={70} paddingAngle={2}
                             stroke="var(--surface-container-lowest)" strokeWidth={2}
                             activeIndex={activePieIdx} activeShape={renderActiveShape}
                             onMouseEnter={(_: any, index: number) => setActivePieIdx(index)}
@@ -574,25 +574,6 @@ export default function DashboardPage() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        {activePieIdx >= 0 && topCategories[activePieIdx] ? (
-                          <div className="text-center px-1">
-                            <p className="text-[9px] text-on-surface-variant font-bold uppercase leading-tight truncate max-w-[64px]">
-                              {topCategories[activePieIdx].name}
-                            </p>
-                            <p className="text-[14px] font-bold text-primary leading-tight">
-                              {topCategories[activePieIdx].percentage}%
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="text-center px-1">
-                            <p className="text-[8px] text-on-surface-variant uppercase leading-tight">Total</p>
-                            <p className="text-[10px] font-bold text-primary leading-tight">
-                              {formatCurrency(topCategories.reduce((s: number, c: any) => s + c.total, 0))}
-                            </p>
-                          </div>
-                        )}
-                      </div>
                     </div>
                     <div className="flex-1 space-y-1.5 min-w-0">
                       {topCategories.map((cat: any, i: number) => (
@@ -622,11 +603,11 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
-                    <div className="relative w-[150px] h-[150px] flex-shrink-0">
+                    <div className="w-[150px] h-[150px] flex-shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie data={topAnnualCategories} dataKey="total" cx="50%" cy="50%"
-                            innerRadius={44} outerRadius={68} paddingAngle={2}
+                            outerRadius={70} paddingAngle={2}
                             stroke="var(--surface-container-lowest)" strokeWidth={2}
                             activeIndex={activeAnnualPieIdx} activeShape={renderActiveShape}
                             onMouseEnter={(_: any, index: number) => setActiveAnnualPieIdx(index)}
@@ -644,25 +625,6 @@ export default function DashboardPage() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        {activeAnnualPieIdx >= 0 && topAnnualCategories[activeAnnualPieIdx] ? (
-                          <div className="text-center px-1">
-                            <p className="text-[9px] text-on-surface-variant font-bold uppercase leading-tight truncate max-w-[64px]">
-                              {topAnnualCategories[activeAnnualPieIdx].name}
-                            </p>
-                            <p className="text-[14px] font-bold text-primary leading-tight">
-                              {topAnnualCategories[activeAnnualPieIdx].percentage}%
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="text-center px-1">
-                            <p className="text-[8px] text-on-surface-variant uppercase leading-tight">Total</p>
-                            <p className="text-[10px] font-bold text-primary leading-tight">
-                              {formatCurrency(topAnnualCategories.reduce((s: number, c: any) => s + c.total, 0))}
-                            </p>
-                          </div>
-                        )}
-                      </div>
                     </div>
                     <div className="flex-1 space-y-1.5 min-w-0">
                       {topAnnualCategories.map((cat: any, i: number) => (
