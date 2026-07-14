@@ -62,19 +62,19 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
-  // Gráfico esquerdo: mês selecionado (navegável) — apenas pagas
+  // Gráfico esquerdo: mês selecionado (navegável) — pagas + pendentes
   const { data: expensesByCategory = [] } = useQuery({
     queryKey: ['expenses-by-category-dash', selectedStart, selectedEnd],
-    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${selectedStart}&endDate=${selectedEnd}&isPaid=true`).then((r) => r.data),
+    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${selectedStart}&endDate=${selectedEnd}`).then((r) => r.data),
     staleTime: 60_000,
   });
 
-  // Gráfico direito: acumulado do ano — apenas pagas
+  // Gráfico direito: acumulado do ano — pagas + pendentes
   const annualStart = `${currentYear}-01-01`;
   const annualEnd   = `${currentYear}-12-31`;
   const { data: annualExpensesByCategory = [] } = useQuery({
     queryKey: ['expenses-by-category-annual', currentYear],
-    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${annualStart}&endDate=${annualEnd}&isPaid=true`).then((r) => r.data),
+    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${annualStart}&endDate=${annualEnd}`).then((r) => r.data),
     staleTime: 300_000,
   });
 
@@ -532,12 +532,12 @@ export default function DashboardPage() {
                   <button onClick={nextMonth} disabled={isCurrentMonth} className="w-5 h-5 flex items-center justify-center rounded hover:bg-surface-container-high transition-colors text-on-surface-variant hover:text-primary disabled:opacity-30 disabled:cursor-not-allowed">
                     <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                   </button>
-                  <span className="text-[10px] text-outline">· valores pagos</span>
+                  <span className="text-[10px] text-outline">· pagas + pendentes</span>
                 </div>
                 {topCategories.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
                     <span className="material-symbols-outlined text-[32px] text-outline mb-xs">pie_chart</span>
-                    <p className="text-xs text-on-surface-variant">Nenhuma despesa paga em {monthLabel}.</p>
+                    <p className="text-xs text-on-surface-variant">Nenhuma despesa em {monthLabel}.</p>
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
@@ -575,14 +575,14 @@ export default function DashboardPage() {
               <div className="bg-surface-container-lowest p-lg rounded-xl border border-outline-variant custom-card-shadow flex flex-col">
                 {/* Header: título + link */}
                 <div className="flex justify-between items-center mb-1">
-                  <h4 className="font-headline text-headline-md text-primary">Por Categoria</h4>
+                  <h4 className="font-headline text-headline-md text-primary">Por Categoria Anualizado</h4>
                   <a href="/reports" className="text-[11px] text-primary hover:underline">Relatório</a>
                 </div>
-                <p className="font-label-sm text-[10px] text-outline mb-md">Acumulado {currentYear} · valores pagos</p>
+                <p className="font-label-sm text-[10px] text-outline mb-md">Acumulado {currentYear} · pagas + pendentes</p>
                 {topAnnualCategories.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-[200px] text-center bg-surface-container-low/20 rounded-lg border border-dashed border-outline-variant/60">
                     <span className="material-symbols-outlined text-[32px] text-outline mb-xs">pie_chart</span>
-                    <p className="text-xs text-on-surface-variant">Nenhuma despesa paga em {currentYear}.</p>
+                    <p className="text-xs text-on-surface-variant">Nenhuma despesa em {currentYear}.</p>
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
