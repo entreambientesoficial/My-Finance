@@ -42,12 +42,12 @@ export default function ReportsPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedAccount, setSelectedAccount] = useState('');
   const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'isPaid' | 'category' | 'account'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [hoveredSlice, setHoveredSlice] = useState<{ name: string; total: number; color: string } | null>(null);
   const limit = 10;
 
-  function handleSort(col: 'date' | 'amount' | 'description') {
+  function handleSort(col: 'date' | 'amount' | 'description' | 'isPaid' | 'category' | 'account') {
     if (sortBy === col) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     } else {
@@ -397,17 +397,22 @@ export default function ReportsPage() {
                 <tr className="border-b border-outline-variant/40">
                   {(
                     [
-                      { label: 'Data',      col: 'date'        },
-                      { label: 'Descrição', col: 'description' },
-                    ] as { label: string; col: 'date' | 'amount' | 'description' }[]
-                  ).map(({ label, col }) => (
+                      { label: 'Data',      col: 'date',        align: 'left'  },
+                      { label: 'Descrição', col: 'description', align: 'left'  },
+                      { label: 'Categoria', col: 'category',    align: 'left'  },
+                      { label: 'Conta',     col: 'account',     align: 'left'  },
+                      { label: 'Valor',     col: 'amount',      align: 'right' },
+                      { label: 'Status',    col: 'isPaid',      align: 'left'  },
+                    ] as { label: string; col: typeof sortBy; align: 'left' | 'right' }[]
+                  ).map(({ label, col, align }) => (
                     <th
                       key={col}
                       onClick={() => handleSort(col)}
-                      className="px-xl py-md font-label-sm text-label-sm uppercase tracking-wider font-bold cursor-pointer select-none group"
+                      className="px-xl py-md font-label-sm text-label-sm uppercase tracking-wider font-bold cursor-pointer select-none"
                     >
                       <span className={cn(
                         'flex items-center gap-1 transition-colors',
+                        align === 'right' ? 'justify-end' : 'justify-start',
                         sortBy === col ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
                       )}>
                         {label}
@@ -417,23 +422,6 @@ export default function ReportsPage() {
                       </span>
                     </th>
                   ))}
-                  <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Categoria</th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Conta</th>
-                  <th
-                    onClick={() => handleSort('amount')}
-                    className="px-xl py-md font-label-sm text-label-sm uppercase tracking-wider font-bold text-right cursor-pointer select-none"
-                  >
-                    <span className={cn(
-                      'flex items-center justify-end gap-1 transition-colors',
-                      sortBy === 'amount' ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
-                    )}>
-                      Valor
-                      <span className="material-symbols-outlined text-[14px]">
-                        {sortBy === 'amount' ? (sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
-                      </span>
-                    </span>
-                  </th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant/20">

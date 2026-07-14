@@ -21,16 +21,24 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     const limit = Math.min(100, parseInt(sp.get('limit') ?? '20'));
     const sortByRaw = sp.get('sortBy') ?? 'date';
     const sortDir = sp.get('sortDir') === 'asc';
-    const allowedSort = ['date', 'amount', 'description'];
+    const allowedSort = ['date', 'amount', 'description', 'isPaid', 'category', 'account'];
     const sortBy = allowedSort.includes(sortByRaw) ? sortByRaw : 'date';
 
     const supabase = createAdminClient();
     let query = supabase
       .from('transactions')
       .select(TX_SELECT, { count: 'exact' })
-      .eq('householdId', user.householdId)
-      .order(sortBy, { ascending: sortDir })
-      .range((page - 1) * limit, page * limit - 1);
+      .eq('householdId', user.householdId);
+
+    if (sortBy === 'category') {
+      query = query.order('name', { referencedTable: 'categories', ascending: sortDir });
+    } else if (sortBy === 'account') {
+      query = query.order('name', { referencedTable: 'accounts', ascending: sortDir });
+    } else {
+      query = query.order(sortBy, { ascending: sortDir });
+    }
+
+    query = query.range((page - 1) * limit, page * limit - 1);
 
     if (type) query = query.eq('type', type);
     if (categoryId) query = query.eq('categoryId', categoryId);
