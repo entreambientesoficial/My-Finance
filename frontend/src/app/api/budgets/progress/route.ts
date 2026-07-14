@@ -1,8 +1,14 @@
-﻿export const runtime = 'edge'
+export const runtime = 'edge'
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, notFound, badRequest, serverError } from '@/lib/api-response';
+
+const isCardPayment = (desc: string) => {
+  const d = (desc || '').toLowerCase();
+  return d.includes('fatura de cart') || d.includes('pagamento de fatura') ||
+    d.includes('pagamento de cart') || d.includes('pagamento do cart');
+};
 
 export const GET = withAuth(async (req: NextRequest, user) => {
   try {
@@ -13,111 +19,136 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     if (!month || !year) return badRequest('month e year são obrigatórios');
 
     const householdId = user.householdId;
-    const currentStart = new Date(year, month - 1, 1).toISOString();
-    const currentEnd = new Date(year, month, 0, 23, 59, 59).toISOString();
-    const pastStart = new Date(year, month - 4, 1).toISOString();
-    const pastEnd = new Date(year, month - 1, 0, 23, 59, 59).toISOString();
-
+    const startDate = new Date(year, month - 1, 1).toISOString();
+    const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
     const supabase = createAdminClient();
-    const [{ data: categories }, { data: manualBudgets }] = await Promise.all([
-      supabase.from('categories').select('*').eq('householdId', householdId).eq('type', 'EXPENSE').is('parentId', null),
+
+    const [
+      { data: allCats },
+      { data: manualBudgets },
+      { data: incomeTxs },
+      { data: expenseTxs },
+    ] = await Promise.all([
+      supabase.from('categories').select('id, name, color, icon, parentId').eq('householdId', householdId),
       supabase.from('budgets').select('*').eq('householdId', householdId).eq('month', month).eq('year', year).eq('isActive', true),
+      supabase.from('transactions').select('amount').eq('householdId', householdId).eq('type', 'INCOME').eq('isPaid', true).gte('date', startDate).lte('date', endDate),
+      supabase.from('transactions').select('amount, description, categoryId').eq('householdId', householdId).eq('type', 'EXPENSE').gte('date', startDate).lte('date', endDate),
     ]);
 
-    const results = await Promise.all(
-      (categories ?? []).map(async (cat) => {
-        const manual = (manualBudgets ?? []).find((b) => b.categoryId === cat.id);
-        const { data: children } = await supabase
-          .from('categories')
-          .select('id')
-          .eq('householdId', householdId)
-          .eq('parentId', cat.id);
-        const categoryIds = [cat.id, ...(children ?? []).map((c) => c.id)];
+    const income = (incomeTxs ?? []).reduce((s, t) => s + parseFloat(t.amount), 0);
 
-        const [{ data: currentTxs }, { data: pastTxs }] = await Promise.all([
-          supabase.from('transactions').select('amount').eq('householdId', householdId).eq('type', 'EXPENSE').eq('isPaid', true).in('categoryId', categoryIds).gte('date', currentStart).lte('date', currentEnd),
-          supabase.from('transactions').select('amount').eq('householdId', householdId).eq('type', 'EXPENSE').eq('isPaid', true).in('categoryId', categoryIds).gte('date', pastStart).lte('date', pastEnd),
-        ]);
+    const catById: Record<string, any> = {};
+    for (const c of allCats ?? []) catById[c.id] = c;
 
-        const spent = (currentTxs ?? []).reduce((s, t) => s + parseFloat(t.amount), 0);
-        const pastTotal = (pastTxs ?? []).reduce((s, t) => s + parseFloat(t.amount), 0);
-        const pastAvg = pastTotal / 3;
+    // Compute spending per top-level category (all expenses, no card payments)
+    const spentByCat: Record<string, number> = {};
+    for (const t of expenseTxs ?? []) {
+      if (isCardPayment(t.description || '')) continue;
+      const cat = t.categoryId ? catById[t.categoryId] : null;
+      const topCat = cat ? (cat.parentId && catById[cat.parentId] ? catById[cat.parentId] : cat) : null;
+      const key = topCat?.id ?? '__sem_categoria';
+      spentByCat[key] = (spentByCat[key] || 0) + Number(t.amount);
+    }
 
-        let limit: number;
-        let isAutomatic = true;
-        let description: string;
+    const manualByCategory: Record<string, any> = {};
+    for (const b of manualBudgets ?? []) {
+      if (b.categoryId) manualByCategory[b.categoryId] = b;
+    }
 
-        if (manual) {
-          limit = parseFloat(manual.amount);
-          isAutomatic = false;
-          description = 'Limite definido manualmente.';
-        } else {
-          let raw = pastAvg;
-          if (raw <= 0) raw = spent > 0 ? spent * 1.5 : 0;
-          limit = raw > 0 ? Math.max(100, Math.ceil(raw / 50) * 50) : 0;
-          description = pastAvg > 0
-            ? `Média de R$ ${pastAvg.toFixed(2)} nos últimos 3 meses.`
-            : spent > 0 ? 'Baseado no gasto atual do mês.' : 'Sem gastos registrados.';
-        }
+    // Build result for every top-level category
+    const topLevelCats = (allCats ?? []).filter((c: any) => !c.parentId);
+    const results: any[] = topLevelCats.map((cat: any) => {
+      const manual = manualByCategory[cat.id];
+      const spent = spentByCat[cat.id] || 0;
+      const limit: number | null = manual ? parseFloat(manual.amount) : null;
+      return {
+        id: cat.id,
+        name: cat.name,
+        color: cat.color,
+        icon: cat.icon,
+        spent,
+        limit,
+        budgetId: manual?.id ?? null,
+        percentage: limit ? Math.round((spent / limit) * 100) : null,
+      };
+    });
 
-        return {
-          id: manual ? manual.id : `auto-${cat.id}`,
-          name: cat.name,
-          amount: limit,
-          spent,
-          remaining: limit > 0 ? limit - spent : -spent,
-          percentage: limit > 0 ? Math.round((spent / limit) * 100) : spent > 0 ? 100 : 0,
-          category: { id: cat.id, name: cat.name, color: cat.color, icon: cat.icon },
-          description,
-          isAutomatic,
-        };
-      })
-    );
+    if (spentByCat['__sem_categoria']) {
+      results.push({
+        id: '__sem_categoria',
+        name: 'Sem categoria',
+        color: '#6b7280',
+        icon: 'more_horiz',
+        spent: spentByCat['__sem_categoria'],
+        limit: null,
+        budgetId: null,
+        percentage: null,
+      });
+    }
 
-    const filtered = results.filter((r) => r.spent > 0 || !r.isAutomatic);
-    const finalBudgets = filtered.length > 0 ? filtered : results.slice(0, 4);
-    const totalBudget = finalBudgets.reduce((s, r) => s + r.amount, 0);
+    // Show categories with spending OR with a manual limit set; sort by spent desc
+    const filtered = results.filter((r) => r.spent > 0 || r.limit !== null);
+    filtered.sort((a, b) => b.spent - a.spent);
+    const totalSpent = filtered.reduce((s, r) => s + r.spent, 0);
 
+    // Monthly history — last 6 months, actual spending only (no card payments)
     const monthDates = Array.from({ length: 6 }, (_, i) => {
       const d = new Date(year, month - 1 - (5 - i), 1);
       return {
         label: d.toLocaleString('pt-BR', { month: 'short' }).replace('.', '').slice(0, 3),
         start: new Date(d.getFullYear(), d.getMonth(), 1).toISOString(),
         end: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString(),
+        isCurrent: i === 5,
       };
     });
 
     const monthlyHistory = await Promise.all(
       monthDates.map(async (m) => {
-        const { data: txs } = await supabase.from('transactions').select('amount').eq('householdId', householdId).eq('type', 'EXPENSE').eq('isPaid', true).gte('date', m.start).lte('date', m.end);
-        const actual = (txs ?? []).reduce((s, t) => s + parseFloat(t.amount), 0);
-        return { label: m.label.charAt(0).toUpperCase() + m.label.slice(1), planned: totalBudget, actual };
+        const { data: txs } = await supabase
+          .from('transactions')
+          .select('amount, description')
+          .eq('householdId', householdId)
+          .eq('type', 'EXPENSE')
+          .gte('date', m.start)
+          .lte('date', m.end);
+        const actual = (txs ?? [])
+          .filter((t) => !isCardPayment(t.description || ''))
+          .reduce((s, t) => s + parseFloat(t.amount), 0);
+        return {
+          label: m.label.charAt(0).toUpperCase() + m.label.slice(1),
+          actual,
+          isCurrent: m.isCurrent,
+        };
       })
     );
 
-    const { data: topTransactions, error: topTxError } = await supabase
+    // Top transactions — no card payments, resolve to top-level category
+    const { data: topTxsRaw } = await supabase
       .from('transactions')
       .select('id, description, amount, date, isPaid, categoryId')
       .eq('householdId', householdId)
       .eq('type', 'EXPENSE')
-      .gte('date', currentStart)
-      .lte('date', currentEnd)
+      .gte('date', startDate)
+      .lte('date', endDate)
       .order('amount', { ascending: false })
-      .limit(5);
-    if (topTxError) console.error('[budgets/progress topTransactions]', topTxError);
+      .limit(20);
 
-    const totalCurrentSpent = finalBudgets.reduce((s, r) => s + r.spent, 0);
-    const prevMonthActual = monthlyHistory[4]?.actual ?? 0;
-    const variance = prevMonthActual > 0
-      ? ((totalCurrentSpent - prevMonthActual) / prevMonthActual) * 100
-      : null;
+    const topTransactions = (topTxsRaw ?? [])
+      .filter((t) => !isCardPayment(t.description || ''))
+      .slice(0, 5)
+      .map((t) => {
+        const cat = t.categoryId ? catById[t.categoryId] : null;
+        const topCat = cat ? (cat.parentId && catById[cat.parentId] ? catById[cat.parentId] : cat) : null;
+        return { ...t, resolvedCategoryId: topCat?.id ?? null };
+      });
 
-    // Build category map from results (all categories, even zero-spend ones)
-    const categoryMap = Object.fromEntries(
-      results.map((r) => [r.category.id, r.category])
-    );
+    // Category map for client lookup (top-level only)
+    const categoryMap: Record<string, any> = {};
+    for (const cat of topLevelCats as any[]) {
+      categoryMap[cat.id] = { name: cat.name, color: cat.color, icon: cat.icon };
+    }
 
-    return ok({ budgets: finalBudgets, topTransactions: topTransactions ?? [], monthlyHistory, variance, categoryMap });
+    return ok({ income, totalSpent, categories: filtered, monthlyHistory, topTransactions, categoryMap });
   } catch (err) {
     console.error('[budgets/progress GET]', err);
     return serverError();
