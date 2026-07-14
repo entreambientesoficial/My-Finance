@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
 
 function getPeriodDates(period: string): { startDate: string; endDate: string } {
   const now = new Date();
@@ -44,7 +44,7 @@ export default function ReportsPage() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'isPaid' | 'category' | 'account'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [hoveredSlice, setHoveredSlice] = useState<{ name: string; total: number; color: string } | null>(null);
+  const [activeCatIdx, setActiveCatIdx] = useState(-1);
   const limit = 10;
 
   function handleSort(col: 'date' | 'amount' | 'description' | 'isPaid' | 'category' | 'account') {
@@ -162,6 +162,14 @@ export default function ReportsPage() {
       })
       .catch(() => toast.error('Erro ao exportar CSV'));
   }
+
+  const renderActiveCatShape = (props: any) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+    return (
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 2} outerRadius={outerRadius + 5}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.95} />
+    );
+  };
 
   // Formatting data for display
   const displayCashFlow = cashFlow.map((flow: any) => ({
@@ -326,42 +334,40 @@ export default function ReportsPage() {
                   <p className="text-[11px] text-outline px-sm">Tente mudar o período de busca ou selecionar outra conta bancária.</p>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-44 h-44 flex items-center justify-center relative">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={byCategory}
-                          dataKey="total"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={58}
-                          outerRadius={74}
-                          paddingAngle={2.5}
-                          onMouseEnter={(data) => setHoveredSlice(data)}
-                          onMouseLeave={() => setHoveredSlice(null)}
-                        >
-                          {byCategory.map((entry: any, i: number) => (
-                            <Cell key={i} fill={entry.color || '#6b7280'} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute text-center flex flex-col justify-center items-center pointer-events-none">
-                      <span className="block font-numeric text-[18px] text-primary font-bold tracking-tight">{formatCurrency(totalExpenses)}</span>
-                      <span className="font-label-sm text-[9px] text-on-surface-variant uppercase font-bold tracking-wider">Total</span>
-                    </div>
-                  </div>
-                  <div className="h-8 flex items-center justify-center">
-                    {hoveredSlice ? (
-                      <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container rounded-lg border border-outline-variant">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: hoveredSlice.color }} />
-                        <span className="text-xs font-semibold text-on-surface">{hoveredSlice.name}</span>
-                        <span className="text-xs text-on-surface-variant">{formatCurrency(hoveredSlice.total)}</span>
-                      </div>
+                <div className="w-44 h-44 flex items-center justify-center relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={byCategory}
+                        dataKey="total"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={58}
+                        outerRadius={74}
+                        paddingAngle={2.5}
+                        activeIndex={activeCatIdx}
+                        activeShape={renderActiveCatShape}
+                        onMouseEnter={(_: any, index: number) => setActiveCatIdx(index)}
+                        onMouseLeave={() => setActiveCatIdx(-1)}
+                      >
+                        {byCategory.map((entry: any, i: number) => (
+                          <Cell key={i} fill={entry.color || '#6b7280'} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute text-center flex flex-col justify-center items-center pointer-events-none px-2">
+                    {activeCatIdx >= 0 && byCategory[activeCatIdx] ? (
+                      <>
+                        <span className="block font-label-sm text-[9px] text-on-surface-variant uppercase font-bold tracking-wider truncate max-w-[80px]">{byCategory[activeCatIdx].name}</span>
+                        <span className="block font-numeric text-[16px] text-primary font-bold tracking-tight">{formatCurrency(byCategory[activeCatIdx].total)}</span>
+                      </>
                     ) : (
-                      <span className="text-xs text-on-surface-variant opacity-50">Passe o mouse sobre o gráfico</span>
+                      <>
+                        <span className="block font-numeric text-[18px] text-primary font-bold tracking-tight">{formatCurrency(totalExpenses)}</span>
+                        <span className="font-label-sm text-[9px] text-on-surface-variant uppercase font-bold tracking-wider">Total</span>
+                      </>
                     )}
                   </div>
                 </div>
@@ -572,7 +578,7 @@ export default function ReportsPage() {
               <div className="py-8 text-center text-outline text-xs">Sem despesas registradas no período.</div>
             ) : (
               <>
-                <div className="flex flex-col items-center gap-2 my-md">
+                <div className="my-md">
                   <div className="w-36 h-36 flex items-center justify-center relative">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -585,8 +591,10 @@ export default function ReportsPage() {
                           innerRadius={46}
                           outerRadius={58}
                           paddingAngle={2}
-                          onMouseEnter={(data) => setHoveredSlice(data)}
-                          onMouseLeave={() => setHoveredSlice(null)}
+                          activeIndex={activeCatIdx}
+                          activeShape={renderActiveCatShape}
+                          onMouseEnter={(_: any, index: number) => setActiveCatIdx(index)}
+                          onMouseLeave={() => setActiveCatIdx(-1)}
                         >
                           {byCategory.map((entry: any, i: number) => (
                             <Cell key={i} fill={entry.color || '#6b7280'} />
@@ -594,19 +602,19 @@ export default function ReportsPage() {
                         </Pie>
                       </PieChart>
                     </ResponsiveContainer>
-                    <div className="absolute text-center flex flex-col justify-center items-center pointer-events-none">
-                      <span className="block font-numeric text-xs font-bold text-primary">{formatCurrency(totalExpenses)}</span>
-                      <span className="font-label-sm text-[8px] text-on-surface-variant uppercase font-bold tracking-wider">Total</span>
+                    <div className="absolute text-center flex flex-col justify-center items-center pointer-events-none px-2">
+                      {activeCatIdx >= 0 && byCategory[activeCatIdx] ? (
+                        <>
+                          <span className="block font-label-sm text-[8px] text-on-surface-variant uppercase font-bold tracking-wider truncate max-w-[60px]">{byCategory[activeCatIdx].name}</span>
+                          <span className="block font-numeric text-[12px] text-primary font-bold tracking-tight">{formatCurrency(byCategory[activeCatIdx].total)}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="block font-numeric text-xs font-bold text-primary">{formatCurrency(totalExpenses)}</span>
+                          <span className="font-label-sm text-[8px] text-on-surface-variant uppercase font-bold tracking-wider">Total</span>
+                        </>
+                      )}
                     </div>
-                  </div>
-                  <div className="h-7 flex items-center justify-center">
-                    {hoveredSlice && (
-                      <div className="flex items-center gap-2 px-3 py-1 bg-surface-container rounded-lg border border-outline-variant">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: hoveredSlice.color }} />
-                        <span className="text-xs font-semibold text-on-surface">{hoveredSlice.name}</span>
-                        <span className="text-xs text-on-surface-variant">{formatCurrency(hoveredSlice.total)}</span>
-                      </div>
-                    )}
                   </div>
                 </div>
                 
