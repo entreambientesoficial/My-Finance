@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-07-09
+> Atualizado em: 2026-07-14
 > Stack: Next.js 14 App Router + Supabase Auth + Supabase JS client + Cloudflare Pages
 > App em produção: https://my-finance-my.pages.dev
 
@@ -36,11 +36,13 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 
 ---
 
-## Status Atual (2026-07-09)
+## Status Atual (2026-07-14)
 
 ✅ **APP EM PRODUÇÃO — compartilhado com amigos e família para validação**
 
 Anderson aguarda ~1 mês de feedback real antes de decidir sobre viabilidade comercial. Caso de uso prioritário para validação: **recebimento de dividendos**.
+
+**Sessão 2026-07-14:** Dashboard com gráficos donut interativos, tela de Orçamentos completamente redesenhada (baseada em renda real + limites manuais por categoria), dados de gastos corrigidos para incluir despesas de cartão.
 
 ---
 
@@ -382,6 +384,113 @@ GET    /api/notifications
 ---
 
 ## Log de Alterações
+
+### 2026-07-14 — Dashboard Donut Charts + Redesign Completo de Orçamentos + Correções de Dados
+
+#### 🐛 Tooltip dos gráficos de pizza com fundo preto e texto invisível
+
+**Problema:** Ao passar o mouse sobre os gráficos de pizza do dashboard, aparecia um box preto sem informação legível em dark mode.
+
+**Causa raiz:** O Recharts renderiza texto preto por padrão (hardcoded). Com o background vindo de `var(--surface-container-high)` (escuro em dark mode), o texto ficava invisível contra o fundo.
+
+**Correção:** Adicionado `color: 'var(--on-surface)'` ao `contentStyle` e `itemStyle` de todos os três `<Tooltip>` do dashboard (2 pizzas + 1 barra):
+```tsx
+<Tooltip
+  formatter={(v, _name, props) => [formatCurrency(v), props?.payload?.name ?? '']}
+  contentStyle={{ backgroundColor: 'var(--surface-container-high)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px', color: 'var(--on-surface)' }}
+  itemStyle={{ color: 'var(--on-surface)' }}
+  labelStyle={{ display: 'none' }}
+/>
+```
+
+Commit: `631a813`
+
+---
+
+#### 📊 Tela de Orçamentos — Redesign Completo (múltiplas iterações)
+
+**Problema identificado:** A tela de Orçamentos era fundamentalmente incorreta. O "Total Planejado" era calculado como `gastos × 1.5` — um número circular sem relação com a renda real. Apenas 5 categorias "principais" eram exibidas. A lógica tornava os limites automáticos sem sentido pois eram derivados dos gastos do próprio usuário.
+
+**Iterações corrigidas antes do redesign:**
+- Variância estava hardcoded como "-4.2% vs MM" → calculada como `(mesAtual - mesAnterior) / mesAnterior * 100` real
+- Gráfico de histórico com `maxVal` hardcoded em 10000 → dinâmico: `Math.max(totalBudget, ...history.map(h => h.actual))`
+- "Movimentações de Impacto" sempre vazia → causa raiz: sintaxe de join `category:categories!categoryId` falha silenciosamente no Cloudflare Edge Runtime (retorna `null` sem erro). Solução: remover o join, usar `categoryMap` construído server-side e retornado na resposta da API
+
+**Lição crítica aprendida:** Joins do Supabase PostgREST com hint de FK (`!foreignKeyName`) falham silenciosamente no Cloudflare Edge Runtime. **Padrão correto para este projeto:** buscar dados flat + resolver relações server-side com dados já carregados, retornar `categoryMap` ou lookup equivalente para o client.
+
+**Redesign final da API `GET /api/budgets/progress`:**
+- Renda do mês = soma de transações INCOME com `isPaid=true`
+- Gastos por categoria = todas as EXPENSE (pagas + pendentes), excluindo pagamentos de fatura (`isCardPayment()`)
+- `isCardPayment()` identifica: "fatura de cart", "pagamento de fatura", "pagamento de cart", "pagamento do cart"
+- Gastos são agregados por categoria pai (top-level), subcategorias somadas ao pai
+- Exibe: categorias com gasto > 0 OU com limite manual definido
+- Histórico mensal: 6 meses de gasto real (sem barras "planejado" fictícias)
+- Top transações: 20 buscadas, cartão filtrado, top 5 com `resolvedCategoryId` (para lookup no client)
+- `categoryMap` retornado: `{ [id]: { name, color, icon } }` para todas as categorias top-level
+
+**Redesign final da tela `budgets/page.tsx`:**
+- **Visão Geral:** renda do mês (paid INCOME), total gasto (barra de progresso com cor por percentual), saldo disponível ou déficit
+- **Gastos por Categoria:** todas as categorias com gasto > 0 ou limite manual; hover revela botões editar/excluir; barra de progresso só aparece quando limite está definido; ícone de lápis abre form de edição inline
+- **Histórico de Gastos:** 1 barra por mês (apenas gasto real), valor exibido abaixo de cada barra
+- **Movimentações de Impacto:** top 5 despesas do mês, sem filtro isPaid, categoria resolvida via `resolvedCategoryId → categoryMap`
+- Limites manuais: salvo na tabela `budgets` com `categoryId, month, year, isActive, amount`; mutation faz POST (novo) ou PATCH (existente) baseado na presença de `budgetId`
+
+Commits: `48da998`, `2ed80f7`, `c427d4f`
+
+---
+
+#### 🐛 Dashboard: valores dos gráficos de pizza divergiam dos Relatórios
+
+**Problema:** Dashboard mostrava R$233 em Alimentação, enquanto Relatórios mostrava R$811 para o mesmo período e categoria.
+
+**Causa raiz:** As queries dos dois gráficos de pizza no dashboard passavam `&isPaid=true`, excluindo todas as despesas de cartão de crédito (que ficam com `isPaid=false` até o pagamento da fatura). Relatórios não usava esse filtro.
+
+**Regra de negócio confirmada:** Despesas de cartão são reais no momento do gasto, não no pagamento da fatura. A fatura em si (`isCardPayment()`) é que deve ser excluída para não duplicar. Ambas as telas devem mostrar pagas + pendentes para análise real.
+
+**Correção:** Removido `&isPaid=true` das duas queries de pizza no dashboard:
+```ts
+// Antes:
+api.get(`/api/reports/expenses-by-category?startDate=...&endDate=...&isPaid=true`)
+// Depois:
+api.get(`/api/reports/expenses-by-category?startDate=...&endDate=...`)
+```
+Subtítulos atualizados de "· valores pagos" para "· pagas + pendentes".
+
+Commit: `3e319ab`
+
+---
+
+#### 🏷️ Segundo gráfico de pizza renomeado para "Por Categoria Anualizado"
+
+Antes os dois gráficos do dashboard tinham o mesmo título "Por Categoria", causando confusão — eram visualmente idênticos e o usuário não entendia a diferença.
+
+**Distinção:** o primeiro gráfico usa o mês selecionado (com seletor ◀ Jul/2026 ▶); o segundo usa o ano corrente completo (Jan–Dez). Renomeado para "Por Categoria Anualizado" com subtítulo "· acumulado 2026 · pagas + pendentes".
+
+Commit: `3e319ab`
+
+---
+
+#### 🎨 Gráficos de pizza convertidos para donut com hover interativo
+
+**Problema:** Os gráficos de pizza sólidos eram visualmente "pobres" segundo o usuário — cores sólidas sem nenhuma interação.
+
+**Upgrade implementado:**
+- `PieChart` sólido → donut com `innerRadius=44, outerRadius=68, paddingAngle=2`
+- `Sector` ativo: ao hover expande para `innerRadius-3` e `outerRadius+5` com opacidade 0.95
+- Label central dinâmica no centro do donut:
+  - Estado padrão: exibe "Total" + valor formatado em R$
+  - Estado hover: exibe nome da categoria + percentual em destaque
+- Legenda lateral: itens não-hovered ficam com `opacity-40` (fade), o hovered mantém `opacity-100`
+- Borda de separação entre fatias: `stroke="var(--surface-container-lowest)"` com `strokeWidth={2}`
+- Animação suave: `animationBegin={0} animationDuration={600}`
+- Estado independente por gráfico: `activePieIdx` (mensal) e `activeAnnualPieIdx` (anual)
+
+Arquivos modificados:
+- [frontend/src/app/(dashboard)/dashboard/page.tsx](frontend/src/app/(dashboard)/dashboard/page.tsx) — todos os 3 Tooltips, 2 donuts, 2 estados de hover, `Sector` importado
+
+Commit: `7990053`
+
+---
 
 ### 2026-07-09 — Modais Mobile + Resgate de Investimentos + Consolidação por Ticker
 
