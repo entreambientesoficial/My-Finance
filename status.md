@@ -42,7 +42,7 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 
 Anderson aguarda ~1 mês de feedback real antes de decidir sobre viabilidade comercial. Caso de uso prioritário para validação: **recebimento de dividendos**.
 
-**Sessão 2026-07-14:** Dashboard com gráficos donut interativos, tela de Orçamentos completamente redesenhada (baseada em renda real + limites manuais por categoria), dados de gastos corrigidos para incluir despesas de cartão.
+**Sessão 2026-07-14:** Dashboard com gráficos donut interativos, tela de Orçamentos completamente redesenhada, Relatórios sem filtros (exibe mês atual fixo), PDF financeiro completamente redesenhado (texto centralizado, gráfico de barras por categoria, KPIs mensais, fluxo de caixa 6 meses).
 
 ---
 
@@ -384,6 +384,67 @@ GET    /api/notifications
 ---
 
 ## Log de Alterações
+
+### 2026-07-14 — Dashboard Donut Charts + Redesign Orçamentos + Relatórios sem Filtros + Redesign PDF
+
+---
+
+#### 🗑️ Tela Relatórios — Remoção Completa dos Filtros
+
+**Problema:** Filtros de período e conta geravam confusão — categoria "Saúde" aparecia com valores em várias contas (dado incorreto); comportamento inconsistente entre gráficos e tabela.
+
+**Decisão:** Remover todos os filtros. A tela exibe sempre o mês atual fixo.
+
+**Mudanças em `frontend/src/app/(dashboard)/reports/page.tsx`:**
+- Removidos estados `period`, `selectedAccount`, `selectedCategory`, `accounts`, `categories`
+- Adicionadas constantes computadas: `monthStart`, `monthEnd`, `monthLabel`
+- Removido helper `getPeriodDates()` (não utilizado)
+- Removida seção de filtros desktop (grid 12 colunas com selects e botão "Aplicar")
+- Removida seção de filtros mobile (selects de período e conta)
+- Todas as queries agora usam `monthStart`/`monthEnd` diretamente sem estado
+- Título do gráfico de categoria exibe `monthLabel` como subtítulo
+
+Commits: `dc55b77`
+
+---
+
+#### 📄 PDF Financeiro — Redesign Completo (3 iterações)
+
+**Problema identificado no PDF original:**
+- Texto das células no topo da linha (não centralizado verticalmente)
+- Cabeçalhos de colunas numéricas left-aligned enquanto dados são right-aligned → descalinhamento visual
+- Conteúdo escasso (só 4 seções, nenhuma visualização gráfica)
+- Meses com R$ 0,00 no fluxo de caixa pareciam dados corrompidos
+- Quebra de página no meio de tabela sem reimprimir o cabeçalho
+
+**Iteração 1 — Alinhamento de colunas:**
+- Cabeçalhos numéricos também `right-aligned` no mesmo X dos dados (fim da coluna)
+- Meses sem movimentação ignorados no fluxo de caixa
+- Nova seção **Despesas por Categoria** com tabela (Categoria | Valor | %)
+- Helper `clip()` para truncar texto com `…`
+- Suporte a múltiplas páginas com rodapé automático
+- Commits: `bbc72b2`
+
+**Iteração 2 — Centralização de texto e mais conteúdo:**
+- Texto agora centralizado verticalmente nas células: `TEXT_OFF = 4` (offset calculado para cap height 6.4pt em linha de 20pt)
+- Nova seção **Resumo do Mês** com 3 KPI cards: Receitas, Despesas, Economia (com taxa % da renda)
+- Seção **Despesas por Categoria** convertida para **gráfico de barras horizontais**: barra cinza de fundo (100%) + preenchimento azul proporcional ao maior valor
+- Fluxo de Caixa exibe sempre **6 meses** — meses vazios mostram "—" em vez de R$ 0,00 (evita confusão com dados zerados)
+- Página 2+ reimprime cabeçalho da tabela ativa após quebra de página (`activeHdrCols`)
+- Status de economia: verde/azul para superávit, vermelho para déficit
+- Commits: `31b6735`
+
+**Estrutura final do PDF:**
+1. Header (logo + título + nome da família + data)
+2. Patrimônio Líquido (3 cards: Saldo em Contas, Investimentos, Patrimônio Total)
+3. Resumo do Mês (3 KPI cards: Receitas, Despesas, Economia%)
+4. Contas Bancárias (tabela)
+5. Fluxo de Caixa — Últimos 6 Meses (tabela, "—" em meses sem dados)
+6. Despesas por Categoria — [Mês Atual] (barras horizontais + valor + %)
+7. Próximas Contas a Pagar — 30 Dias (tabela)
+8. Rodapé (gerado automaticamente pelo sistema...)
+
+---
 
 ### 2026-07-14 — Dashboard Donut Charts + Redesign Completo de Orçamentos + Correções de Dados
 
