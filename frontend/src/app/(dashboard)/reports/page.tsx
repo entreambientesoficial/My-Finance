@@ -7,43 +7,16 @@ import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
 
-function getPeriodDates(period: string): { startDate: string; endDate: string } {
-  const now = new Date();
-  const pad = (d: Date) => d.toISOString().slice(0, 10);
-  if (period === 'este_mes') {
-    return {
-      startDate: pad(new Date(now.getFullYear(), now.getMonth(), 1)),
-      endDate:   pad(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
-    };
-  }
-  if (period === 'mes_anterior') {
-    return {
-      startDate: pad(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-      endDate:   pad(new Date(now.getFullYear(), now.getMonth(), 0)),
-    };
-  }
-  if (period === 'trimestre') {
-    return {
-      startDate: pad(new Date(now.getFullYear(), now.getMonth() - 2, 1)),
-      endDate:   pad(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
-    };
-  }
-  if (period === 'ano') {
-    return {
-      startDate: `${now.getFullYear()}-01-01`,
-      endDate:   `${now.getFullYear()}-12-31`,
-    };
-  }
-  return { startDate: '', endDate: '' }; // 'all'
-}
 
 export default function ReportsPage() {
-  const [period, setPeriod] = useState('este_mes');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedAccount, setSelectedAccount] = useState('');
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const monthLabel = now.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'isPaid' | 'category' | 'account'>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [activeCatIdx, setActiveCatIdx] = useState(-1);
   const limit = 10;
 
@@ -57,54 +30,27 @@ export default function ReportsPage() {
     setPage(1);
   }
 
-  // Queries
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => api.get('/api/categories').then((r) => r.data),
-  });
-
-  const { data: accounts = [] } = useQuery({
-    queryKey: ['accounts'],
-    queryFn: () => api.get('/api/accounts').then((r) => r.data),
-  });
-
-  // Cash Flow — 12 meses, filtrado por conta
+  // Cash Flow — 12 meses, todas as contas
   const { data: cashFlow = [], isLoading: loadingCashFlow } = useQuery({
-    queryKey: ['cash-flow-report', selectedAccount],
-    queryFn: () => {
-      const params = new URLSearchParams({ months: '12' });
-      if (selectedAccount) params.set('accountId', selectedAccount);
-      return api.get(`/api/reports/cash-flow?${params.toString()}`).then((r) => r.data);
-    },
+    queryKey: ['cash-flow-report'],
+    queryFn: () => api.get('/api/reports/cash-flow?months=12').then((r) => r.data),
   });
 
-  // Despesas por categoria — período + conta
+  // Despesas por categoria — mês atual
   const { data: byCategory = [], isLoading: loadingCategory } = useQuery({
-    queryKey: ['expenses-by-category', period, selectedAccount],
-    queryFn: () => {
-      const params = new URLSearchParams();
-      const { startDate, endDate } = getPeriodDates(period);
-      if (startDate) params.set('startDate', startDate);
-      if (endDate)   params.set('endDate', endDate);
-      if (selectedAccount) params.set('accountId', selectedAccount);
-      return api.get(`/api/reports/expenses-by-category?${params.toString()}`).then((r) => r.data);
-    },
+    queryKey: ['expenses-by-category', monthStart],
+    queryFn: () => api.get(`/api/reports/expenses-by-category?startDate=${monthStart}&endDate=${monthEnd}`).then((r) => r.data),
   });
 
-  // Transações — todos os filtros
+  // Transações — mês atual, paginadas
   const { data: transactionsRes, isLoading: loadingTxs } = useQuery({
-    queryKey: ['transactions-report', page, sortBy, sortDir, period, selectedCategory, selectedAccount],
+    queryKey: ['transactions-report', page, sortBy, sortDir],
     queryFn: () => {
-      const params = new URLSearchParams();
-      params.set('page', String(page));
-      params.set('limit', String(limit));
-      params.set('sortBy', sortBy);
-      params.set('sortDir', sortDir);
-      if (selectedCategory) params.set('categoryId', selectedCategory);
-      if (selectedAccount)  params.set('accountId', selectedAccount);
-      const { startDate, endDate } = getPeriodDates(period);
-      if (startDate) params.set('startDate', startDate);
-      if (endDate)   params.set('endDate', endDate);
+      const params = new URLSearchParams({
+        page: String(page), limit: String(limit),
+        sortBy, sortDir,
+        startDate: monthStart, endDate: monthEnd,
+      });
       return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data);
     },
   });
@@ -127,10 +73,7 @@ export default function ReportsPage() {
   }
 
   function downloadCsv() {
-    const params = new URLSearchParams();
-    const { startDate, endDate } = getPeriodDates(period);
-    if (startDate) params.set('startDate', startDate);
-    if (endDate)   params.set('endDate', endDate);
+    const params = new URLSearchParams({ startDate: monthStart, endDate: monthEnd });
     fetch(`/api/reports/export/transactions.csv?${params.toString()}`, { credentials: 'include' })
       .then((r) => r.blob())
       .then((blob) => {
@@ -189,52 +132,6 @@ export default function ReportsPage() {
             </button>
           </div>
         </div>
-
-        {/* Filters Section */}
-        <section className="grid grid-cols-12 gap-lg mb-xl">
-          <div className="col-span-12 bg-surface-container-lowest p-lg rounded-xl shadow-sm border border-outline-variant/50 flex flex-wrap gap-md items-end">
-            <div className="w-56 text-left">
-              <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Período</label>
-              <select
-                value={period}
-                onChange={(e) => { setPeriod(e.target.value); setPage(1); }}
-                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
-              >
-                <option value="este_mes">Este mês</option>
-                <option value="mes_anterior">Mês anterior</option>
-                <option value="trimestre">Este trimestre</option>
-                <option value="ano">Este ano</option>
-                <option value="all">Todo o período</option>
-              </select>
-            </div>
-            <div className="w-56 text-left">
-              <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Categoria</label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
-                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
-              >
-                <option value="">Todas as Categorias</option>
-                {categories.map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="w-56 text-left">
-              <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Conta / Carteira</label>
-              <select
-                value={selectedAccount}
-                onChange={(e) => { setSelectedAccount(e.target.value); setPage(1); }}
-                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
-              >
-                <option value="">Todas as Contas</option>
-                {accounts.map((a: any) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </section>
 
         {/* Charts Grid */}
         <div className="grid grid-cols-12 gap-lg mb-xl">
@@ -319,7 +216,10 @@ export default function ReportsPage() {
 
           {/* Expenses Pie Chart */}
           <div className="col-span-12 lg:col-span-4 bg-surface-container-lowest p-xl rounded-xl shadow-sm border border-outline-variant/50 flex flex-col justify-between h-[400px]">
-            <h3 className="font-headline text-headline-md text-primary mb-md font-bold text-left">Despesas por Categoria</h3>
+            <div className="text-left mb-md">
+              <h3 className="font-headline text-headline-md text-primary font-bold">Despesas por Categoria</h3>
+              <p className="text-[11px] text-on-surface-variant capitalize">{monthLabel}</p>
+            </div>
             
             <div className="relative flex-1 flex flex-col justify-center items-center my-sm min-h-[160px]">
               {loadingCategory ? (
@@ -524,37 +424,6 @@ export default function ReportsPage() {
         <section className="flex flex-col gap-xs text-left">
           <p className="font-label-sm text-label-sm text-on-surface-variant">Relatórios</p>
           <h2 className="font-display-lg-mobile text-display-lg-mobile text-primary">Análise Financeira</h2>
-        </section>
-
-        {/* Mobile Filters Trigger */}
-        <section className="bg-surface-container-lowest p-md rounded-xl border border-outline-variant/50 flex flex-col gap-sm">
-          <div className="grid grid-cols-1 gap-xs text-left">
-            <span className="text-[11px] font-bold text-on-surface-variant">Período</span>
-            <select
-              value={period}
-              onChange={(e) => { setPeriod(e.target.value); setPage(1); }}
-              className="bg-surface-container-low border border-outline-variant rounded-lg py-xs px-sm text-sm"
-            >
-              <option value="este_mes">Este mês</option>
-              <option value="mes_anterior">Mês anterior</option>
-              <option value="trimestre">Este trimestre</option>
-              <option value="ano">Este ano</option>
-              <option value="all">Todo o período</option>
-            </select>
-          </div>
-          <div className="grid grid-cols-1 gap-xs text-left">
-            <span className="text-[11px] font-bold text-on-surface-variant">Conta</span>
-            <select
-              value={selectedAccount}
-              onChange={(e) => { setSelectedAccount(e.target.value); setPage(1); }}
-              className="bg-surface-container-low border border-outline-variant rounded-lg py-xs px-sm text-sm"
-            >
-              <option value="">Todas as Contas</option>
-              {accounts.map((a: any) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
         </section>
 
         {/* Mobile Charts stack */}
