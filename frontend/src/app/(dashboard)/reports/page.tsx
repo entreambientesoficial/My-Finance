@@ -57,13 +57,6 @@ export default function ReportsPage() {
     setPage(1);
   }
 
-  // Active filters applied on click
-  const [appliedFilters, setAppliedFilters] = useState({
-    period: 'este_mes',
-    categoryId: '',
-    accountId: '',
-  });
-
   // Queries
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -75,45 +68,41 @@ export default function ReportsPage() {
     queryFn: () => api.get('/api/accounts').then((r) => r.data),
   });
 
-  // Reactive Cash Flow Query
+  // Cash Flow — 12 meses, filtrado por conta
   const { data: cashFlow = [], isLoading: loadingCashFlow } = useQuery({
-    queryKey: ['cash-flow-report', appliedFilters.accountId],
+    queryKey: ['cash-flow-report', selectedAccount],
     queryFn: () => {
-      const params = new URLSearchParams();
-      params.set('months', '12');
-      if (appliedFilters.accountId) {
-        params.set('accountId', appliedFilters.accountId);
-      }
+      const params = new URLSearchParams({ months: '12' });
+      if (selectedAccount) params.set('accountId', selectedAccount);
       return api.get(`/api/reports/cash-flow?${params.toString()}`).then((r) => r.data);
     },
   });
 
-  // Reactive Category Query — mostra pagas + pendentes
+  // Despesas por categoria — período + conta
   const { data: byCategory = [], isLoading: loadingCategory } = useQuery({
-    queryKey: ['expenses-by-category', appliedFilters],
+    queryKey: ['expenses-by-category', period, selectedAccount],
     queryFn: () => {
       const params = new URLSearchParams();
-      const { startDate, endDate } = getPeriodDates(appliedFilters.period);
+      const { startDate, endDate } = getPeriodDates(period);
       if (startDate) params.set('startDate', startDate);
       if (endDate)   params.set('endDate', endDate);
-      if (appliedFilters.accountId) params.set('accountId', appliedFilters.accountId);
+      if (selectedAccount) params.set('accountId', selectedAccount);
       return api.get(`/api/reports/expenses-by-category?${params.toString()}`).then((r) => r.data);
     },
   });
 
-  // Reactive Transactions Query
-  const transactionsQueryKey = ['transactions-report', page, sortBy, sortDir, appliedFilters];
+  // Transações — todos os filtros
   const { data: transactionsRes, isLoading: loadingTxs } = useQuery({
-    queryKey: transactionsQueryKey,
+    queryKey: ['transactions-report', page, sortBy, sortDir, period, selectedCategory, selectedAccount],
     queryFn: () => {
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('limit', String(limit));
       params.set('sortBy', sortBy);
       params.set('sortDir', sortDir);
-      if (appliedFilters.categoryId) params.set('categoryId', appliedFilters.categoryId);
-      if (appliedFilters.accountId)  params.set('accountId', appliedFilters.accountId);
-      const { startDate, endDate } = getPeriodDates(appliedFilters.period);
+      if (selectedCategory) params.set('categoryId', selectedCategory);
+      if (selectedAccount)  params.set('accountId', selectedAccount);
+      const { startDate, endDate } = getPeriodDates(period);
       if (startDate) params.set('startDate', startDate);
       if (endDate)   params.set('endDate', endDate);
       return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data);
@@ -123,15 +112,6 @@ export default function ReportsPage() {
   const transactionsData = transactionsRes?.data || [];
   const totalTxsCount = transactionsRes?.total || transactionsData.length;
   const totalPages = transactionsRes?.pages || 1;
-
-  function handleFilter() {
-    setPage(1);
-    setAppliedFilters({
-      period,
-      categoryId: selectedCategory,
-      accountId: selectedAccount,
-    });
-  }
 
   function downloadPdf() {
     fetch('/api/reports/export/summary.pdf', { credentials: 'include' })
@@ -148,7 +128,7 @@ export default function ReportsPage() {
 
   function downloadCsv() {
     const params = new URLSearchParams();
-    const { startDate, endDate } = getPeriodDates(appliedFilters.period);
+    const { startDate, endDate } = getPeriodDates(period);
     if (startDate) params.set('startDate', startDate);
     if (endDate)   params.set('endDate', endDate);
     fetch(`/api/reports/export/transactions.csv?${params.toString()}`, { credentials: 'include' })
@@ -212,55 +192,47 @@ export default function ReportsPage() {
 
         {/* Filters Section */}
         <section className="grid grid-cols-12 gap-lg mb-xl">
-          <div className="col-span-12 bg-surface-container-lowest p-lg rounded-xl shadow-sm border border-outline-variant/50 flex flex-wrap gap-md items-end justify-between">
-            <div className="flex flex-wrap gap-md flex-1">
-              <div className="w-56 text-left">
-                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Período de Transações</label>
-                <select
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
-                >
-                  <option value="este_mes">Este mês</option>
-                  <option value="mes_anterior">Mês anterior</option>
-                  <option value="trimestre">Este trimestre</option>
-                  <option value="ano">Este ano</option>
-                  <option value="all">Todo o período</option>
-                </select>
-              </div>
-              <div className="w-56 text-left">
-                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Filtrar por Categoria</label>
-                <select 
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
-                >
-                  <option value="">Todas as Categorias</option>
-                  {categories.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="w-56 text-left">
-                <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Filtrar por Conta / Carteira</label>
-                <select 
-                  value={selectedAccount}
-                  onChange={(e) => setSelectedAccount(e.target.value)}
-                  className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
-                >
-                  <option value="">Todas as Contas</option>
-                  {accounts.map((a: any) => (
-                    <option key={a.id} value={a.id}>{a.name}</option>
-                  ))}
-                </select>
-              </div>
+          <div className="col-span-12 bg-surface-container-lowest p-lg rounded-xl shadow-sm border border-outline-variant/50 flex flex-wrap gap-md items-end">
+            <div className="w-56 text-left">
+              <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Período</label>
+              <select
+                value={period}
+                onChange={(e) => { setPeriod(e.target.value); setPage(1); }}
+                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
+              >
+                <option value="este_mes">Este mês</option>
+                <option value="mes_anterior">Mês anterior</option>
+                <option value="trimestre">Este trimestre</option>
+                <option value="ano">Este ano</option>
+                <option value="all">Todo o período</option>
+              </select>
             </div>
-            <button 
-              onClick={handleFilter}
-              className="bg-primary text-on-primary px-xl py-sm rounded-lg font-label-sm text-label-sm hover:opacity-95 transition-opacity h-10 font-bold shadow-sm"
-            >
-              Aplicar Filtros
-            </button>
+            <div className="w-56 text-left">
+              <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Categoria</label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
+                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
+              >
+                <option value="">Todas as Categorias</option>
+                {categories.map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-56 text-left">
+              <label className="block font-label-sm text-label-sm text-on-surface-variant mb-xs">Conta / Carteira</label>
+              <select
+                value={selectedAccount}
+                onChange={(e) => { setSelectedAccount(e.target.value); setPage(1); }}
+                className="w-full bg-surface-container-low border border-outline-variant rounded-lg py-sm px-md font-body-md text-body-md focus:ring-2 focus:ring-primary/20 outline-none text-on-surface transition-all"
+              >
+                <option value="">Todas as Contas</option>
+                {accounts.map((a: any) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </section>
 
@@ -309,9 +281,34 @@ export default function ReportsPage() {
                         <stop offset="95%" stopColor="var(--error)" stopOpacity={0}/>
                       </linearGradient>
                     </defs>
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--on-surface-variant)' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: 'var(--on-surface-variant)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v}`} />
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-high)', borderRadius: '12px', border: '1px solid var(--outline-variant)' }} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: 'var(--on-surface-variant)' }}
+                      axisLine={false} tickLine={false}
+                      tickFormatter={(v: string) => {
+                        const s = String(v);
+                        const yearMatch = s.match(/(\d{4})/);
+                        const year = yearMatch ? yearMatch[1].slice(-2) : '';
+                        const monthRaw = s.split(/[\s/\-.]/)[0].replace(/\.$/, '').slice(0, 3);
+                        const month = monthRaw.charAt(0).toUpperCase() + monthRaw.slice(1).toLowerCase();
+                        return year ? `${month}/${year}` : month;
+                      }}
+                    />
+                    <YAxis tick={{ fontSize: 10, fill: 'var(--on-surface-variant)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} width={40} />
+                    <Tooltip
+                      formatter={(v: number, name: string) => [formatCurrency(v), name === 'income' ? 'Receitas' : 'Despesas']}
+                      labelFormatter={(label: string) => {
+                        const s = String(label);
+                        const yearMatch = s.match(/(\d{4})/);
+                        const year = yearMatch ? yearMatch[1] : '';
+                        const monthRaw = s.split(/[\s/\-.]/)[0].replace(/\.$/, '').slice(0, 3);
+                        const month = monthRaw.charAt(0).toUpperCase() + monthRaw.slice(1).toLowerCase();
+                        return year ? `${month}/${year}` : month;
+                      }}
+                      contentStyle={{ backgroundColor: 'var(--surface-container-high)', borderRadius: '10px', border: '1px solid var(--outline-variant)', color: 'var(--on-surface)', fontSize: '12px' }}
+                      itemStyle={{ color: 'var(--on-surface)' }}
+                      labelStyle={{ color: 'var(--on-surface-variant)', fontWeight: 'bold', marginBottom: '4px' }}
+                    />
                     <Area type="monotone" dataKey="income" stroke="var(--secondary)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorIncome)" />
                     <Area type="monotone" dataKey="expense" stroke="var(--error)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorExpense)" />
                   </AreaChart>
@@ -535,7 +532,7 @@ export default function ReportsPage() {
             <span className="text-[11px] font-bold text-on-surface-variant">Período</span>
             <select
               value={period}
-              onChange={(e) => setPeriod(e.target.value)}
+              onChange={(e) => { setPeriod(e.target.value); setPage(1); }}
               className="bg-surface-container-low border border-outline-variant rounded-lg py-xs px-sm text-sm"
             >
               <option value="este_mes">Este mês</option>
@@ -547,9 +544,9 @@ export default function ReportsPage() {
           </div>
           <div className="grid grid-cols-1 gap-xs text-left">
             <span className="text-[11px] font-bold text-on-surface-variant">Conta</span>
-            <select 
+            <select
               value={selectedAccount}
-              onChange={(e) => setSelectedAccount(e.target.value)}
+              onChange={(e) => { setSelectedAccount(e.target.value); setPage(1); }}
               className="bg-surface-container-low border border-outline-variant rounded-lg py-xs px-sm text-sm"
             >
               <option value="">Todas as Contas</option>
@@ -558,12 +555,6 @@ export default function ReportsPage() {
               ))}
             </select>
           </div>
-          <button 
-            onClick={handleFilter}
-            className="bg-primary text-on-primary py-sm rounded-lg font-bold text-xs"
-          >
-            Atualizar Gráficos
-          </button>
         </section>
 
         {/* Mobile Charts stack */}
