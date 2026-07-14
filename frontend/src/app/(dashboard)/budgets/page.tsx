@@ -21,6 +21,7 @@ export default function BudgetsPage() {
   const budgets: any[] = budgetsData?.budgets ?? [];
   const topTransactions: any[] = budgetsData?.topTransactions ?? [];
   const apiMonthlyHistory: any[] = budgetsData?.monthlyHistory ?? [];
+  const variance: number | null = budgetsData?.variance ?? null;
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -58,6 +59,16 @@ export default function BudgetsPage() {
   const displayTotalSpent = totalSpent;
   const displayTotalRemaining = totalRemaining;
   const chartHistory = apiMonthlyHistory;
+  const maxChartVal = Math.max(displayTotalBudget, ...chartHistory.map((h: any) => h.actual), 1);
+
+  const topBudget: any = budgets.length > 0
+    ? [...budgets].sort((a: any, b: any) => (b.percentage ?? 0) - (a.percentage ?? 0))[0]
+    : null;
+  const aiInsight = !topBudget
+    ? 'Crie orçamentos por categoria para receber insights personalizados sobre seus gastos.'
+    : (topBudget.percentage ?? 0) >= 80
+    ? `⚠️ ${topBudget.name} está em ${topBudget.percentage}% do limite mensal. Restam apenas ${formatCurrency(Number(topBudget.amount) - Number(topBudget.spent))} nesta categoria.`
+    : `✅ Finanças no controle! ${topBudget.name} lidera o consumo com ${topBudget.percentage}% do limite — ainda bem dentro da meta.`;
 
   return (
     <>
@@ -179,8 +190,15 @@ export default function BudgetsPage() {
                 <p className="text-secondary font-numeric text-body-lg font-bold">+ {formatCurrency(displayTotalRemaining)}</p>
               </div>
               <div className="bg-surface-container-low p-sm rounded-lg text-left">
-                <p className="text-on-surface-variant text-[10px] font-bold uppercase">Variância</p>
-                <p className="text-error font-numeric text-body-lg font-bold">- 4.2% vs MM</p>
+                <p className="text-on-surface-variant text-[10px] font-bold uppercase">Variância vs Mês Ant.</p>
+                <p className={cn(
+                  "font-numeric text-body-lg font-bold",
+                  variance === null ? "text-on-surface-variant" :
+                  variance > 10 ? "text-error" :
+                  variance < 0 ? "text-secondary" : "text-amber-500"
+                )}>
+                  {variance === null ? 'Sem histórico' : `${variance > 0 ? '+' : ''}${variance.toFixed(1)}% vs MM`}
+                </p>
               </div>
             </div>
           </div>
@@ -279,7 +297,7 @@ export default function BudgetsPage() {
             <div className="flex items-center gap-md">
               <div className="flex items-center gap-xs">
                 <span className="w-3 h-3 bg-primary rounded-full"></span>
-                <span className="text-label-sm text-on-surface-variant font-bold">Planejado</span>
+                <span className="text-label-sm text-on-surface-variant font-bold">Meta Atual</span>
               </div>
               <div className="flex items-center gap-xs">
                 <span className="w-3 h-3 bg-secondary rounded-full"></span>
@@ -290,9 +308,8 @@ export default function BudgetsPage() {
           
           <div className="h-64 flex items-end justify-between px-md gap-4">
             {chartHistory.map((item: any, idx: number) => {
-              const maxVal = 10000;
-              const plannedHeight = `${Math.min(100, (item.planned / maxVal) * 100)}%`;
-              const actualHeight = `${Math.min(100, (item.actual / maxVal) * 100)}%`;
+              const plannedHeight = `${Math.min(100, (item.planned / maxChartVal) * 100)}%`;
+              const actualHeight = `${Math.min(100, (item.actual / maxChartVal) * 100)}%`;
               const isCurrent = idx === chartHistory.length - 1;
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center gap-xs group">
@@ -303,12 +320,12 @@ export default function BudgetsPage() {
                     <div 
                       className="w-4 bg-primary/20 hover:bg-primary/45 transition-colors rounded-t-sm" 
                       style={{ height: plannedHeight }}
-                      title={`Planejado: R$ ${item.planned}`}
+                      title={`Meta atual: ${formatCurrency(item.planned)}`}
                     ></div>
                     <div 
                       className={cn("w-4 rounded-t-sm", isCurrent ? "bg-secondary-fixed-dim" : "bg-secondary")} 
                       style={{ height: actualHeight }}
-                      title={`Realizado: R$ ${item.actual}`}
+                      title={`Realizado: ${formatCurrency(item.actual)}`}
                     ></div>
                   </div>
                   <span className={cn("text-label-sm uppercase font-bold", isCurrent ? "text-primary font-extrabold" : "text-on-surface-variant")}>
@@ -343,22 +360,16 @@ export default function BudgetsPage() {
               </div>
               
               <div className="bg-surface-container-low/40 border border-violet-500/10 rounded-xl p-md space-y-sm backdrop-blur-xs">
-                {budgets.length === 0 ? (
-                  <p className="font-body-md text-on-surface-variant text-sm leading-relaxed">
-                    Crie orçamentos por categoria para receber insights personalizados sobre seus gastos.
-                  </p>
-                ) : (
-                  <p className="font-body-md text-on-surface-variant text-sm leading-relaxed">
-                    💡 Acompanhe seus limites por categoria e ajuste conforme necessário para manter suas finanças equilibradas.
-                  </p>
-                )}
+                <p className="font-body-md text-on-surface-variant text-sm leading-relaxed">
+                  {aiInsight}
+                </p>
               </div>
             </div>
-            
-            <button className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white px-lg py-md rounded-lg font-bold text-xs transition-all duration-300 shadow-md shadow-violet-600/15 mt-6 w-full text-center relative z-10 flex items-center justify-center gap-xs">
-              <span className="material-symbols-outlined text-[16px]">insights</span>
-              Otimizar Orçamento
-            </button>
+
+            <a href="/reports" className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white px-lg py-md rounded-lg font-bold text-xs transition-all duration-300 shadow-md shadow-violet-600/15 mt-6 w-full text-center relative z-10 flex items-center justify-center gap-xs">
+              <span className="material-symbols-outlined text-[16px]">bar_chart</span>
+              Ver Relatório de Gastos
+            </a>
           </div>
 
           {/* Recent Impact Transactions */}
@@ -437,16 +448,14 @@ export default function BudgetsPage() {
             </div>
             <div className="bg-surface-container-low/40 border border-violet-500/10 rounded-xl p-md backdrop-blur-xs mt-xs text-left">
               <p className="font-body-md text-on-surface-variant text-sm leading-relaxed">
-                {budgets.length === 0
-                  ? 'Crie orçamentos por categoria para receber insights personalizados sobre seus gastos.'
-                  : '💡 Acompanhe seus limites e ajuste conforme necessário para manter suas finanças equilibradas.'}
+                {aiInsight}
               </p>
             </div>
           </div>
-          <button className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-md py-2.5 rounded-lg font-bold text-xs shadow-md shadow-violet-600/15 mt-md w-full text-center relative z-10 flex items-center justify-center gap-xs">
-            <span className="material-symbols-outlined text-[16px]">insights</span>
-            Otimizar Orçamento
-          </button>
+          <a href="/reports" className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-md py-2.5 rounded-lg font-bold text-xs shadow-md shadow-violet-600/15 mt-md w-full text-center relative z-10 flex items-center justify-center gap-xs">
+            <span className="material-symbols-outlined text-[16px]">bar_chart</span>
+            Ver Relatório de Gastos
+          </a>
         </section>
 
         {/* Categories budget stack */}

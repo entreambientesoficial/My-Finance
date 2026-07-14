@@ -97,16 +97,21 @@ export const GET = withAuth(async (req: NextRequest, user) => {
 
     const { data: topTransactions } = await supabase
       .from('transactions')
-      .select('id, description, amount, date, category:categories(name, icon, color)')
+      .select('id, description, amount, date, isPaid, category:categories!categoryId(name, icon, color)')
       .eq('householdId', householdId)
       .eq('type', 'EXPENSE')
-      .eq('isPaid', true)
       .gte('date', currentStart)
       .lte('date', currentEnd)
       .order('amount', { ascending: false })
       .limit(5);
 
-    return ok({ budgets: finalBudgets, topTransactions: topTransactions ?? [], monthlyHistory });
+    const totalCurrentSpent = finalBudgets.reduce((s, r) => s + r.spent, 0);
+    const prevMonthActual = monthlyHistory[4]?.actual ?? 0;
+    const variance = prevMonthActual > 0
+      ? ((totalCurrentSpent - prevMonthActual) / prevMonthActual) * 100
+      : null;
+
+    return ok({ budgets: finalBudgets, topTransactions: topTransactions ?? [], monthlyHistory, variance });
   } catch (err) {
     console.error('[budgets/progress GET]', err);
     return serverError();
