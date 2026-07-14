@@ -549,7 +549,12 @@ export default function DashboardPage() {
                               <Cell key={i} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px' }} />
+                          <Tooltip
+                            formatter={(v: any, _name: any, props: any) => [formatCurrency(v), props?.payload?.name ?? '']}
+                            contentStyle={{ backgroundColor: 'var(--surface-container-high)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px', color: 'var(--on-surface)' }}
+                            itemStyle={{ color: 'var(--on-surface)' }}
+                            labelStyle={{ display: 'none' }}
+                          />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -589,7 +594,12 @@ export default function DashboardPage() {
                               <Cell key={i} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(v: number) => formatCurrency(v)} contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px' }} />
+                          <Tooltip
+                            formatter={(v: any, _name: any, props: any) => [formatCurrency(v), props?.payload?.name ?? '']}
+                            contentStyle={{ backgroundColor: 'var(--surface-container-high)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '11px', color: 'var(--on-surface)' }}
+                            itemStyle={{ color: 'var(--on-surface)' }}
+                            labelStyle={{ display: 'none' }}
+                          />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
@@ -637,8 +647,9 @@ export default function DashboardPage() {
                       <XAxis dataKey="label" tick={{ fontSize: 10, fill: 'var(--outline)' }} axisLine={false} tickLine={false} />
                       <Tooltip
                         formatter={(v: number, name: string) => [formatCurrency(v), name]}
-                        contentStyle={{ backgroundColor: 'var(--surface-container-lowest)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '12px' }}
-                        labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+                        contentStyle={{ backgroundColor: 'var(--surface-container-high)', borderColor: 'var(--outline-variant)', borderRadius: '8px', fontSize: '12px', color: 'var(--on-surface)' }}
+                        labelStyle={{ fontWeight: 'bold', marginBottom: '4px', color: 'var(--on-surface-variant)' }}
+                        itemStyle={{ color: 'var(--on-surface)' }}
                       />
                       <Bar dataKey="Receitas" fill="#10b981" radius={[3, 3, 0, 0]} isAnimationActive={false} />
                       <Bar dataKey="Despesas" fill="#ef4444" radius={[3, 3, 0, 0]} isAnimationActive={false} />
