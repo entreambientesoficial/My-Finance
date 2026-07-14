@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { formatCurrency, cn } from '@/lib/utils';
-import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Sector } from 'recharts';
 
 const MONTHS_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -194,6 +194,17 @@ export default function DashboardPage() {
   const topCategories = (expensesByCategory as any[]).slice(0, 6);
   // Donut direito: top 6 do ano
   const topAnnualCategories = (annualExpensesByCategory as any[]).slice(0, 6);
+
+  const [activePieIdx, setActivePieIdx] = useState(-1);
+  const [activeAnnualPieIdx, setActiveAnnualPieIdx] = useState(-1);
+
+  const renderActiveShape = (props: any) => {
+    const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+    return (
+      <Sector cx={cx} cy={cy} innerRadius={innerRadius - 3} outerRadius={outerRadius + 5}
+        startAngle={startAngle} endAngle={endAngle} fill={fill} opacity={0.95} />
+    );
+  };
 
   // Check if there is any real cash flow data (non-zero income or expenses)
   const hasCashFlowData = cashFlow && cashFlow.length > 0 && cashFlow.some((flow: any) => Number(flow.income || 0) > 0 || Number(flow.expenses || 0) > 0);
@@ -541,10 +552,16 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
-                    <div className="w-[150px] h-[150px] flex-shrink-0">
+                    <div className="relative w-[150px] h-[150px] flex-shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={topCategories} dataKey="total" cx="50%" cy="50%" outerRadius={70} paddingAngle={1} isAnimationActive={false}>
+                          <Pie data={topCategories} dataKey="total" cx="50%" cy="50%"
+                            innerRadius={44} outerRadius={68} paddingAngle={2}
+                            stroke="var(--surface-container-lowest)" strokeWidth={2}
+                            activeIndex={activePieIdx} activeShape={renderActiveShape}
+                            onMouseEnter={(_: any, index: number) => setActivePieIdx(index)}
+                            onMouseLeave={() => setActivePieIdx(-1)}
+                            animationBegin={0} animationDuration={600}>
                             {topCategories.map((entry: any, i: number) => (
                               <Cell key={i} fill={entry.color} />
                             ))}
@@ -557,10 +574,29 @@ export default function DashboardPage() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        {activePieIdx >= 0 && topCategories[activePieIdx] ? (
+                          <div className="text-center px-1">
+                            <p className="text-[9px] text-on-surface-variant font-bold uppercase leading-tight truncate max-w-[64px]">
+                              {topCategories[activePieIdx].name}
+                            </p>
+                            <p className="text-[14px] font-bold text-primary leading-tight">
+                              {topCategories[activePieIdx].percentage}%
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="text-center px-1">
+                            <p className="text-[8px] text-on-surface-variant uppercase leading-tight">Total</p>
+                            <p className="text-[10px] font-bold text-primary leading-tight">
+                              {formatCurrency(topCategories.reduce((s: number, c: any) => s + c.total, 0))}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex-1 space-y-1.5 min-w-0">
                       {topCategories.map((cat: any, i: number) => (
-                        <div key={i} className="flex items-center gap-xs">
+                        <div key={i} className={cn('flex items-center gap-xs transition-opacity', activePieIdx >= 0 && activePieIdx !== i ? 'opacity-40' : 'opacity-100')}>
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                           <span className="text-[11px] text-on-surface-variant truncate flex-1">{cat.name}</span>
                           <span className="text-[11px] font-bold text-primary flex-shrink-0">{cat.percentage}%</span>
@@ -586,10 +622,16 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="flex gap-md items-center">
-                    <div className="w-[150px] h-[150px] flex-shrink-0">
+                    <div className="relative w-[150px] h-[150px] flex-shrink-0">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={topAnnualCategories} dataKey="total" cx="50%" cy="50%" outerRadius={70} paddingAngle={1} isAnimationActive={false}>
+                          <Pie data={topAnnualCategories} dataKey="total" cx="50%" cy="50%"
+                            innerRadius={44} outerRadius={68} paddingAngle={2}
+                            stroke="var(--surface-container-lowest)" strokeWidth={2}
+                            activeIndex={activeAnnualPieIdx} activeShape={renderActiveShape}
+                            onMouseEnter={(_: any, index: number) => setActiveAnnualPieIdx(index)}
+                            onMouseLeave={() => setActiveAnnualPieIdx(-1)}
+                            animationBegin={0} animationDuration={600}>
                             {topAnnualCategories.map((entry: any, i: number) => (
                               <Cell key={i} fill={entry.color} />
                             ))}
@@ -602,10 +644,29 @@ export default function DashboardPage() {
                           />
                         </PieChart>
                       </ResponsiveContainer>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        {activeAnnualPieIdx >= 0 && topAnnualCategories[activeAnnualPieIdx] ? (
+                          <div className="text-center px-1">
+                            <p className="text-[9px] text-on-surface-variant font-bold uppercase leading-tight truncate max-w-[64px]">
+                              {topAnnualCategories[activeAnnualPieIdx].name}
+                            </p>
+                            <p className="text-[14px] font-bold text-primary leading-tight">
+                              {topAnnualCategories[activeAnnualPieIdx].percentage}%
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="text-center px-1">
+                            <p className="text-[8px] text-on-surface-variant uppercase leading-tight">Total</p>
+                            <p className="text-[10px] font-bold text-primary leading-tight">
+                              {formatCurrency(topAnnualCategories.reduce((s: number, c: any) => s + c.total, 0))}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex-1 space-y-1.5 min-w-0">
                       {topAnnualCategories.map((cat: any, i: number) => (
-                        <div key={i} className="flex items-center gap-xs">
+                        <div key={i} className={cn('flex items-center gap-xs transition-opacity', activeAnnualPieIdx >= 0 && activeAnnualPieIdx !== i ? 'opacity-40' : 'opacity-100')}>
                           <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: cat.color }} />
                           <span className="text-[11px] text-on-surface-variant truncate flex-1">{cat.name}</span>
                           <span className="text-[11px] font-bold text-primary flex-shrink-0">{cat.percentage}%</span>
