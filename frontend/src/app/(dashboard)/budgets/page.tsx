@@ -22,6 +22,7 @@ export default function BudgetsPage() {
   const topTransactions: any[] = budgetsData?.topTransactions ?? [];
   const apiMonthlyHistory: any[] = budgetsData?.monthlyHistory ?? [];
   const variance: number | null = budgetsData?.variance ?? null;
+  const categoryMap: Record<string, any> = budgetsData?.categoryMap ?? {};
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -379,30 +380,34 @@ export default function BudgetsPage() {
               {topTransactions.length === 0 ? (
                 <p className="py-md text-on-surface-variant text-sm">Nenhuma movimentação registrada este mês.</p>
               ) : (
-                topTransactions.map((tx: any) => (
-                  <div key={tx.id} className="py-md flex justify-between items-center">
-                    <div className="flex items-center gap-md">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center"
-                        style={{
-                          backgroundColor: `${tx.category?.color || '#ef4444'}22`,
-                          color: tx.category?.color || '#ef4444',
-                        }}
-                      >
-                        <span className="material-symbols-outlined">{tx.category?.icon || 'payments'}</span>
+                topTransactions.map((tx: any) => {
+                  const cat = tx.categoryId ? categoryMap[tx.categoryId] : null;
+                  return (
+                    <div key={tx.id} className="py-md flex justify-between items-center">
+                      <div className="flex items-center gap-md">
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center"
+                          style={{
+                            backgroundColor: `${cat?.color || '#ef4444'}22`,
+                            color: cat?.color || '#ef4444',
+                          }}
+                        >
+                          <span className="material-symbols-outlined">{cat?.icon || 'payments'}</span>
+                        </div>
+                        <div>
+                          <p className="font-body-lg text-body-lg font-bold text-primary">{tx.description}</p>
+                          <p className="text-[12px] text-on-surface-variant">
+                            {cat?.name || 'Sem categoria'} · {new Date(tx.date).toLocaleDateString('pt-BR')}
+                            {!tx.isPaid && <span className="ml-1 text-amber-500">(pendente)</span>}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-body-lg text-body-lg font-bold text-primary">{tx.description}</p>
-                        <p className="text-[12px] text-on-surface-variant">
-                          {tx.category?.name || 'Sem categoria'} · {new Date(tx.date).toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
+                      <p className="font-numeric text-numeric-data text-error font-bold whitespace-nowrap">
+                        {`- ${formatCurrency(Number(tx.amount))}`}
+                      </p>
                     </div>
-                    <p className="font-numeric text-numeric-data text-error font-bold whitespace-nowrap">
-                      {`- ${formatCurrency(Number(tx.amount))}`}
-                    </p>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

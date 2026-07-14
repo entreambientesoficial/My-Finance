@@ -95,15 +95,16 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       })
     );
 
-    const { data: topTransactions } = await supabase
+    const { data: topTransactions, error: topTxError } = await supabase
       .from('transactions')
-      .select('id, description, amount, date, isPaid, category:categories!categoryId(name, icon, color)')
+      .select('id, description, amount, date, isPaid, categoryId')
       .eq('householdId', householdId)
       .eq('type', 'EXPENSE')
       .gte('date', currentStart)
       .lte('date', currentEnd)
       .order('amount', { ascending: false })
       .limit(5);
+    if (topTxError) console.error('[budgets/progress topTransactions]', topTxError);
 
     const totalCurrentSpent = finalBudgets.reduce((s, r) => s + r.spent, 0);
     const prevMonthActual = monthlyHistory[4]?.actual ?? 0;
@@ -111,7 +112,12 @@ export const GET = withAuth(async (req: NextRequest, user) => {
       ? ((totalCurrentSpent - prevMonthActual) / prevMonthActual) * 100
       : null;
 
-    return ok({ budgets: finalBudgets, topTransactions: topTransactions ?? [], monthlyHistory, variance });
+    // Build category map from results (all categories, even zero-spend ones)
+    const categoryMap = Object.fromEntries(
+      results.map((r) => [r.category.id, r.category])
+    );
+
+    return ok({ budgets: finalBudgets, topTransactions: topTransactions ?? [], monthlyHistory, variance, categoryMap });
   } catch (err) {
     console.error('[budgets/progress GET]', err);
     return serverError();
