@@ -42,8 +42,20 @@ export default function ReportsPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedAccount, setSelectedAccount] = useState('');
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [hoveredSlice, setHoveredSlice] = useState<{ name: string; total: number; color: string } | null>(null);
   const limit = 10;
+
+  function handleSort(col: 'date' | 'amount' | 'description') {
+    if (sortBy === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortDir('asc');
+    }
+    setPage(1);
+  }
 
   // Active filters applied on click
   const [appliedFilters, setAppliedFilters] = useState({
@@ -90,15 +102,15 @@ export default function ReportsPage() {
   });
 
   // Reactive Transactions Query
-  const transactionsQueryKey = ['transactions-report', page, appliedFilters];
+  const transactionsQueryKey = ['transactions-report', page, sortBy, sortDir, appliedFilters];
   const { data: transactionsRes, isLoading: loadingTxs } = useQuery({
     queryKey: transactionsQueryKey,
     queryFn: () => {
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('limit', String(limit));
-      params.set('sortBy', 'date');
-      params.set('sortDir', 'asc');
+      params.set('sortBy', sortBy);
+      params.set('sortDir', sortDir);
       if (appliedFilters.categoryId) params.set('categoryId', appliedFilters.categoryId);
       if (appliedFilters.accountId)  params.set('accountId', appliedFilters.accountId);
       const { startDate, endDate } = getPeriodDates(appliedFilters.period);
@@ -383,11 +395,44 @@ export default function ReportsPage() {
             <table className="w-full text-left border-collapse">
               <thead className="bg-surface-container-low/50">
                 <tr className="border-b border-outline-variant/40">
-                  <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Data</th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Descrição</th>
+                  {(
+                    [
+                      { label: 'Data',      col: 'date'        },
+                      { label: 'Descrição', col: 'description' },
+                    ] as { label: string; col: 'date' | 'amount' | 'description' }[]
+                  ).map(({ label, col }) => (
+                    <th
+                      key={col}
+                      onClick={() => handleSort(col)}
+                      className="px-xl py-md font-label-sm text-label-sm uppercase tracking-wider font-bold cursor-pointer select-none group"
+                    >
+                      <span className={cn(
+                        'flex items-center gap-1 transition-colors',
+                        sortBy === col ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
+                      )}>
+                        {label}
+                        <span className="material-symbols-outlined text-[14px]">
+                          {sortBy === col ? (sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                        </span>
+                      </span>
+                    </th>
+                  ))}
                   <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Categoria</th>
                   <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Conta</th>
-                  <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider text-right font-bold">Valor</th>
+                  <th
+                    onClick={() => handleSort('amount')}
+                    className="px-xl py-md font-label-sm text-label-sm uppercase tracking-wider font-bold text-right cursor-pointer select-none"
+                  >
+                    <span className={cn(
+                      'flex items-center justify-end gap-1 transition-colors',
+                      sortBy === 'amount' ? 'text-primary' : 'text-on-surface-variant hover:text-primary'
+                    )}>
+                      Valor
+                      <span className="material-symbols-outlined text-[14px]">
+                        {sortBy === 'amount' ? (sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
+                      </span>
+                    </span>
+                  </th>
                   <th className="px-xl py-md font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-bold">Status</th>
                 </tr>
               </thead>
