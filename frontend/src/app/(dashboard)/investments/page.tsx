@@ -75,8 +75,14 @@ export default function InvestmentsPage() {
   });
 
   useEffect(() => {
-    if (portfolio?.investments?.length > 0) {
-      updatePricesMutation.mutate();
+    if (!portfolio?.investments?.length) return;
+    updatePricesMutation.mutate();
+    // Sync proventos independently — don't block on price update success
+    const FOUR_HOURS = 4 * 60 * 60 * 1000;
+    const last = parseInt(localStorage.getItem('proventos-sync') ?? '0');
+    if (Date.now() - last > FOUR_HOURS) {
+      localStorage.setItem('proventos-sync', String(Date.now()));
+      syncProventosMutation.mutate();
     }
   // Executa apenas quando o portfólio carrega pela primeira vez
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,14 +127,17 @@ export default function InvestmentsPage() {
       accountId: data.accountId || undefined,
       purchaseDate: data.purchaseDate || undefined,
     }),
-    onSuccess: () => { 
-      qc.invalidateQueries({ queryKey: ['portfolio'] }); 
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['portfolio'] });
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['recent-transactions-activity'] });
       qc.invalidateQueries({ queryKey: ['household-summary'] });
-      toast.success('Investimento adicionado à carteira!'); 
-      reset(); 
-      setShowForm(false); 
+      toast.success('Investimento adicionado à carteira!');
+      reset();
+      setShowForm(false);
+      // Force proventos re-sync immediately so new ticker's dividends appear
+      localStorage.removeItem('proventos-sync');
+      syncProventosMutation.mutate();
     },
     onError: (err: any) => toast.error(err.response?.data?.message || 'Erro ao criar investimento'),
   });
