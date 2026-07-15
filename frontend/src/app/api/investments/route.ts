@@ -38,13 +38,14 @@ export const POST = withAuth(async (req: NextRequest, user) => {
       const cost = Number(body.quantity || 0) * Number(body.purchasePrice || 0);
       if (cost > 0) {
         await supabase.from('accounts').update({ balance: parseFloat(account.balance) - cost }).eq('id', accountId);
+        const ticker = body.ticker ? String(body.ticker).toUpperCase() : body.name;
         await supabase.from('transactions').insert({
           id: crypto.randomUUID(),
           householdId: user.householdId,
           accountId,
           amount: cost,
-          description: `Compra de Ativo: ${body.ticker || body.name}`,
-          type: 'EXPENSE',
+          description: `Aporte: ${ticker}`,
+          type: 'TRANSFER',
           isPaid: true,
           date: body.purchaseDate ? new Date(body.purchaseDate).toISOString() : new Date().toISOString(),
           updatedAt: new Date().toISOString(),
