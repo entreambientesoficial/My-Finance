@@ -57,7 +57,14 @@ export default function InvestmentsPage() {
 
   const syncProventosMutation = useMutation({
     mutationFn: () => api.post('/api/proventos/sync').then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['proventos'] }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['proventos'] });
+      if (result.tickersChecked?.length === 0) {
+        toast('Proventos: nenhum ativo BR com ticker encontrado (STOCK ou FUND)', { icon: 'ℹ️' });
+      } else if (result.synced === 0 && result.noDataTickers?.length > 0) {
+        toast(`Proventos: BRAPI sem dados para ${result.noDataTickers.join(', ')}`, { duration: 8000, icon: '⚠️' });
+      }
+    },
   });
 
   const updatePricesMutation = useMutation({

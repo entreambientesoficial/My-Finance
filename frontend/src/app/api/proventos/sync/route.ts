@@ -1,4 +1,4 @@
-﻿export const runtime = 'edge'
+export const runtime = 'edge'
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
@@ -16,16 +16,22 @@ interface BrapiDividend {
   lastDatePrior: string;
 }
 
-async function fetchDividends(ticker: string): Promise<BrapiDividend[]> {
+async function fetchDividends(ticker: string): Promise<{ dividends: BrapiDividend[]; httpStatus: number }> {
   try {
     const url = `${BRAPI_BASE}/quote/${ticker}?dividends=true&token=${TOKEN}`;
     const res = await fetch(url, { next: { revalidate: 0 } });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`[proventos/sync] BRAPI ${ticker} HTTP ${res.status}`);
+      return { dividends: [], httpStatus: res.status };
+    }
     const data = await res.json();
     const result = data?.results?.[0];
-    return result?.dividendsData?.cashDividends ?? [];
-  } catch {
-    return [];
+    const dividends: BrapiDividend[] = result?.dividendsData?.cashDividends ?? [];
+    console.log(`[proventos/sync] ${ticker}: ${dividends.length} dividendos`);
+    return { dividends, httpStatus: 200 };
+  } catch (e) {
+    console.error(`[proventos/sync] ${ticker} erro:`, e);
+    return { dividends: [], httpStatus: 0 };
   }
 }
 
@@ -36,14 +42,18 @@ export const POST = withAuth(async (_req: NextRequest, user) => {
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
+  // Only fetch proventos for BR domestic assets (STOCK = Ações BR, FUND = FIIs)
+  // US stocks, Renda Fixa, Crypto etc. are not covered by BRAPI dividends endpoint
   const { data: investments } = await supabase
     .from('investments')
-    .select('ticker, quantity, purchaseDate')
+    .select('ticker, quantity, purchaseDate, type')
     .eq('householdId', user.householdId)
     .not('ticker', 'is', null)
-    .not('type', 'in', '("CRYPTO","SAVINGS")');
+    .in('type', ['STOCK', 'FUND']);
 
-  if (!investments?.length) return ok({ synced: 0, aReceber: 0 });
+  console.log(`[proventos/sync] Investimentos BR encontrados: ${investments?.length ?? 0}`);
+
+  if (!investments?.length) return ok({ synced: 0, aReceber: 0, tickersChecked: [], noDataTickers: [] });
 
   const tickerMap: Record<string, { quantidade: number; purchaseDate: Date | null }> = {};
   for (const inv of investments) {
@@ -59,10 +69,19 @@ export const POST = withAuth(async (_req: NextRequest, user) => {
 
   let synced = 0;
   let aReceber = 0;
+  const tickersChecked: string[] = [];
+  const noDataTickers: string[] = [];
 
   for (const [ticker, { quantidade, purchaseDate }] of Object.entries(tickerMap)) {
     if (quantidade <= 0) continue;
-    const dividends = await fetchDividends(ticker);
+    tickersChecked.push(ticker);
+
+    const { dividends, httpStatus } = await fetchDividends(ticker);
+
+    if (dividends.length === 0) {
+      noDataTickers.push(`${ticker}(HTTP ${httpStatus})`);
+      continue;
+    }
 
     for (const div of dividends) {
       if (!div.paymentDate || !div.rate || !div.lastDatePrior) continue;
@@ -98,8 +117,8 @@ export const POST = withAuth(async (_req: NextRequest, user) => {
         );
         synced++;
         if (status === 'A_RECEBER') aReceber++;
-      } catch {
-        // ignora conflito em corridas paralelas
+      } catch (e) {
+        console.error(`[proventos/sync] upsert ${ticker} erro:`, e);
       }
     }
   }
@@ -111,5 +130,7 @@ export const POST = withAuth(async (_req: NextRequest, user) => {
     .eq('status', 'A_RECEBER')
     .lte('dataPagamento', hoje.toISOString());
 
-  return ok({ synced, aReceber });
+  console.log(`[proventos/sync] Resultado: ${synced} sincronizados, noData: ${noDataTickers.join(', ')}`);
+
+  return ok({ synced, aReceber, tickersChecked, noDataTickers });
 });
