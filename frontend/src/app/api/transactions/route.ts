@@ -4,53 +4,96 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
 import { ok, created, notFound, serverError } from '@/lib/api-response';
 
-const TX_SELECT = '*, category:categories(id, name, color, icon), account:accounts!accountId(id, name), toAccount:accounts!toAccountId(id, name), card:cards(id, name)';
+// parentId included so we can resolve subcategory → parent on the server
+const TX_SELECT = '*, category:categories(id, name, color, icon, parentId), account:accounts!accountId(id, name), toAccount:accounts!toAccountId(id, name), card:cards(id, name)';
 
 export const GET = withAuth(async (req: NextRequest, user) => {
   try {
     if (!user.householdId) return notFound();
     const sp = new URL(req.url).searchParams;
-    const type = sp.get('type');
-    const categoryId = sp.get('categoryId');
-    const accountId = sp.get('accountId');
-    const cardId = sp.get('cardId');
-    const startDate = sp.get('startDate');
-    const endDate = sp.get('endDate');
-    const isPaidStr = sp.get('isPaid');
-    const page = Math.max(1, parseInt(sp.get('page') ?? '1'));
-    const limit = Math.min(100, parseInt(sp.get('limit') ?? '20'));
-    const sortByRaw = sp.get('sortBy') ?? 'date';
-    const sortDir = sp.get('sortDir') === 'asc';
+    const type        = sp.get('type');
+    const categoryId  = sp.get('categoryId');
+    const accountId   = sp.get('accountId');
+    const cardId      = sp.get('cardId');
+    const startDate   = sp.get('startDate');
+    const endDate     = sp.get('endDate');
+    const isPaidStr   = sp.get('isPaid');
+    const page        = Math.max(1, parseInt(sp.get('page') ?? '1'));
+    const limit       = Math.min(100, parseInt(sp.get('limit') ?? '20'));
+    const sortByRaw   = sp.get('sortBy') ?? 'date';
+    const sortDir     = sp.get('sortDir') === 'asc';
     const allowedSort = ['date', 'amount', 'description', 'isPaid', 'category', 'account'];
-    const sortBy = allowedSort.includes(sortByRaw) ? sortByRaw : 'date';
+    const sortBy      = allowedSort.includes(sortByRaw) ? sortByRaw : 'date';
 
     const supabase = createAdminClient();
-    let query = supabase
+
+    // Fetch all categories to resolve subcategory → parent
+    const { data: allCats } = await supabase
+      .from('categories').select('id, name, color, icon, parentId')
+      .eq('householdId', user.householdId);
+
+    const catById: Record<string, any> = {};
+    for (const c of allCats ?? []) catById[c.id] = c;
+
+    // Returns top-level category for a given categoryId
+    const resolveTopCat = (catId: string | null) => {
+      if (!catId) return null;
+      const cat = catById[catId];
+      if (!cat) return null;
+      return (cat.parentId && catById[cat.parentId]) ? catById[cat.parentId] : cat;
+    };
+
+    // Base filtered query (no sort/pagination yet)
+    let baseQuery = supabase
       .from('transactions')
       .select(TX_SELECT, { count: 'exact' })
       .eq('householdId', user.householdId);
 
+    if (type)           baseQuery = baseQuery.eq('type', type);
+    if (categoryId)     baseQuery = baseQuery.eq('categoryId', categoryId);
+    if (accountId)      baseQuery = baseQuery.eq('accountId', accountId);
+    if (cardId)         baseQuery = baseQuery.eq('cardId', cardId);
+    if (isPaidStr !== null) baseQuery = baseQuery.eq('isPaid', isPaidStr === 'true');
+    if (startDate)      baseQuery = baseQuery.gte('date', startDate);
+    if (endDate)        baseQuery = baseQuery.lte('date', endDate + 'T23:59:59');
+
+    // Category sort: resolve in memory so we sort by parent-category name
     if (sortBy === 'category') {
-      query = query.order('name', { referencedTable: 'categories', ascending: sortDir });
-    } else if (sortBy === 'account') {
-      query = query.order('name', { referencedTable: 'accounts', ascending: sortDir });
+      const { data: allData, count } = await baseQuery.order('date', { ascending: false }).limit(2000);
+      const resolved = (allData ?? []).map(tx => ({
+        ...tx,
+        displayCategory: resolveTopCat(tx.categoryId),
+      }));
+      const asc = sortDir ? 1 : -1;
+      resolved.sort((a, b) => {
+        const na = a.displayCategory?.name ?? '';
+        const nb = b.displayCategory?.name ?? '';
+        return na.localeCompare(nb, 'pt-BR') * asc;
+      });
+      const total = count ?? resolved.length;
+      const pageData = resolved.slice((page - 1) * limit, page * limit);
+      return ok({ data: pageData, total, page, limit, pages: Math.ceil(total / limit) });
+    }
+
+    // All other sorts: use DB ordering
+    let query = baseQuery;
+    if (sortBy === 'account') {
+      query = query.order('name', { foreignTable: 'accounts', ascending: sortDir });
     } else {
       query = query.order(sortBy, { ascending: sortDir });
     }
-
     query = query.range((page - 1) * limit, page * limit - 1);
-
-    if (type) query = query.eq('type', type);
-    if (categoryId) query = query.eq('categoryId', categoryId);
-    if (accountId) query = query.eq('accountId', accountId);
-    if (cardId) query = query.eq('cardId', cardId);
-    if (isPaidStr !== null) query = query.eq('isPaid', isPaidStr === 'true');
-    if (startDate) query = query.gte('date', startDate);
-    if (endDate) query = query.lte('date', endDate + 'T23:59:59');
 
     const { data, count } = await query;
     const total = count ?? 0;
-    return ok({ data: data ?? [], total, page, limit, pages: Math.ceil(total / limit) });
+
+    // Add displayCategory to every transaction
+    const resolvedData = (data ?? []).map(tx => ({
+      ...tx,
+      displayCategory: resolveTopCat(tx.categoryId),
+    }));
+
+    return ok({ data: resolvedData, total, page, limit, pages: Math.ceil(total / limit) });
   } catch (err) {
     console.error('[transactions GET]', err);
     return serverError();

@@ -352,15 +352,28 @@ export default function ReportsPage() {
                         <td className="px-xl py-md font-numeric text-numeric-data">{formattedDate}</td>
                         <td className="px-xl py-md font-body-lg text-body-lg text-primary font-medium text-left">{tx.description}</td>
                         <td className="px-xl py-md text-left">
-                          <span 
-                            className="px-xs py-1 rounded font-label-sm text-[11px] uppercase font-bold tracking-wider"
-                            style={{ 
-                              backgroundColor: `${tx.category?.color || '#75777e'}15`,
-                              color: tx.category?.color || '#75777e'
-                            }}
-                          >
-                            {tx.category?.name || 'Geral'}
-                          </span>
+                          {(() => {
+                            const display = tx.displayCategory || tx.category;
+                            const isSub   = tx.category?.parentId && tx.displayCategory?.id !== tx.category?.id;
+                            return (
+                              <div className="flex flex-col gap-[2px]">
+                                <span
+                                  className="px-xs py-[2px] rounded font-label-sm text-[11px] uppercase font-bold tracking-wider self-start"
+                                  style={{
+                                    backgroundColor: `${display?.color || '#75777e'}15`,
+                                    color: display?.color || '#75777e',
+                                  }}
+                                >
+                                  {display?.name || 'Geral'}
+                                </span>
+                                {isSub && (
+                                  <span className="text-[10px] text-on-surface-variant pl-[2px]">
+                                    {tx.category.name}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-xl py-md font-body-md text-body-md text-on-surface-variant text-left">{tx.account?.name || 'Carteira'}</td>
                         <td className={cn(

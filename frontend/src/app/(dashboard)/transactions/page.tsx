@@ -1094,7 +1094,7 @@ export default function TransactionsPage() {
                               </div>
                               {t.notes && !t.notes.startsWith('ofx:') && <span className="text-xs text-on-surface-variant truncate mt-0.5">{t.notes}</span>}
                               <div className="mt-1">
-                                <CategoryBadge category={t.category} type={t.type} />
+                                <CategoryBadge category={t.displayCategory || t.category} type={t.type} />
                               </div>
                             </div>
                           </td>
@@ -1295,7 +1295,7 @@ export default function TransactionsPage() {
               <div key={t.id} className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl space-y-3 shadow-xs">
                 {/* Header */}
                 <div className="flex justify-between items-start">
-                  <CategoryBadge category={t.category} type={t.type} />
+                  <CategoryBadge category={t.displayCategory || t.category} type={t.type} />
                   <div className="text-sm font-bold">
                     {renderAmount(t)}
                   </div>
