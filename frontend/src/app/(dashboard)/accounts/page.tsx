@@ -84,6 +84,9 @@ export default function AccountsPage() {
   const [editingAccount, setEditingAccount] = useState<any | null>(null);
   const [editingCard, setEditingCard] = useState<any | null>(null);
 
+  const [activityPeriod, setActivityPeriod] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
+  const [activityType, setActivityType] = useState<'' | 'INCOME' | 'EXPENSE'>('');
+
   // Modal and form states for Exploring Cofres
   const [showCofresModal, setShowCofresModal] = useState(false);
   const [depositGoalId, setDepositGoalId] = useState<string | null>(null);
@@ -109,16 +112,21 @@ export default function AccountsPage() {
   const isCardSelectedEarly = (cards as any[]).some((c: any) => c.id === activeEntityIdEarly);
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ['recent-transactions-activity', activeEntityIdEarly, isCardSelectedEarly],
+    queryKey: ['recent-transactions-activity', activeEntityIdEarly, isCardSelectedEarly, activityPeriod, activityType],
     queryFn: () => {
       const params = new URLSearchParams();
-      params.set('limit', '30');
+      params.set('limit', '50');
       params.set('sortBy', 'date');
       params.set('sortDir', 'desc');
       if (activeEntityIdEarly) {
         if (isCardSelectedEarly) params.set('cardId', activeEntityIdEarly);
         else params.set('accountId', activeEntityIdEarly);
       }
+      const periodDays: Record<string, number> = { '7d': 7, '30d': 30, '3m': 90, '6m': 180 };
+      const since = new Date();
+      since.setDate(since.getDate() - periodDays[activityPeriod]);
+      params.set('startDate', since.toISOString().split('T')[0]);
+      if (activityType) params.set('type', activityType);
       return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data?.data || r.data || []);
     },
     enabled: !!activeEntityIdEarly,
@@ -406,6 +414,46 @@ export default function AccountsPage() {
                 <div className="flex gap-xs items-center">
                   <span className="px-md py-1 bg-primary/10 text-primary rounded-full font-label-sm text-label-sm font-bold">{activeEntityName}</span>
                   <a href="/transactions" className="text-primary font-label-sm text-label-sm hover:underline ml-2">Ver Todas</a>
+                </div>
+              </div>
+              {/* Filter bar */}
+              <div className="px-lg py-sm border-b border-outline-variant/60 flex flex-wrap gap-md items-center bg-surface-container-lowest">
+                <div className="flex gap-xs">
+                  {(['7d', '30d', '3m', '6m'] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setActivityPeriod(p)}
+                      className={cn(
+                        'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors',
+                        activityPeriod === p
+                          ? 'bg-primary text-on-primary'
+                          : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                      )}
+                    >
+                      {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : p === '3m' ? '3 meses' : '6 meses'}
+                    </button>
+                  ))}
+                </div>
+                <div className="w-px h-4 bg-outline-variant/60" />
+                <div className="flex gap-xs">
+                  {([['', 'Todos'], ['INCOME', 'Receitas'], ['EXPENSE', 'Despesas']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setActivityType(val)}
+                      className={cn(
+                        'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors',
+                        activityType === val
+                          ? val === 'INCOME'
+                            ? 'bg-secondary text-on-secondary'
+                            : val === 'EXPENSE'
+                            ? 'bg-error text-white'
+                            : 'bg-primary text-on-primary'
+                          : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
               <table className="w-full text-left">
