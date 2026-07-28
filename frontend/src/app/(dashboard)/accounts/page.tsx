@@ -84,8 +84,9 @@ export default function AccountsPage() {
   const [editingAccount, setEditingAccount] = useState<any | null>(null);
   const [editingCard, setEditingCard] = useState<any | null>(null);
 
-  const [activityPeriod, setActivityPeriod] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
+  const [activityPeriod, setActivityPeriod] = useState<'7d' | '30d' | '3m' | '6m' | 'all'>('30d');
   const [activityType, setActivityType] = useState<'' | 'INCOME' | 'EXPENSE'>('');
+  const [activityStatus, setActivityStatus] = useState<'' | 'paid' | 'unpaid'>('');
 
   // Modal and form states for Exploring Cofres
   const [showCofresModal, setShowCofresModal] = useState(false);
@@ -112,24 +113,38 @@ export default function AccountsPage() {
   const isCardSelectedEarly = (cards as any[]).some((c: any) => c.id === activeEntityIdEarly);
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ['recent-transactions-activity', activeEntityIdEarly, isCardSelectedEarly, activityPeriod, activityType],
+    queryKey: ['recent-transactions-activity', activeEntityIdEarly, isCardSelectedEarly, activityPeriod, activityType, activityStatus],
     queryFn: () => {
       const params = new URLSearchParams();
-      params.set('limit', '50');
+      params.set('limit', '100');
       params.set('sortBy', 'date');
       params.set('sortDir', 'desc');
       if (activeEntityIdEarly) {
         if (isCardSelectedEarly) params.set('cardId', activeEntityIdEarly);
         else params.set('accountId', activeEntityIdEarly);
       }
-      const periodDays: Record<string, number> = { '7d': 7, '30d': 30, '3m': 90, '6m': 180 };
-      const since = new Date();
-      since.setDate(since.getDate() - periodDays[activityPeriod]);
-      params.set('startDate', since.toISOString().split('T')[0]);
+      if (activityPeriod !== 'all') {
+        const periodDays: Record<string, number> = { '7d': 7, '30d': 30, '3m': 90, '6m': 180 };
+        const since = new Date();
+        since.setDate(since.getDate() - (periodDays[activityPeriod] || 30));
+        params.set('startDate', since.toISOString().split('T')[0]);
+      }
       if (activityType) params.set('type', activityType);
+      if (activityStatus === 'paid') params.set('isPaid', 'true');
+      if (activityStatus === 'unpaid') params.set('isPaid', 'false');
+
       return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data?.data || r.data || []);
     },
     enabled: !!activeEntityIdEarly,
+  });
+
+  const { data: cardUnpaidTransactions = [] } = useQuery({
+    queryKey: ['card-unpaid-transactions', activeEntityIdEarly, isCardSelectedEarly],
+    queryFn: () => {
+      if (!activeEntityIdEarly || !isCardSelectedEarly) return [];
+      return api.get(`/api/transactions?cardId=${activeEntityIdEarly}&isPaid=false&limit=200`).then((r) => r.data?.data || r.data || []);
+    },
+    enabled: !!activeEntityIdEarly && isCardSelectedEarly,
   });
 
   const { data: allCategories = [] } = useQuery({
@@ -255,6 +270,7 @@ export default function AccountsPage() {
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['cards'] });
       qc.invalidateQueries({ queryKey: ['recent-transactions-activity'] });
+      qc.invalidateQueries({ queryKey: ['card-unpaid-transactions'] });
       qc.invalidateQueries({ queryKey: ['household-summary'] });
       toast.success('Fatura paga com sucesso!');
       setPaymentCard(null);
@@ -417,43 +433,78 @@ export default function AccountsPage() {
                 </div>
               </div>
               {/* Filter bar */}
-              <div className="px-lg py-sm border-b border-outline-variant/60 flex flex-wrap gap-md items-center bg-surface-container-lowest">
-                <div className="flex gap-xs">
-                  {(['7d', '30d', '3m', '6m'] as const).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setActivityPeriod(p)}
-                      className={cn(
-                        'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors',
-                        activityPeriod === p
-                          ? 'bg-primary text-on-primary'
-                          : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-                      )}
-                    >
-                      {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : p === '3m' ? '3 meses' : '6 meses'}
-                    </button>
-                  ))}
-                </div>
-                <div className="w-px h-4 bg-outline-variant/60" />
-                <div className="flex gap-xs">
-                  {([['', 'Todos'], ['INCOME', 'Receitas'], ['EXPENSE', 'Despesas']] as const).map(([val, label]) => (
-                    <button
-                      key={val}
-                      onClick={() => setActivityType(val)}
-                      className={cn(
-                        'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors',
-                        activityType === val
-                          ? val === 'INCOME'
-                            ? 'bg-secondary text-on-secondary'
-                            : val === 'EXPENSE'
-                            ? 'bg-error text-white'
-                            : 'bg-primary text-on-primary'
-                          : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
+              <div className="px-lg py-sm border-b border-outline-variant/60 flex flex-wrap gap-md items-center justify-between bg-surface-container-lowest">
+                <div className="flex flex-wrap gap-md items-center">
+                  {/* Period filter */}
+                  <div className="flex gap-xs items-center">
+                    <span className="text-[11px] font-semibold text-on-surface-variant mr-1">Período:</span>
+                    {(['7d', '30d', '3m', '6m', 'all'] as const).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => setActivityPeriod(p)}
+                        className={cn(
+                          'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors',
+                          activityPeriod === p
+                            ? 'bg-primary text-on-primary'
+                            : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                        )}
+                      >
+                        {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : p === '3m' ? '3 meses' : p === '6m' ? '6 meses' : 'Tudo'}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="w-px h-4 bg-outline-variant/60 hidden sm:block" />
+
+                  {/* Type filter */}
+                  <div className="flex gap-xs items-center">
+                    <span className="text-[11px] font-semibold text-on-surface-variant mr-1">Tipo:</span>
+                    {([['', 'Todos'], ['INCOME', 'Receitas'], ['EXPENSE', 'Despesas']] as const).map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => setActivityType(val)}
+                        className={cn(
+                          'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors',
+                          activityType === val
+                            ? val === 'INCOME'
+                              ? 'bg-secondary text-on-secondary'
+                              : val === 'EXPENSE'
+                              ? 'bg-error text-white'
+                              : 'bg-primary text-on-primary'
+                            : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="w-px h-4 bg-outline-variant/60 hidden sm:block" />
+
+                  {/* Status filter (Em Aberto / Pago) */}
+                  <div className="flex gap-xs items-center">
+                    <span className="text-[11px] font-semibold text-on-surface-variant mr-1">Status:</span>
+                    {([['', 'Todos'], ['unpaid', 'Em Aberto'], ['paid', 'Pago']] as const).map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => setActivityStatus(val)}
+                        className={cn(
+                          'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors flex items-center gap-1',
+                          activityStatus === val
+                            ? val === 'unpaid'
+                              ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                              : val === 'paid'
+                              ? 'bg-emerald-500 text-slate-950 font-extrabold shadow-xs'
+                              : 'bg-primary text-on-primary'
+                            : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                        )}
+                      >
+                        {val === 'unpaid' && <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>}
+                        {val === 'paid' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>}
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <table className="w-full text-left">
@@ -461,15 +512,16 @@ export default function AccountsPage() {
                   <tr className="bg-surface-container-low/50 border-b border-outline-variant/60">
                     <th className="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Transação</th>
                     <th className="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Categoria</th>
+                    <th className="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase font-bold">Status</th>
                     <th className="px-lg py-md font-label-sm text-label-sm text-on-surface-variant uppercase font-bold text-right">Valor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/30">
                   {recentActivity.length === 0 ? (
                     <tr>
-                      <td colSpan={3} className="px-lg py-xl text-center text-on-surface-variant">
+                      <td colSpan={4} className="px-lg py-xl text-center text-on-surface-variant">
                         <span className="material-symbols-outlined text-3xl mb-1 block">receipt_long</span>
-                        Nenhuma transação recente encontrada para esta entidade.
+                        Nenhuma transação recente encontrada com os filtros selecionados.
                       </td>
                     </tr>
                   ) : (
@@ -510,6 +562,19 @@ export default function AccountsPage() {
                             ) : (
                               <span className="text-on-surface-variant text-sm">{isIncome ? 'Receita' : 'Geral'}</span>
                             )}
+                          </td>
+                          <td className="px-lg py-md">
+                            <span className={cn(
+                              "px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5 border",
+                              tx.isPaid 
+                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                            )}>
+                              <span className="material-symbols-outlined text-[13px]">
+                                {tx.isPaid ? 'check_circle' : 'schedule'}
+                              </span>
+                              {tx.isPaid ? 'Pago' : (isCardSelected ? 'Fatura Aberta' : 'Em Aberto')}
+                            </span>
                           </td>
                           <td className={cn(
                             "px-lg py-md text-right font-numeric text-numeric-data font-bold whitespace-nowrap",
@@ -573,8 +638,8 @@ export default function AccountsPage() {
                   const card = cards.find((c: any) => c.id === activeEntityId);
                   if (!card || !isCardSelected) return null;
                   const limit = Number(card.creditLimit);
-                  const currentInvoice = transactions
-                    .filter((t: any) => t.cardId === card.id && t.type === 'EXPENSE' && !t.isPaid)
+                  const currentInvoice = cardUnpaidTransactions
+                    .filter((t: any) => t.type === 'EXPENSE')
                     .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
                   const percentUsed = Math.min(100, Math.round((currentInvoice / limit) * 100));
                   return (
@@ -633,6 +698,19 @@ export default function AccountsPage() {
                           <div>
                             <p className="font-label-sm text-label-sm text-on-surface-variant">Fatura Atual</p>
                             <p className="font-headline text-headline-md text-error font-bold">{formatCurrency(currentInvoice)}</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActivityStatus('unpaid');
+                                setActivityPeriod('all');
+                                setActivityType('');
+                              }}
+                              className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                              title="Filtrar tabela para exibir lançamentos da fatura em aberto"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">filter_list</span>
+                              Ver lançamentos ({cardUnpaidTransactions.length})
+                            </button>
                           </div>
                           <div className="text-right">
                             <p className="font-label-sm text-label-sm text-on-surface-variant">Vencimento</p>
@@ -765,8 +843,8 @@ export default function AccountsPage() {
             const card = cards.find((c: any) => c.id === activeEntityId);
             if (!card) return null;
             const limit = Number(card.creditLimit);
-            const currentInvoice = transactions
-              .filter((t: any) => t.cardId === card.id && t.type === 'EXPENSE' && !t.isPaid)
+            const currentInvoice = cardUnpaidTransactions
+              .filter((t: any) => t.type === 'EXPENSE')
               .reduce((sum: number, t: any) => sum + Number(t.amount), 0);
             const percentUsed = Math.min(100, Math.round((currentInvoice / limit) * 100));
             return (
@@ -784,6 +862,19 @@ export default function AccountsPage() {
                   <div>
                     <p className="text-[11px] text-on-surface-variant">Fatura Atual</p>
                     <p className="text-headline-md text-error font-bold">{formatCurrency(currentInvoice)}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivityStatus('unpaid');
+                        setActivityPeriod('all');
+                        setActivityType('');
+                      }}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                      title="Filtrar tabela para exibir lançamentos da fatura em aberto"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">filter_list</span>
+                      Ver lançamentos ({cardUnpaidTransactions.length})
+                    </button>
                   </div>
                   <div className="text-right">
                     <p className="text-[11px] text-on-surface-variant">Vencimento</p>

@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-07-14
+> Atualizado em: 2026-07-15
 > Stack: Next.js 14 App Router + Supabase Auth + Supabase JS client + Cloudflare Pages
 > App em produção: https://my-finance-my.pages.dev
 
@@ -36,11 +36,13 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 
 ---
 
-## Status Atual (2026-07-14)
+## Status Atual (2026-07-15)
 
 ✅ **APP EM PRODUÇÃO — compartilhado com amigos e família para validação**
 
 Anderson aguarda ~1 mês de feedback real antes de decidir sobre viabilidade comercial. Caso de uso prioritário para validação: **recebimento de dividendos**.
+
+**Sessão 2026-07-15:** Correção de exibição de categorias (subcategoria → pai), filtros de período e tipo na Atividade Recente (Contas & Cartões), diagnóstico de Proventos (BRAPI HTTP 403 → migração para Yahoo Finance). Proventos ainda com R$ 0,00 — aguardando próximo anúncio de dividendo no Investidor10 para validar end-to-end.
 
 **Sessão 2026-07-14:** Dashboard com gráficos donut interativos, tela de Orçamentos completamente redesenhada, Relatórios sem filtros (exibe mês atual fixo), PDF financeiro completamente redesenhado (texto centralizado, gráfico de barras por categoria, KPIs mensais, fluxo de caixa 6 meses).
 
@@ -58,7 +60,7 @@ Anderson aguarda ~1 mês de feedback real antes de decidir sobre viabilidade com
 | Orçamentos | ✅ |
 | Metas | ✅ |
 | Investimentos (B3, FIIs, Ações EUA, Renda Fixa CDI, Cripto, Poupança) | ✅ |
-| Proventos/dividendos via brapi.dev | ✅ |
+| Proventos/dividendos via Yahoo Finance (B3 STOCK/FUND) | ✅ ⏳ validando |
 | Dashboard com KPIs mensais + anuais + gráficos | ✅ |
 | Relatórios (fluxo de caixa, categorias, export PDF/CSV) | ✅ |
 | PWA (instalável no celular e desktop) | ✅ |
@@ -384,6 +386,104 @@ GET    /api/notifications
 ---
 
 ## Log de Alterações
+
+### 2026-07-15 — Correção de Categorias + Filtros Atividade Recente + Diagnóstico Proventos + Yahoo Finance
+
+---
+
+#### 🗂️ Transações — Exibição de Categoria Pai em vez de Subcategoria
+
+**Problema:** A tela Transações e a tela Relatórios exibiam a subcategoria diretamente (ex: "Cinema") em vez da categoria pai ("Lazer"). A ordenação por categoria também ordenava pela subcategoria, ficando misturada.
+
+**Causa raiz:** O campo `category` da API retornava a categoria direta da transação (podendo ser uma subcategoria). Não havia resolução para o pai.
+
+**Correção em `frontend/src/app/api/transactions/route.ts`:**
+- `TX_SELECT` inclui `parentId` na query das categorias
+- `resolveTopCat(catId)`: percorre o mapa `catById` até encontrar o topo da hierarquia
+- Todas as respostas incluem `displayCategory` (nome da categoria pai, ou própria se já for topo)
+- Para `sortBy === 'category'`: busca até 2000 linhas, resolve `displayCategory` em memória, ordena com `localeCompare('pt-BR')` e pagina o resultado
+
+**Correção em `frontend/src/app/(dashboard)/transactions/page.tsx`:**
+- `CategoryBadge` passou a usar `t.displayCategory || t.category` (2 ocorrências)
+- Commit: `55c9c62`
+
+**Correção em `frontend/src/app/(dashboard)/reports/page.tsx`:**
+- Badge principal exibe `displayCategory`; subcategoria exibida como texto secundário menor abaixo
+
+---
+
+#### 💳 Contas & Cartões — Filtros na Atividade Recente
+
+**Solicitação:** Adicionar filtro de período e tipo na seção "Atividade Recente" da tela Contas & Cartões.
+
+**Mudanças em `frontend/src/app/(dashboard)/accounts/page.tsx`:**
+- Novos estados: `activityPeriod` (`'7d' | '30d' | '3m' | '6m'`, padrão `'30d'`) e `activityType` (`'' | 'INCOME' | 'EXPENSE'`, padrão `''`)
+- `queryKey` inclui ambos os estados (reativo)
+- `queryFn` calcula `startDate` a partir do período selecionado e adiciona parâmetro `type` quando selecionado
+- UI: chips de período + botões de tipo no cabeçalho da tabela de atividade
+- Commit: `c887f53`
+
+---
+
+#### 💰 Proventos — Sync Desacoplado e Throttle 4h
+
+**Problema:** `syncProventosMutation` só era chamado dentro do `onSuccess` de `updatePricesMutation`. Se a atualização de cotações falhasse, o sync de proventos nunca executava.
+
+**Correção em `frontend/src/app/(dashboard)/investments/page.tsx`:**
+- `useEffect` agora aciona `updatePricesMutation` e `syncProventosMutation` de forma independente
+- `syncProventosMutation` tem throttle de 4h via `localStorage.getItem('proventos-sync')`
+- `createMutation.onSuccess`: limpa a chave do localStorage para forçar re-sync ao adicionar novo ativo
+- Commit: `a186665`
+
+---
+
+#### 🔍 Proventos — Diagnóstico: BRAPI HTTP 403
+
+**Sintoma:** Toast de alerta aparecia com: `"Proventos: BRAPI sem dados para GGRC11(HTTP 403), GARE11(HTTP 403), BBAS3(HTTP 403), KLBN11(HTTP 403)"`
+
+**Causa raiz:** O plano/token BRAPI do usuário não dá acesso ao endpoint `?dividends=true` — retorna HTTP 403 para todos os tickers.
+
+**Mudanças em `frontend/src/app/api/proventos/sync/route.ts`:**
+- Filtro de ativos alterado de `.not('type', 'in', '("CRYPTO","SAVINGS")')` para `.in('type', ['STOCK', 'FUND'])` — apenas ativos B3 domésticos têm dados de dividendos
+- Adicionados logs de diagnóstico por ticker
+- Resposta inclui `tickersChecked` e `noDataTickers` para debug no frontend
+- Commit: `50a858d`
+
+---
+
+#### 📈 Proventos — Migração para Yahoo Finance
+
+**Problema:** BRAPI retorna HTTP 403 para o endpoint de dividendos no plano atual. BRAPI continua funcional apenas para cotações de cripto.
+
+**Solução:** Migrar sync de dividendos para Yahoo Finance.
+
+**Mudanças em `frontend/src/app/api/proventos/sync/route.ts`:**
+- Nova função `fetchDividendsYahoo(ticker)`: chama `https://query1.finance.yahoo.com/v8/finance/chart/{ticker}.SA?events=div&range=2y&interval=1mo`
+- `dataCom` = data ex-dividendo (Unix timestamp convertido)
+- `dataPagamento` = `dataCom + 3 dias` (aproximação para B3 — FIIs e ações pagam 3 dias úteis após data-com)
+- `tipo` fixo como `'Rendimento'` (Yahoo Finance não distingue tipo de provento)
+- Upsert usa constraint `(householdId, ticker, dataCom, tipo)` definida no schema Prisma
+- Auto-marcação de `A_RECEBER` → `PAGO` para `dataPagamento <= hoje`
+- Commit: `e20e402`
+
+**Status:** Proventos ainda aparecem como R$ 0,00. Possíveis causas:
+1. Yahoo Finance pode não ter dados recentes para os tickers (GGRC11, GARE11, BBAS3, KLBN11)
+2. `dataPagamento = dataCom + 3d` pode estar fora da janela filtrada no frontend
+3. Aguardando próximo anúncio de dividendo no Investidor10 para teste live end-to-end
+
+---
+
+#### 📋 Commits desta sessão
+
+| Commit | Descrição |
+|--------|-----------|
+| `55c9c62` | fix: transações exibem categoria pai (displayCategory) em vez de subcategoria |
+| `c887f53` | feat: filtros de período e tipo na Atividade Recente (Contas & Cartões) |
+| `a186665` | fix: sync de proventos independente do update de cotações, throttle 4h |
+| `50a858d` | fix: diagnóstico BRAPI 403, filtro STOCK/FUND, resposta com tickersChecked |
+| `e20e402` | feat: migração de proventos para Yahoo Finance (BRAPI 403 no plano atual) |
+
+---
 
 ### 2026-07-14 — Dashboard Donut Charts + Redesign Orçamentos + Relatórios sem Filtros + Redesign PDF
 
