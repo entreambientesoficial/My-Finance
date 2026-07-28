@@ -84,9 +84,11 @@ export default function AccountsPage() {
   const [editingAccount, setEditingAccount] = useState<any | null>(null);
   const [editingCard, setEditingCard] = useState<any | null>(null);
 
-  const [activityPeriod, setActivityPeriod] = useState<'7d' | '30d' | '3m' | '6m' | 'all'>('30d');
+  const [activityPeriod, setActivityPeriod] = useState<'7d' | '30d' | '3m' | '6m' | 'all' | 'custom'>('30d');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
   const [activityType, setActivityType] = useState<'' | 'INCOME' | 'EXPENSE'>('');
-  const [activityStatus, setActivityStatus] = useState<'' | 'paid' | 'unpaid'>('');
+  const [activityStatus, setActivityStatus] = useState<'' | 'current_invoice' | 'unpaid' | 'paid'>('');
 
   // Modal and form states for Exploring Cofres
   const [showCofresModal, setShowCofresModal] = useState(false);
@@ -111,27 +113,77 @@ export default function AccountsPage() {
   // Compute active entity early so the transactions query can filter server-side
   const activeEntityIdEarly = selectedEntityId || (accounts.length > 0 ? (accounts as any[])[0].id : cards.length > 0 ? (cards as any[])[0].id : null);
   const isCardSelectedEarly = (cards as any[]).some((c: any) => c.id === activeEntityIdEarly);
+  const activeCardObject = (cards as any[]).find((c: any) => c.id === activeEntityIdEarly);
+
+  // Helper to compute card cutoff date for current invoice
+  const getCardBillingCutoffDate = (billingDay: number = 10) => {
+    const now = new Date();
+    let cutoffYear = now.getFullYear();
+    let cutoffMonth = now.getMonth();
+    if (now.getDate() > billingDay) {
+      cutoffMonth += 1;
+    }
+    return new Date(cutoffYear, cutoffMonth, billingDay, 23, 59, 59).toISOString().split('T')[0];
+  };
+
+  // Helper to compute card cycle range
+  const getCardCycleDates = (billingDay: number = 10) => {
+    const now = new Date();
+    let year = now.getFullYear();
+    let month = now.getMonth();
+    let endDate: Date;
+    let startDate: Date;
+
+    if (now.getDate() > billingDay) {
+      endDate = new Date(year, month + 1, billingDay);
+      startDate = new Date(year, month, billingDay + 1);
+    } else {
+      endDate = new Date(year, month, billingDay);
+      startDate = new Date(year, month - 1, billingDay + 1);
+    }
+
+    return {
+      start: startDate.toISOString().split('T')[0],
+      end: endDate.toISOString().split('T')[0],
+    };
+  };
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ['recent-transactions-activity', activeEntityIdEarly, isCardSelectedEarly, activityPeriod, activityType, activityStatus],
+    queryKey: ['recent-transactions-activity', activeEntityIdEarly, isCardSelectedEarly, activityPeriod, activityType, activityStatus, customStartDate, customEndDate],
     queryFn: () => {
       const params = new URLSearchParams();
       params.set('limit', '100');
       params.set('sortBy', 'date');
       params.set('sortDir', 'desc');
+
       if (activeEntityIdEarly) {
         if (isCardSelectedEarly) params.set('cardId', activeEntityIdEarly);
         else params.set('accountId', activeEntityIdEarly);
       }
-      if (activityPeriod !== 'all') {
+
+      if (activityPeriod === 'custom') {
+        if (customStartDate) params.set('startDate', customStartDate);
+        if (customEndDate) params.set('endDate', customEndDate);
+      } else if (activityPeriod !== 'all') {
         const periodDays: Record<string, number> = { '7d': 7, '30d': 30, '3m': 90, '6m': 180 };
         const since = new Date();
         since.setDate(since.getDate() - (periodDays[activityPeriod] || 30));
         params.set('startDate', since.toISOString().split('T')[0]);
       }
+
       if (activityType) params.set('type', activityType);
-      if (activityStatus === 'paid') params.set('isPaid', 'true');
-      if (activityStatus === 'unpaid') params.set('isPaid', 'false');
+
+      if (activityStatus === 'paid') {
+        params.set('isPaid', 'true');
+      } else if (activityStatus === 'unpaid') {
+        params.set('isPaid', 'false');
+      } else if (activityStatus === 'current_invoice') {
+        params.set('isPaid', 'false');
+        if (isCardSelectedEarly && activityPeriod !== 'custom') {
+          const billingDay = activeCardObject?.billingDay || 10;
+          params.set('endDate', getCardBillingCutoffDate(billingDay));
+        }
+      }
 
       return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data?.data || r.data || []);
     },
@@ -142,7 +194,9 @@ export default function AccountsPage() {
     queryKey: ['card-unpaid-transactions', activeEntityIdEarly, isCardSelectedEarly],
     queryFn: () => {
       if (!activeEntityIdEarly || !isCardSelectedEarly) return [];
-      return api.get(`/api/transactions?cardId=${activeEntityIdEarly}&isPaid=false&limit=200`).then((r) => r.data?.data || r.data || []);
+      const billingDay = activeCardObject?.billingDay || 10;
+      const cutoffDate = getCardBillingCutoffDate(billingDay);
+      return api.get(`/api/transactions?cardId=${activeEntityIdEarly}&isPaid=false&endDate=${cutoffDate}&limit=200`).then((r) => r.data?.data || r.data || []);
     },
     enabled: !!activeEntityIdEarly && isCardSelectedEarly,
   });
@@ -434,14 +488,21 @@ export default function AccountsPage() {
               </div>
               {/* Filter bar */}
               <div className="px-lg py-sm border-b border-outline-variant/60 flex flex-wrap gap-md items-center justify-between bg-surface-container-lowest">
-                <div className="flex flex-wrap gap-md items-center">
+                <div className="flex flex-wrap gap-md items-center w-full">
                   {/* Period filter */}
-                  <div className="flex gap-xs items-center">
+                  <div className="flex gap-xs items-center flex-wrap">
                     <span className="text-[11px] font-semibold text-on-surface-variant mr-1">Período:</span>
-                    {(['7d', '30d', '3m', '6m', 'all'] as const).map((p) => (
+                    {(['7d', '30d', '3m', '6m', 'all', 'custom'] as const).map((p) => (
                       <button
                         key={p}
-                        onClick={() => setActivityPeriod(p)}
+                        onClick={() => {
+                          setActivityPeriod(p);
+                          if (p === 'custom' && isCardSelectedEarly && (!customStartDate || !customEndDate)) {
+                            const dates = getCardCycleDates(activeCardObject?.billingDay || 10);
+                            setCustomStartDate(dates.start);
+                            setCustomEndDate(dates.end);
+                          }
+                        }}
                         className={cn(
                           'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors',
                           activityPeriod === p
@@ -449,7 +510,7 @@ export default function AccountsPage() {
                             : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
                         )}
                       >
-                        {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : p === '3m' ? '3 meses' : p === '6m' ? '6 meses' : 'Tudo'}
+                        {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : p === '3m' ? '3 meses' : p === '6m' ? '6 meses' : p === 'all' ? 'Tudo' : 'Personalizado'}
                       </button>
                     ))}
                   </div>
@@ -481,30 +542,84 @@ export default function AccountsPage() {
 
                   <div className="w-px h-4 bg-outline-variant/60 hidden sm:block" />
 
-                  {/* Status filter (Em Aberto / Pago) */}
-                  <div className="flex gap-xs items-center">
+                  {/* Status filter (Fatura Atual / Em Aberto / Pago) */}
+                  <div className="flex gap-xs items-center flex-wrap">
                     <span className="text-[11px] font-semibold text-on-surface-variant mr-1">Status:</span>
-                    {([['', 'Todos'], ['unpaid', 'Em Aberto'], ['paid', 'Pago']] as const).map(([val, label]) => (
+                    {(isCardSelectedEarly
+                      ? [
+                          ['', 'Todos'],
+                          ['current_invoice', 'Fatura Atual'],
+                          ['unpaid', 'Todas em Aberto'],
+                          ['paid', 'Pago'],
+                        ]
+                      : [
+                          ['', 'Todos'],
+                          ['unpaid', 'Em Aberto'],
+                          ['paid', 'Pago'],
+                        ]
+                    ).map(([val, label]) => (
                       <button
                         key={val}
-                        onClick={() => setActivityStatus(val)}
+                        onClick={() => setActivityStatus(val as any)}
                         className={cn(
                           'px-sm py-[2px] rounded-full font-label-sm text-[11px] font-bold transition-colors flex items-center gap-1',
                           activityStatus === val
-                            ? val === 'unpaid'
+                            ? val === 'current_invoice'
                               ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                              : val === 'unpaid'
+                              ? 'bg-orange-500 text-slate-950 font-extrabold shadow-xs'
                               : val === 'paid'
                               ? 'bg-emerald-500 text-slate-950 font-extrabold shadow-xs'
                               : 'bg-primary text-on-primary'
                             : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
                         )}
                       >
-                        {val === 'unpaid' && <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>}
+                        {val === 'current_invoice' && <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>}
+                        {val === 'unpaid' && <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>}
                         {val === 'paid' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>}
                         {label}
                       </button>
                     ))}
                   </div>
+
+                  {/* Custom Date Inputs */}
+                  {activityPeriod === 'custom' && (
+                    <div className="flex flex-wrap gap-md items-center pt-2 pb-1 w-full border-t border-outline-variant/40 mt-1">
+                      <div className="flex items-center gap-xs">
+                        <span className="text-[11px] text-on-surface-variant font-semibold">De:</span>
+                        <input
+                          type="date"
+                          value={customStartDate}
+                          onChange={(e) => setCustomStartDate(e.target.value)}
+                          className="bg-surface-container-low border border-outline-variant/60 rounded-md px-2 py-1 text-xs text-on-surface focus:ring-1 focus:ring-primary outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-xs">
+                        <span className="text-[11px] text-on-surface-variant font-semibold">Até:</span>
+                        <input
+                          type="date"
+                          value={customEndDate}
+                          onChange={(e) => setCustomEndDate(e.target.value)}
+                          className="bg-surface-container-low border border-outline-variant/60 rounded-md px-2 py-1 text-xs text-on-surface focus:ring-1 focus:ring-primary outline-none"
+                        />
+                      </div>
+                      {isCardSelectedEarly && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const dates = getCardCycleDates(activeCardObject?.billingDay || 10);
+                            setCustomStartDate(dates.start);
+                            setCustomEndDate(dates.end);
+                          }}
+                          className="px-sm py-1 bg-primary/10 text-primary hover:bg-primary/20 rounded-md text-xs font-bold transition-colors flex items-center gap-1 ml-auto"
+                          title="Preencher automaticamente com o ciclo desta fatura"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">event_repeat</span>
+                          Ciclo da Fatura (Fechamento Dia {activeCardObject?.billingDay || 10})
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <table className="w-full text-left">
@@ -701,7 +816,7 @@ export default function AccountsPage() {
                             <button
                               type="button"
                               onClick={() => {
-                                setActivityStatus('unpaid');
+                                setActivityStatus('current_invoice');
                                 setActivityPeriod('all');
                                 setActivityType('');
                               }}
@@ -709,7 +824,7 @@ export default function AccountsPage() {
                               title="Filtrar tabela para exibir lançamentos da fatura em aberto"
                             >
                               <span className="material-symbols-outlined text-[14px]">filter_list</span>
-                              Ver lançamentos ({cardUnpaidTransactions.length})
+                              Ver lançamentos da fatura ({cardUnpaidTransactions.length})
                             </button>
                           </div>
                           <div className="text-right">
@@ -865,7 +980,7 @@ export default function AccountsPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setActivityStatus('unpaid');
+                        setActivityStatus('current_invoice');
                         setActivityPeriod('all');
                         setActivityType('');
                       }}
@@ -873,7 +988,7 @@ export default function AccountsPage() {
                       title="Filtrar tabela para exibir lançamentos da fatura em aberto"
                     >
                       <span className="material-symbols-outlined text-[14px]">filter_list</span>
-                      Ver lançamentos ({cardUnpaidTransactions.length})
+                      Ver lançamentos da fatura ({cardUnpaidTransactions.length})
                     </button>
                   </div>
                   <div className="text-right">
