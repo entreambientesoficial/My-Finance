@@ -1,6 +1,6 @@
 # MY-FINANCE — Status do Projeto
 
-> Atualizado em: 2026-07-15
+> Atualizado em: 2026-08-05
 > Stack: Next.js 14 App Router + Supabase Auth + Supabase JS client + Cloudflare Pages
 > App em produção: https://my-finance-my.pages.dev
 
@@ -36,11 +36,13 @@ SaaS de gestão financeira residencial/familiar. Suporta múltiplos usuários po
 
 ---
 
-## Status Atual (2026-07-15)
+## Status Atual (2026-08-05)
 
 ✅ **APP EM PRODUÇÃO — compartilhado com amigos e família para validação**
 
 Anderson aguarda ~1 mês de feedback real antes de decidir sobre viabilidade comercial. Caso de uso prioritário para validação: **recebimento de dividendos**.
+
+**Sessão 2026-08-05:** Correção no cálculo de Fatura Atual dos cartões de crédito (remoção de filtro rígido de data limite que fazia a fatura em aberto marcar R$ 0,00 quando lançamentos estavam registrados com data no vencimento). Commit: `6efab43`.
 
 **Sessão 2026-07-15:** Correção de exibição de categorias (subcategoria → pai), filtros de período e tipo na Atividade Recente (Contas & Cartões), diagnóstico de Proventos (BRAPI HTTP 403 → migração para Yahoo Finance). Proventos ainda com R$ 0,00 — aguardando próximo anúncio de dividendo no Investidor10 para validar end-to-end.
 
@@ -386,6 +388,23 @@ GET    /api/notifications
 ---
 
 ## Log de Alterações
+
+### 2026-08-05 — Correção do Cálculo e Filtro de Fatura Atual (Contas & Cartões)
+
+---
+
+#### 💳 Contas & Cartões — Fatura Atual Zerada (R$ 0,00)
+
+**Problema:** Na tela de Contas & Cartões, o card de resumo do cartão de crédito exibia `Fatura Atual = R$ 0,00` e `Ver lançamentos da fatura (0)` mesmo havendo lançamentos em aberto no cartão (ex: Nubank ADA).
+
+**Causa raiz:** A função `getCardBillingCutoffDate` calculava uma data de corte no dia de fechamento (ex: 10/08). Como os lançamentos em aberto tinham data registrada no vencimento do cartão (ex: 17/08), o parâmetro `endDate=${cutoffDate}` na requisição `/api/transactions?cardId=...&isPaid=false` fazia a API filtrar e excluir todos os lançamentos posteriores ao dia 10, zerando o resultado da query `cardUnpaidTransactions`.
+
+**Correção em `frontend/src/app/(dashboard)/accounts/page.tsx`:**
+- Removido o filtro rígido `endDate` da consulta `cardUnpaidTransactions` e do filtro de status `current_invoice`
+- Agora todas as transações em aberto (`isPaid=false`) do cartão são contabilizadas corretamente na Fatura Atual
+- Commit: `6efab43`
+
+---
 
 ### 2026-07-15 — Correção de Categorias + Filtros Atividade Recente + Diagnóstico Proventos + Yahoo Finance
 
