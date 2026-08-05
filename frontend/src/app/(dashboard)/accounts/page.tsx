@@ -146,8 +146,12 @@ export default function AccountsPage() {
       params.set('sortDir', 'desc');
 
       if (activeEntityIdEarly) {
-        if (isCardSelectedEarly) params.set('cardId', activeEntityIdEarly);
-        else params.set('accountId', activeEntityIdEarly);
+        if (isCardSelectedEarly) {
+          params.set('cardId', activeEntityIdEarly);
+        } else {
+          params.set('accountId', activeEntityIdEarly);
+          params.set('noCard', 'true');
+        }
       }
 
       if (activityPeriod === 'custom') {
@@ -339,8 +343,8 @@ export default function AccountsPage() {
     cards.find((c: any) => c.id === activeEntityId)?.name ||
     'Nenhuma selecionada';
 
-  // Already filtered server-side; reverse DESC→ASC so newest appears at the bottom
-  const recentActivity = [...(transactions as any[])].reverse();
+  // Already filtered server-side (DESC: newest transactions first)
+  const recentActivity = transactions as any[];
 
   return (
     <>

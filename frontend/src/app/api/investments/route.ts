@@ -1,4 +1,4 @@
-﻿export const runtime = 'edge'
+export const runtime = 'edge'
 import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withAuth } from '@/lib/with-auth';
@@ -27,22 +27,37 @@ export const POST = withAuth(async (req: NextRequest, user) => {
     const { accountId, ...investmentData } = body;
     const supabase = createAdminClient();
 
-    if (accountId) {
+    let targetAccountId = accountId;
+
+    if (!targetAccountId && (investmentData.broker || investmentData.name)) {
+      const searchTerm = investmentData.broker || investmentData.name;
+      const { data: matchedAccount } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('householdId', user.householdId)
+        .ilike('name', `%${searchTerm}%`)
+        .maybeSingle();
+      if (matchedAccount) {
+        targetAccountId = matchedAccount.id;
+      }
+    }
+
+    if (targetAccountId) {
       const { data: account } = await supabase
         .from('accounts')
         .select('balance')
-        .eq('id', accountId)
+        .eq('id', targetAccountId)
         .eq('householdId', user.householdId)
         .maybeSingle();
       if (!account) return notFound('Conta de débito não encontrada');
       const cost = Number(body.quantity || 0) * Number(body.purchasePrice || 0);
       if (cost > 0) {
-        await supabase.from('accounts').update({ balance: parseFloat(account.balance) - cost }).eq('id', accountId);
+        await supabase.from('accounts').update({ balance: parseFloat(account.balance) - cost }).eq('id', targetAccountId);
         const ticker = body.ticker ? String(body.ticker).toUpperCase() : body.name;
         await supabase.from('transactions').insert({
           id: crypto.randomUUID(),
           householdId: user.householdId,
-          accountId,
+          accountId: targetAccountId,
           amount: cost,
           description: `Aporte: ${ticker}`,
           type: 'TRANSFER',

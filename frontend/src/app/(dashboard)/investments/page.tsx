@@ -208,6 +208,7 @@ export default function InvestmentsPage() {
         name: inv.name,
         type: 'BOND',
         broker: inv.broker || '',
+        accountId: bondInfo.accountId || '',
         tipoTitulo: bondInfo.tipoTitulo || 'CDB',
         indexador: bondInfo.indexador || 'CDI',
         taxa: bondInfo.taxa ?? '',
@@ -228,6 +229,7 @@ export default function InvestmentsPage() {
         purchasePrice: Number(inv.purchasePrice) || 0,
         currentPrice: Number(inv.currentPrice) || 0,
         broker: inv.broker || '',
+        accountId: otherNotes.accountId || '',
         purchaseDate: inv.purchaseDate ? inv.purchaseDate.slice(0, 10) : '',
         isEmergencyFund: otherNotes.isEmergencyFund || false,
       });
@@ -246,6 +248,7 @@ export default function InvestmentsPage() {
         purchasePrice: Number(d.valorInvestido) || 0,
         currentPrice: editingInvestment ? undefined : (Number(d.valorInvestido) || 0),
         broker: d.broker || undefined,
+        accountId: d.accountId || undefined,
         purchaseDate: d.purchaseDate || undefined,
         notes: JSON.stringify({
           tipoTitulo: d.tipoTitulo || 'CDB',
@@ -255,6 +258,7 @@ export default function InvestmentsPage() {
           liquidezDiaria: !!d.liquidezDiaria,
           dataVencimento: d.dataVencimento || null,
           isEmergencyFund: !!d.isEmergencyFund,
+          accountId: d.accountId || undefined,
         }),
       };
       if (editingInvestment) {
@@ -273,7 +277,7 @@ export default function InvestmentsPage() {
         broker: d.broker || undefined,
         accountId: d.accountId || undefined,
         purchaseDate: d.purchaseDate || undefined,
-        notes: JSON.stringify({ isEmergencyFund: !!d.isEmergencyFund }),
+        notes: JSON.stringify({ isEmergencyFund: !!d.isEmergencyFund, accountId: d.accountId || undefined }),
       };
       if (editingInvestment) {
         updateMutation.mutate({ id: editingInvestment.id, data: payload });
@@ -495,6 +499,15 @@ export default function InvestmentsPage() {
                 <div>
                   <label className="text-xs font-semibold text-on-surface-variant block mb-1">Data de Vencimento (Opcional)</label>
                   <input type="date" {...register('dataVencimento')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-on-surface-variant block mb-1">Conta de Origem (Opcional)</label>
+                  <select {...register('accountId')} className="w-full bg-surface-container-low border-none rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none text-on-surface cursor-pointer">
+                    <option value="">Apenas registrar ativo (sem deduzir saldo)</option>
+                    {accounts.map((acc: any) => (
+                      <option key={acc.id} value={acc.id}>{acc.name} (Saldo: {formatCurrency(Number(acc.balance), acc.currency)})</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center gap-3 pt-4">
                   <input type="checkbox" id="liquidezDiaria" {...register('liquidezDiaria')} className="w-4 h-4 accent-primary rounded cursor-pointer" />

@@ -25,6 +25,8 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     const allowedSort = ['date', 'amount', 'description', 'isPaid', 'category', 'account'];
     const sortBy      = allowedSort.includes(sortByRaw) ? sortByRaw : 'date';
 
+    const noCard       = sp.get('noCard') === 'true';
+
     const supabase = createAdminClient();
 
     // Fetch all categories to resolve subcategory → parent
@@ -53,6 +55,7 @@ export const GET = withAuth(async (req: NextRequest, user) => {
     if (categoryId)     baseQuery = baseQuery.eq('categoryId', categoryId);
     if (accountId)      baseQuery = baseQuery.eq('accountId', accountId);
     if (cardId)         baseQuery = baseQuery.eq('cardId', cardId);
+    if (noCard)         baseQuery = baseQuery.is('cardId', null);
     if (isPaidStr !== null) baseQuery = baseQuery.eq('isPaid', isPaidStr === 'true');
     if (startDate)      baseQuery = baseQuery.gte('date', startDate);
     if (endDate)        baseQuery = baseQuery.lte('date', endDate + 'T23:59:59');
