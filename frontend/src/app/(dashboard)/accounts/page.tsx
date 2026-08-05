@@ -115,17 +115,6 @@ export default function AccountsPage() {
   const isCardSelectedEarly = (cards as any[]).some((c: any) => c.id === activeEntityIdEarly);
   const activeCardObject = (cards as any[]).find((c: any) => c.id === activeEntityIdEarly);
 
-  // Helper to compute card cutoff date for current invoice
-  const getCardBillingCutoffDate = (billingDay: number = 10) => {
-    const now = new Date();
-    let cutoffYear = now.getFullYear();
-    let cutoffMonth = now.getMonth();
-    if (now.getDate() > billingDay) {
-      cutoffMonth += 1;
-    }
-    return new Date(cutoffYear, cutoffMonth, billingDay, 23, 59, 59).toISOString().split('T')[0];
-  };
-
   // Helper to compute card cycle range
   const getCardCycleDates = (billingDay: number = 10) => {
     const now = new Date();
@@ -175,14 +164,8 @@ export default function AccountsPage() {
 
       if (activityStatus === 'paid') {
         params.set('isPaid', 'true');
-      } else if (activityStatus === 'unpaid') {
+      } else if (activityStatus === 'unpaid' || activityStatus === 'current_invoice') {
         params.set('isPaid', 'false');
-      } else if (activityStatus === 'current_invoice') {
-        params.set('isPaid', 'false');
-        if (isCardSelectedEarly && activityPeriod !== 'custom') {
-          const billingDay = activeCardObject?.billingDay || 10;
-          params.set('endDate', getCardBillingCutoffDate(billingDay));
-        }
       }
 
       return api.get(`/api/transactions?${params.toString()}`).then((r) => r.data?.data || r.data || []);
@@ -194,9 +177,7 @@ export default function AccountsPage() {
     queryKey: ['card-unpaid-transactions', activeEntityIdEarly, isCardSelectedEarly],
     queryFn: () => {
       if (!activeEntityIdEarly || !isCardSelectedEarly) return [];
-      const billingDay = activeCardObject?.billingDay || 10;
-      const cutoffDate = getCardBillingCutoffDate(billingDay);
-      return api.get(`/api/transactions?cardId=${activeEntityIdEarly}&isPaid=false&endDate=${cutoffDate}&limit=200`).then((r) => r.data?.data || r.data || []);
+      return api.get(`/api/transactions?cardId=${activeEntityIdEarly}&isPaid=false&limit=200`).then((r) => r.data?.data || r.data || []);
     },
     enabled: !!activeEntityIdEarly && isCardSelectedEarly,
   });
